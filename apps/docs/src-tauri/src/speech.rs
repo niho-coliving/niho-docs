@@ -1237,7 +1237,7 @@ esac"#
       "日本語のモデルが未取得（niho-speech download --language ja）"
     );
 
-    let audio = manifest.join("../sidecar/niho-speech/Tests/NihoSpeechTests/Fixtures/ja-sample.m4a");
+    let audio = PathBuf::from(std::env::var("NIHO_SPEECH_TEST_FIXTURE").expect("NIHO_SPEECH_TEST_FIXTURE に非公開の日本語音声を指定する"));
     let mut events = Vec::new();
     let hints = hints_json(&json!([{ "term": "鎌倉", "reading": "かまくら", "variants": [] }]));
     let transcripts = transcribe(&job, &binary, &[audio], "ja", &hints, "none", &mut |event| {

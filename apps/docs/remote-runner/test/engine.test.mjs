@@ -370,10 +370,10 @@ test('terminal sidecar error wins over cancellation while its TERM-resistant pro
 
 
 test('real sidecar transcribes ja-sample.m4a with a signature-derived M4A filename', {
-  skip: process.env.NIHO_SPEECH_E2E !== '1',
+  skip: process.env.NIHO_SPEECH_E2E !== '1' || !process.env.NIHO_SPEECH_TEST_FIXTURE,
 }, async t => {
   const f = await fixture(t);
-  const source = fileURLToPath(new URL('../../sidecar/niho-speech/Tests/NihoSpeechTests/Fixtures/ja-sample.m4a',import.meta.url));
+  const source = process.env.NIHO_SPEECH_TEST_FIXTURE;
   const audio = await readFile(source);
   await writeFile(f.options.inputPath,audio,{mode:0o600});
   const sidecarPath = process.env.NIHO_SPEECH_TEST_BINARY
@@ -394,7 +394,7 @@ test('real sidecar transcribes ja-sample.m4a with a signature-derived M4A filena
 
 test('container inspection selects .m4a for an input with an unrelated filename', async t => {
   const f = await fixture(t,{expectedExtension:'m4a'});
-  const audio=await readFile(fileURLToPath(new URL('../../sidecar/niho-speech/Tests/NihoSpeechTests/Fixtures/ja-sample.m4a',import.meta.url)));
+  const audio=await readFile(fileURLToPath(new URL('../../fixtures/audio/synthetic-tone.m4a',import.meta.url)));
   await writeFile(f.options.inputPath,audio,{mode:0o600});
   const result=await transcribeAudio(f.options);
   assert.equal(result.source.format,'m4a');
