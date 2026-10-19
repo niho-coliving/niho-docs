@@ -7,6 +7,7 @@ export type LocalFolderExportPlan = {
   plan: DocsDriveFolderExportPlan;
   tree: FolderExportTree;
   snapshot: DocsDriveLocalFolderExportSnapshot;
+  assetPathsByBody: ReadonlyMap<string, readonly string[]>;
 };
 
 function tabTitle(title: string): string {
@@ -33,31 +34,47 @@ function contextChars(tree: FolderExportTree): number {
 export async function buildLocalFolderExportPlan(
   snapshot: DocsDriveLocalFolderExportSnapshot,
   server: DocsDriveFolderExportPlan,
+  readText: (file: DocsDriveLocalFolderExportFile) => Promise<string>,
 ): Promise<LocalFolderExportPlan> {
   const raw = snapshot.texts["project.json"];
   if (!raw) throw new Error("folder_unreadable");
   const project = JSON.parse(raw) as Project;
   if (project.id !== server.projectId) throw new Error("folder_changed");
-  const paths = new Set(snapshot.files.map((file) => file.path));
+  const files = new Map(snapshot.files.map((file) => [file.path, file]));
+  const paths = new Set(files.keys());
   const tree = await buildFolderExportTree({
     project,
     files: { has: (path) => paths.has(path) },
-    loadRecording: async (path) => JSON.parse(snapshot.texts[path] ?? "null") as RecordingFile | null,
+    loadRecording: async (path) => {
+      const file = files.get(path);
+      return file && file.bytes <= 50 * 1024 * 1024
+        ? JSON.parse(await readText(file)) as RecordingFile : null;
+    },
   });
-  const nodes = tree.nodes.map((node) => {
+  const assetPathsByBody = new Map<string, readonly string[]>();
+  const nodes = [] as DocsDriveFolderExportPlan["nodes"];
+  for (const node of tree.nodes) {
     const title = tabTitle(node.title);
-    const body = node.bodyPath ? snapshot.texts[node.bodyPath] : null;
-    if (node.bodyPath && body === undefined) throw new Error("folder_unreadable");
+    const file = node.bodyPath ? files.get(node.bodyPath) : null;
+    if (node.bodyPath && !file) throw new Error("folder_unreadable");
+    // 1件ずつ読む。未選択ページの本文を snapshot に保持しない。
+    const body = file && file.bytes <= 50 * 1024 * 1024 ? await readText(file) : null;
     const chars = node.kind === "context" ? contextChars(tree)
-      : body?.length ?? 0;
+      : body?.length ?? (file ? server.limits.maxChars + 1 : 0);
     const without = body && node.timestamps !== false &&
       (node.timestamps === "source" || markdownHasTimestamps(body))
       ? markdownWithoutTimestamps(body).length : null;
-    return { key: node.key, kind: node.kind, title, parentKey: node.parentKey, chars,
+    if (body && node.bodyPath) {
+      const assets = [...body.matchAll(/niho-docs-asset:([A-Za-z0-9._-]{1,200}\.(?:png|jpe?g|gif|webp))/gi)]
+        .map((match) => `assets/${match[1]}`)
+        .filter((path) => paths.has(path));
+      assetPathsByBody.set(node.bodyPath, assets);
+    }
+    nodes.push({ key: node.key, kind: node.kind, title, parentKey: node.parentKey, chars,
       ...(without !== null && without !== body?.length ? { charsWithoutTimestamps: without } : {}),
-      defaultSelected: node.kind !== "context" };
-  });
-  return { snapshot, tree, plan: { ...server, title: tree.title, nodes } };
+      defaultSelected: node.kind !== "context" });
+  }
+  return { snapshot, tree, assetPathsByBody, plan: { ...server, title: tree.title, nodes } };
 }
 
 /** 選んだページの構造・本文・写真だけを一時送信する。 */
@@ -69,11 +86,7 @@ export function localFolderExportFiles(prepared: LocalFolderExportPlan, include:
     for (const path of node.structurePaths) required.add(path);
     if (!node.bodyPath) continue;
     required.add(node.bodyPath);
-    const markdown = prepared.snapshot.texts[node.bodyPath] ?? "";
-    for (const match of markdown.matchAll(/niho-docs-asset:([A-Za-z0-9._-]{1,200}\.(?:png|jpe?g|gif|webp))/gi)) {
-      const imagePath = `assets/${match[1]}`;
-      if (prepared.snapshot.files.some((file) => file.path === imagePath)) required.add(imagePath);
-    }
+    for (const imagePath of prepared.assetPathsByBody.get(node.bodyPath) ?? []) required.add(imagePath);
   }
   const files = prepared.snapshot.files.filter((file) => required.has(file.path));
   if (files.length !== required.size) throw new Error("folder_changed");

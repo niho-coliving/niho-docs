@@ -226,6 +226,8 @@ export const tauriBridge: Bridge = {
   docsDriveFolderExportPlan: (projectId) => invoke("docs_drive_folder_export_plan", { projectId }),
   docsDriveFolderExportLocalPlan: (projectId) => invoke("docs_drive_folder_export_local_plan", { projectId }),
   docsDriveFolderExportLocalSnapshot: (projectId) => invoke("docs_drive_folder_export_local_snapshot", { projectId }),
+  docsDriveFolderExportLocalText: (projectId, generation, file) =>
+    invoke("docs_drive_folder_export_local_text", { projectId, generation, file }),
   docsDriveFolderExportLocal: (requestData, generation, files) =>
     invoke("docs_drive_folder_export_local", { requestData, generation, files }),
   docsDriveFolderExport: (requestData) => invoke("docs_drive_folder_export", { requestData }),

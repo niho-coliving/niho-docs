@@ -53,7 +53,7 @@ commands.allow = ["cloud_state", "cloud_storage_select", "cloud_storage_reopenin
 [[permission]]
 identifier = "allow-docs-google-docs"
 description = "Allows the NIHO docs window to check whether the server currently accepts NIHO account connections (an unauthenticated GET that sends no token), read and change the signed-in user's Google Docs connection, create or check an export with a fixed API route, read a folder's export plan and create, check or resume a folder export (by project id, export id and the plan's keys only; the page bodies never leave NIHO), and open only its validated canonical Google Docs URL."
-commands.allow = ["docs_account_available", "docs_drive_connection", "docs_drive_connect", "docs_drive_disconnect", "docs_drive_export", "docs_drive_export_status", "docs_drive_open_document", "docs_drive_folder_export_plan", "docs_drive_folder_export_local_plan", "docs_drive_folder_export_local_snapshot", "docs_drive_folder_export_local", "docs_drive_folder_export", "docs_drive_folder_export_status", "docs_drive_folder_export_resume"]
+commands.allow = ["docs_account_available", "docs_drive_connection", "docs_drive_connect", "docs_drive_disconnect", "docs_drive_export", "docs_drive_export_status", "docs_drive_open_document", "docs_drive_folder_export_plan", "docs_drive_folder_export_local_plan", "docs_drive_folder_export_local_snapshot", "docs_drive_folder_export_local_text", "docs_drive_folder_export_local", "docs_drive_folder_export", "docs_drive_folder_export_status", "docs_drive_folder_export_resume"]
 
 [[permission]]
 identifier = "allow-docs-personal-run"

@@ -788,6 +788,8 @@ export interface Bridge {
   /** LOCAL の Mac だけで使う、API の受付情報と手元の固定 snapshot。 */
   docsDriveFolderExportLocalPlan(projectId: string): Promise<DocsDriveFolderExportPlan>;
   docsDriveFolderExportLocalSnapshot(projectId: string): Promise<DocsDriveLocalFolderExportSnapshot>;
+  docsDriveFolderExportLocalText(projectId: string, generation: number,
+    file: DocsDriveLocalFolderExportFile): Promise<string>;
   docsDriveFolderExportLocal(request: DocsDriveFolderExportRequest, generation: number,
     files: DocsDriveLocalFolderExportFile[]): Promise<DocsDriveFolderExportStatus>;
   /** 同じ exportId の POST は同じ内容の再試行だけに使う（通信が切れたら `export_result_unknown`）。 */
@@ -918,6 +920,7 @@ export const NATIVE_DOCS_OPERATIONS = [
   "personalDeviceRecoverAcks",
   "docsDriveFolderExportLocalPlan",
   "docsDriveFolderExportLocalSnapshot",
+  "docsDriveFolderExportLocalText",
   "docsDriveFolderExportLocal",
   "cloudStorageSelect",
   "cloudStorageReopeningPreview",

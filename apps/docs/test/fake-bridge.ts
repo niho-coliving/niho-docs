@@ -2179,7 +2179,16 @@ export class FakeBridge implements Bridge {
     for (const [id, markdown] of Object.entries(stored.docs)) texts[`pages/${id}.md`] = markdown;
     const files = Object.entries(texts).map(([path, value]) => ({ path, bytes: new TextEncoder().encode(value).length,
       sha256: "a".repeat(64) }));
-    return { generation: this.cloud.contextGeneration, files, texts };
+    return { generation: this.cloud.contextGeneration, files, texts: { "project.json": JSON.stringify(stored.project) } };
+  }
+  async docsDriveFolderExportLocalText(projectId: string, generation: number, file: { path: string }) {
+    if (generation !== this.cloud.contextGeneration) throw { code: "folder_changed", message: "" };
+    const stored = this.projects.get(projectId);
+    if (!stored) throw { code: "folder_not_found", message: "" };
+    if (file.path === "project.json") return JSON.stringify(stored.project);
+    const id = file.path.match(/^pages\/([^/]+)\.md$/)?.[1];
+    if (id && id in stored.docs) return stored.docs[id]!;
+    throw { code: "folder_changed", message: "" };
   }
   async docsDriveFolderExportLocal(request: DocsDriveFolderExportRequest, generation: number,
     files: Array<{ path: string }>) {

@@ -14,9 +14,10 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::CString;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -1138,6 +1139,140 @@ pub(crate) fn verify_snapshot_placement(root: &Path, snapshot: &VerifiedSnapshot
   Ok(())
 }
 
+/// 外部 close を確定する前に、stage を残したまま行う保存の追加容量を確認する。
+/// LocalSaver は app data に新旧 snapshot、作業コピー側に新しい本文を一時保存する。
+/// JSON と履歴の構造マージでは両側に追加の版を作るため、その最大分も予約する。
+fn estimate_snapshot_apply_bytes(
+  app_data: &Path,
+  account_key: &str,
+  root: &Path,
+  snapshot: &VerifiedSnapshot,
+) -> Result<(u64, u64)> {
+  let projects: BTreeMap<_, _> = snapshot
+    .projects
+    .iter()
+    .map(|project| (project.id.as_str(), project))
+    .collect();
+  let mut app_bytes = 0_u64;
+  let mut root_bytes = 0_u64;
+  let mut file_bytes_by_path = BTreeMap::<(String, String), u64>::new();
+  let stage = Stage::open(app_data, account_key, &snapshot.identity)?;
+  for file in snapshot.files.iter().filter(|file| !file.expired_audio) {
+    let project = projects.get(file.project_ref.as_str()).ok_or(ClosingError::Mismatch)?;
+    let local = target(root, project)?;
+    let mut current = OpenedFileSource::capture(&local.working_copy, &file.path)?;
+    if current
+      .as_ref()
+      .is_some_and(|existing| existing.sha256() == file.sha256)
+    {
+      continue;
+    }
+    let previous = current.as_ref().map_or(0, OpenedFileSource::bytes);
+    let filename = file.staging_file.as_deref().ok_or(ClosingError::Mismatch)?;
+    let mut source = OpenedFileSource::open(&stage.path, filename, &file.sha256, file.bytes)?;
+    let merged = merge_snapshot_file(&file.path, &mut current, &mut source)?;
+    let post_file_bound = file.bytes.max(merged.as_ref().map_or(0, |bytes| bytes.len() as u64));
+    let total = file_bytes_by_path
+      .entry((file.project_ref.clone(), file.path.clone()))
+      .or_default();
+    *total = total
+      .checked_add(post_file_bound)
+      .ok_or(ClosingError::InsufficientSpace)?;
+    app_bytes = app_bytes
+      .checked_add(file.bytes)
+      .ok_or(ClosingError::InsufficientSpace)?;
+    root_bytes = root_bytes
+      .checked_add(file.bytes)
+      .ok_or(ClosingError::InsufficientSpace)?;
+    if let Some(merged) = merged {
+      // remote 版、構造マージの stage と snapshot、元版 snapshot を予約する。
+      let merged_bound = merged.len() as u64;
+      app_bytes = app_bytes
+        .checked_add(previous)
+        .and_then(|value| value.checked_add(merged_bound))
+        .and_then(|value| value.checked_add(merged_bound))
+        .ok_or(ClosingError::InsufficientSpace)?;
+      root_bytes = root_bytes
+        .checked_add(merged_bound)
+        .ok_or(ClosingError::InsufficientSpace)?;
+    }
+  }
+  for ((project_ref, path), events) in operation_metadata_additions(&stage)? {
+    let project = projects.get(project_ref.as_str()).ok_or(ClosingError::Mismatch)?;
+    if project.deleted_at.is_some() && stage.read(&format!("trashed-{}", project.id), 4)?.is_some() {
+      continue;
+    }
+    let local = target(root, project)?;
+    if !local.scope.contains(&path) {
+      return Err(ClosingError::InvalidManifest);
+    }
+    let mut current = OpenedFileSource::capture(&local.working_copy, &path)?;
+    let current_bytes = current
+      .as_mut()
+      .map(|source| read_source(source, 8 * 1024 * 1024))
+      .transpose()?
+      .unwrap_or_default();
+    let additions_bytes = events
+      .iter()
+      .filter(|event| !history_has_event(&current_bytes, event))
+      .try_fold(0_u64, |total, event| {
+        let bytes = serde_json::to_vec(event)
+          .map_err(|_| ClosingError::InvalidManifest)?
+          .len() as u64;
+        total
+          .checked_add(bytes)
+          .and_then(|value| value.checked_add(1))
+          .ok_or(ClosingError::InsufficientSpace)
+      })?;
+    if additions_bytes == 0 {
+      continue;
+    }
+    let prior_bound = (current_bytes.len() as u64)
+      .checked_add(*file_bytes_by_path.get(&(project_ref, path)).unwrap_or(&0))
+      .ok_or(ClosingError::InsufficientSpace)?;
+    let output_bound = prior_bound
+      .checked_add(additions_bytes)
+      .ok_or(ClosingError::InsufficientSpace)?;
+    // history stage と次版 snapshot は app data、保存先には作業コピーを作る。
+    // LocalSaver が保存する直前版も、FILE 適用で増え得る分を含めて予約する。
+    app_bytes = app_bytes
+      .checked_add(output_bound)
+      .and_then(|value| value.checked_add(output_bound))
+      .and_then(|value| value.checked_add(prior_bound))
+      .ok_or(ClosingError::InsufficientSpace)?;
+    root_bytes = root_bytes
+      .checked_add(output_bound)
+      .ok_or(ClosingError::InsufficientSpace)?;
+  }
+  Ok((app_bytes, root_bytes))
+}
+
+pub(crate) fn ensure_snapshot_apply_space(
+  app_data: &Path,
+  account_key: &str,
+  root: &Path,
+  snapshot: &VerifiedSnapshot,
+) -> Result<()> {
+  let (app_bytes, root_bytes) = estimate_snapshot_apply_bytes(app_data, account_key, root, snapshot)?;
+  let app_volume = fs::metadata(app_data)?.dev();
+  let root_volume = fs::metadata(root)?.dev();
+  if app_volume == root_volume {
+    let needed = required_free_bytes(
+      app_bytes
+        .checked_add(root_bytes)
+        .ok_or(ClosingError::InsufficientSpace)?,
+    )?;
+    if disk_free_bytes(app_data)? < needed {
+      return Err(ClosingError::InsufficientSpace);
+    }
+  } else if disk_free_bytes(app_data)? < required_free_bytes(app_bytes)?
+    || disk_free_bytes(root)? < required_free_bytes(root_bytes)?
+  {
+    return Err(ClosingError::InsufficientSpace);
+  }
+  Ok(())
+}
+
 /// close の POST より先に永続化する。再起動後は同じ snapshot を全件再照合してから切り離す。
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1461,6 +1596,27 @@ fn merge_run_history(local: &[u8], remote: &[u8]) -> Option<Vec<u8>> {
   Some(output)
 }
 
+fn merge_snapshot_file(
+  path: &str,
+  current: &mut Option<OpenedFileSource>,
+  source: &mut OpenedFileSource,
+) -> Result<Option<Vec<u8>>> {
+  let Some(current) = current.as_mut() else {
+    return Ok(None);
+  };
+  if path.ends_with(".json") {
+    let local_bytes = read_source(current, 8 * 1024 * 1024)?;
+    let remote_bytes = read_source(source, 8 * 1024 * 1024)?;
+    Ok(merge_structural_json(path, &local_bytes, &remote_bytes))
+  } else if path.ends_with("/runs.jsonl") || path == "runs.jsonl" {
+    let local_bytes = read_source(current, 8 * 1024 * 1024)?;
+    let remote_bytes = read_source(source, 8 * 1024 * 1024)?;
+    Ok(merge_run_history(&local_bytes, &remote_bytes))
+  } else {
+    Ok(None)
+  }
+}
+
 #[cfg(target_os = "macos")]
 fn move_to_trash(path: &Path) -> Result<()> {
   use objc2_foundation::{NSFileManager, NSString, NSURL};
@@ -1534,13 +1690,7 @@ fn append_metadata_event(
   additions.entry((project_ref.to_owned(), path)).or_default().push(event);
 }
 
-fn apply_operation_metadata(
-  stage: &Stage,
-  projects: &BTreeMap<&str, &SnapshotProject>,
-  root: &Path,
-  saver: &LocalSaver,
-  identity: &SnapshotIdentity,
-) -> Result<()> {
+fn operation_metadata_additions(stage: &Stage) -> Result<BTreeMap<(String, String), Vec<Value>>> {
   let mut additions = BTreeMap::<(String, String), Vec<Value>>::new();
   let manifest = stage.read("manifest.json", ROOT_LIMIT)?.ok_or(ClosingError::Mismatch)?;
   let root_manifest: Root = parse(&manifest)?;
@@ -1657,7 +1807,17 @@ fn apply_operation_metadata(
       }
     }
   }
-  for ((project_ref, path), events) in additions {
+  Ok(additions)
+}
+
+fn apply_operation_metadata(
+  stage: &Stage,
+  projects: &BTreeMap<&str, &SnapshotProject>,
+  root: &Path,
+  saver: &LocalSaver,
+  identity: &SnapshotIdentity,
+) -> Result<()> {
+  for ((project_ref, path), events) in operation_metadata_additions(stage)? {
     let project = projects.get(project_ref.as_str()).ok_or(ClosingError::Mismatch)?;
     if project.deleted_at.is_some() && stage.read(&format!("trashed-{}", project.id), 4)?.is_some() {
       continue;
@@ -1795,17 +1955,7 @@ pub(crate) fn apply_committed_snapshot(
     {
       continue;
     }
-    let merged = if current.is_some() && (file.path.ends_with(".json")) {
-      let local_bytes = read_source(current.as_mut().expect("checked"), 8 * 1024 * 1024)?;
-      let remote_bytes = read_source(&mut source, 8 * 1024 * 1024)?;
-      merge_structural_json(&file.path, &local_bytes, &remote_bytes)
-    } else if current.is_some() && (file.path.ends_with("/runs.jsonl") || file.path == "runs.jsonl") {
-      let local_bytes = read_source(current.as_mut().expect("checked"), 8 * 1024 * 1024)?;
-      let remote_bytes = read_source(&mut source, 8 * 1024 * 1024)?;
-      merge_run_history(&local_bytes, &remote_bytes)
-    } else {
-      None
-    };
+    let merged = merge_snapshot_file(&file.path, &mut current, &mut source)?;
     let destination = match current.as_ref() {
       Some(_) => {
         let mut key = Sha256::new();
@@ -1890,8 +2040,7 @@ mod tests {
     }
   }
 
-  fn fixture_with_path(path: &str) -> (FakeTransport, SnapshotIdentity) {
-    let object = b"cloud contents".to_vec();
+  fn fixture_with_path_and_content(path: &str, object: Vec<u8>) -> (FakeTransport, SnapshotIdentity) {
     let digest = sha(&object);
     let chunk = serde_json::to_vec(&serde_json::json!({
       "version": 1, "entries": [
@@ -1921,6 +2070,10 @@ mod tests {
       manifest_digest: sha(&root),
     };
     (FakeTransport { root, chunk, object }, identity)
+  }
+
+  fn fixture_with_path(path: &str) -> (FakeTransport, SnapshotIdentity) {
+    fixture_with_path_and_content(path, b"cloud contents".to_vec())
   }
 
   fn fixture() -> (FakeTransport, SnapshotIdentity) {
@@ -2078,6 +2231,11 @@ mod tests {
     stage.write("manifest.json", &root_manifest).unwrap();
     stage.write("chunk-0.json", &chunk).unwrap();
     drop(stage);
+    let verified = verify_staged_snapshot(&app_data, &key, &identity).unwrap();
+    assert!(verified.files.is_empty());
+    let (app_bytes, root_bytes) = estimate_snapshot_apply_bytes(&app_data, &key, &root_dir, &verified).unwrap();
+    assert!(root_bytes > 0, "generated histories require working-copy space");
+    assert!(app_bytes > root_bytes, "staging and snapshots require app-data space");
     let root_id = "r_aaaaaaaaaaaaaaaaaaaaaa";
     let intent = mark_close_intent(&app_data, &key, root_id, &identity)
       .and_then(|_| pending_close_intent(&app_data, &key, "user-1", root_id, "5"))
@@ -2105,6 +2263,44 @@ mod tests {
     let merged = merge_run_history(local, remote).unwrap();
     let rows = std::str::from_utf8(&merged).unwrap().lines().collect::<Vec<_>>();
     assert_eq!(rows, vec!["{\"id\":\"a\"}", "{\"id\":\"b\"}", "{\"id\":\"c\"}"]);
+  }
+
+  #[test]
+  fn space_estimate_reserves_a_structural_merge_stage_and_both_snapshots() {
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(async {
+        let unique = format!(
+          "niho-docs-closing-space-{}-{}",
+          std::process::id(),
+          std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+        );
+        let app_data = std::env::temp_dir().join(unique);
+        std::fs::create_dir_all(&app_data).unwrap();
+        let key = "a".repeat(64);
+        let (transport, identity) = fixture_with_path_and_content("project.json", b"{\"cloud\":true}".to_vec());
+        let verified = receive_snapshot(&transport, &app_data, &key, &identity, 0)
+          .await
+          .unwrap();
+        let root = app_data.join("root");
+        let local = root.join("projects/folder-1/project.json");
+        std::fs::create_dir_all(local.parent().unwrap()).unwrap();
+        std::fs::write(&local, b"{}").unwrap();
+        let (app_bytes, root_bytes) = estimate_snapshot_apply_bytes(&app_data, &key, &root, &verified).unwrap();
+        let remote = transport.object.len() as u64;
+        let previous = 2_u64;
+        let merged_bound = merge_structural_json("project.json", b"{}", &transport.object)
+          .unwrap()
+          .len() as u64;
+        assert_eq!(app_bytes, remote + previous + 2 * merged_bound);
+        assert_eq!(root_bytes, remote + merged_bound);
+        std::fs::remove_dir_all(&app_data).unwrap();
+      });
   }
 
   #[test]
@@ -2141,6 +2337,13 @@ mod tests {
           .unwrap();
         assert_eq!(resumed.file_count, 1);
         assert_eq!(resumed.files[0].sha256, sha(&transport.object));
+        let root = app_data.join("root");
+        let local = root.join("projects/folder-1/page.md");
+        std::fs::create_dir_all(local.parent().unwrap()).unwrap();
+        std::fs::write(&local, b"a different local page that is retained as-is").unwrap();
+        let (app_bytes, root_bytes) = estimate_snapshot_apply_bytes(&app_data, &key, &root, &resumed).unwrap();
+        assert_eq!(app_bytes, transport.object.len() as u64);
+        assert_eq!(root_bytes, transport.object.len() as u64);
         std::fs::remove_dir_all(&app_data).unwrap();
       });
   }

@@ -360,7 +360,8 @@ export function useGoogleDocsFolderExport(props: {
       try {
         const prepared = latest.current.local
           ? await Promise.all([bridge.docsDriveFolderExportLocalSnapshot(projectId), bridge.docsDriveFolderExportLocalPlan(projectId)])
-            .then(([snapshot, server]) => buildLocalFolderExportPlan(snapshot, server))
+            .then(([snapshot, server]) => buildLocalFolderExportPlan(snapshot, server,
+              (file) => bridge.docsDriveFolderExportLocalText(projectId, snapshot.generation, file)))
           : null;
         const plan = prepared?.plan ?? await bridge.docsDriveFolderExportPlan(projectId);
         if (!mountedRef.current || seq !== planSeq.current || stateRef.current.scope !== scope) return;
