@@ -87,7 +87,7 @@ export function GoogleDocsFolderExportDialog({ controller }: { controller: Googl
   const settings = <button type="button" className="btn primary" onClick={controller.goToSettings}>設定へ進む</button>;
   const restart = <button type="button" className="btn ghost" disabled={busy} onClick={controller.restart}>新しく書き出す</button>;
   const loadingLine = <p className="google-export-status" role="status">{FOLDER_EXPORT_TEXT.loading}</p>;
-  const unsavedLine = <p className="folder-export-reason">{FOLDER_EXPORT_TEXT.unsaved}</p>;
+  const unsavedLine = <p className="folder-export-reason">{controller.local ? FOLDER_EXPORT_TEXT.localUnsaved : FOLDER_EXPORT_TEXT.unsaved}</p>;
   const actions = (children: ReactNode) => <div className="acts google-export-actions">{close}{children}</div>;
 
   let body: ReactNode;
@@ -160,13 +160,13 @@ export function GoogleDocsFolderExportDialog({ controller }: { controller: Googl
       </>)}
     </>;
   } else if (controller.sync === "unavailable") {
-    // NIHO クラウドと同期していないフォルダは、API がページを読めない（待っても書き出せない）
+    // 保存先と現在のアカウントが一致しない。
     body = <><p className="folder-export-reason">{FOLDER_EXPORT_TEXT.notInCloud}</p>{actions(null)}</>;
   } else if (state.planStatus === "idle" || state.planStatus === "loading") {
     body = <>{loadingLine}{actions(null)}</>;
   } else if (state.planStatus === "failed" || !plan) {
     // 同期の途中ならクラウドにまだ無いだけ（同期が済むと読み直す）
-    body = form.blockedReason === FOLDER_EXPORT_TEXT.unsaved ? <>{unsavedLine}{actions(null)}</> : <>
+    body = form.blockedReason === (controller.local ? FOLDER_EXPORT_TEXT.localUnsaved : FOLDER_EXPORT_TEXT.unsaved) ? <>{unsavedLine}{actions(null)}</> : <>
       <p className="err" role="alert">{FOLDER_EXPORT_TEXT.loadFailed}</p>
       {actions(<button type="button" className="btn outline" onClick={controller.reload}>読み直す</button>)}
     </>;
@@ -274,6 +274,7 @@ export function GoogleDocsFolderExportDialog({ controller }: { controller: Googl
       >
         <h2 id={headingId}>{FOLDER_EXPORT_TEXT.title}</h2>
         <p className="help">{FOLDER_EXPORT_TEXT.description}</p>
+        {controller.local && <p className="help">{FOLDER_EXPORT_TEXT.localTransitNotice}</p>}
         {body}
       </div>
     </div>

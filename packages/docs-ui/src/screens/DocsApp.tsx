@@ -531,13 +531,15 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     docFlushRef,
   });
 
-  // フォルダの書き出し（#18838）: API が NIHO クラウドの本文を読むので、そのフォルダの同期が終わってから書き出す
+  // フォルダの書き出し: CLOUD は同期後の本文、LOCAL はこの Mac の確定済み snapshot を使う。
   const folderExport = useGoogleDocsFolderExport({
     bridge,
     account,
     googleDocs,
     onOpenSettings: () => applyScreen("settings"),
+    local: cloud.state?.storage?.mode === "LOCAL" && bridge.capabilities?.localFolderExport === true,
     syncState: (projectId) => {
+      if (cloud.state?.storage?.mode === "LOCAL") return bridge.capabilities?.localFolderExport ? "settled" : "unavailable";
       if (!cloud.active) return "unavailable";
       return cloudSettled(cloud.snapshots[toCloudProjectId(projectId)] ?? null) ? "settled" : "pending";
     },
@@ -1240,7 +1242,8 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
         onDrop={(drop) => void applyRailDrop(drop)}
         onMoveFolder={reorderFolder}
         onDeleteFolder={deleteEmptyFolder}
-        onExportFolder={accountShown ? openFolderExport : undefined}
+        onExportFolder={accountShown && (cloud.state?.storage?.mode !== "LOCAL" || bridge.capabilities?.localFolderExport)
+          ? openFolderExport : undefined}
         onScreen={goScreen}
         updateNotice={<UpdateNotice bridge={props.bridge} />}
         cloudNotice={

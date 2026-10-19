@@ -303,6 +303,8 @@ export class FakeBridge implements Bridge {
   /** フォルダの書き出しの木（フォルダの id ごと。無ければ `folder_not_found`）。 */
   folderExportPlans = new Map<string, DocsDriveFolderExportPlan>();
   folderExportPlanCalls: string[] = [];
+  folderExportLocalPlanCalls: string[] = [];
+  folderExportLocalFiles: Array<{ generation: number; paths: string[] }> = [];
   folderExportRequests: DocsDriveFolderExportRequest[] = [];
   folderExportStatusIds: string[] = [];
   folderExportResumeIds: string[] = [];
@@ -2118,6 +2120,26 @@ export class FakeBridge implements Bridge {
     const plan = next ?? this.folderExportPlans.get(projectId);
     if (!plan) throw { code: "folder_not_found", message: "フォルダが見つかりませんでした。" };
     return structuredClone(plan);
+  }
+  async docsDriveFolderExportLocalPlan(projectId: string) {
+    this.folderExportLocalPlanCalls.push(projectId);
+    const plan = this.folderExportPlans.get(projectId);
+    if (!plan) throw { code: "folder_not_found", message: "フォルダが見つかりませんでした。" };
+    return { ...structuredClone(plan), revision: 0, nodes: [] };
+  }
+  async docsDriveFolderExportLocalSnapshot(projectId: string) {
+    const stored = this.projects.get(projectId);
+    if (!stored) throw { code: "folder_not_found", message: "フォルダが見つかりませんでした。" };
+    const texts: Record<string, string> = { "project.json": JSON.stringify(stored.project) };
+    for (const [id, markdown] of Object.entries(stored.docs)) texts[`pages/${id}.md`] = markdown;
+    const files = Object.entries(texts).map(([path, value]) => ({ path, bytes: new TextEncoder().encode(value).length,
+      sha256: "a".repeat(64) }));
+    return { generation: this.cloud.contextGeneration, files, texts };
+  }
+  async docsDriveFolderExportLocal(request: DocsDriveFolderExportRequest, generation: number,
+    files: Array<{ path: string }>) {
+    this.folderExportLocalFiles.push({ generation, paths: files.map((file) => file.path) });
+    return this.docsDriveFolderExport(request);
   }
   async docsDriveFolderExport(request: DocsDriveFolderExportRequest) {
     this.folderExportRequests.push(structuredClone(request));

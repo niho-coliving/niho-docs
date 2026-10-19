@@ -236,12 +236,12 @@ export type DocsDriveExportResult =
   | { exportId: string; status: "pending"; retryable: boolean };
 
 /**
- * フォルダの書き出し（#18838。src-tauri/src/google_docs.rs が API の応答を確かめてから返す）。本文は送らず、API が本人の NIHO クラウドから
- * 読む。木は API が docs-core で作り、画面はこれを出すだけにする。
+ * フォルダの書き出し（#18838。src-tauri/src/google_docs.rs が API の応答を確かめてから返す）。
+ * CLOUD は API が本人の保存済み本文を読む。LOCAL は選んだファイルを明示して一時送信する。
  */
 export type DocsDriveFolderExportNodeKind = "context" | "document" | "recording" | "step" | "candidate";
 export type DocsDriveFolderExportNode = {
-  /** `context`・`doc:<pageId>`・`rec:<pageId>`・`step:<pageId>:<stepId>`・`cand:<pageId>:<stepId>:<candidateId>`。 */
+  /** 従来の録音と候補を含む木、または工程と独自ページを並べた一覧。 */
   key: string;
   kind: DocsDriveFolderExportNodeKind;
   title: string;
@@ -286,6 +286,12 @@ export type DocsDriveFolderExportPlan = {
   limits: { maxTabs: number; maxChars: number };
   /** このフォルダで 24 時間以内に受け付けた、いちばん新しい書き出し。 */
   latest: DocsDriveFolderExportStatus | null;
+};
+export type DocsDriveLocalFolderExportFile = { path: string; sha256: string; bytes: number };
+export type DocsDriveLocalFolderExportSnapshot = {
+  generation: number;
+  files: DocsDriveLocalFolderExportFile[];
+  texts: Record<string, string>;
 };
 export type DocsDriveFolderExportRequest = {
   exportId: string;
@@ -456,6 +462,8 @@ export type DocsCapabilities = {
   updates: boolean;
   /** Mac のローカル保管庫とクラウドの同期。Web の直接保存とは別。 */
   cloudSync?: boolean;
+  /** LOCAL フォルダ書き出しの NIHO API が利用可能な場合だけ有効にする。 */
+  localFolderExport?: boolean;
 };
 
 export const MAC_DOCS_CAPABILITIES: Readonly<DocsCapabilities> = Object.freeze({
@@ -765,6 +773,11 @@ export interface Bridge {
   docsDriveOpenDocument(documentId: string): Promise<void>;
   /** フォルダの書き出しの木（`folder_not_found` など、失敗は決まった code）。 */
   docsDriveFolderExportPlan(projectId: string): Promise<DocsDriveFolderExportPlan>;
+  /** LOCAL の Mac だけで使う、API の受付情報と手元の固定 snapshot。 */
+  docsDriveFolderExportLocalPlan(projectId: string): Promise<DocsDriveFolderExportPlan>;
+  docsDriveFolderExportLocalSnapshot(projectId: string): Promise<DocsDriveLocalFolderExportSnapshot>;
+  docsDriveFolderExportLocal(request: DocsDriveFolderExportRequest, generation: number,
+    files: DocsDriveLocalFolderExportFile[]): Promise<DocsDriveFolderExportStatus>;
   /** 同じ exportId の POST は同じ内容の再試行だけに使う（通信が切れたら `export_result_unknown`）。 */
   docsDriveFolderExport(request: DocsDriveFolderExportRequest): Promise<DocsDriveFolderExportStatus>;
   docsDriveFolderExportStatus(exportId: string): Promise<DocsDriveFolderExportStatus>;
@@ -882,6 +895,9 @@ export const NATIVE_DOCS_OPERATIONS = [
   "personalNihoSubmit",
   "personalNihoConfirm",
   "personalNihoPending",
+  "docsDriveFolderExportLocalPlan",
+  "docsDriveFolderExportLocalSnapshot",
+  "docsDriveFolderExportLocal",
   "cloudStorageSelect",
   "cloudStorageReopeningPreview",
   "cloudStorageReopen",

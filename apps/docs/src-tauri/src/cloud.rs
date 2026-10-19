@@ -21,18 +21,20 @@ use niho_desktop_account::{AccountError, AccountService, AccountSessionTicket, A
 use niho_desktop_vault::{
   account_key, archive_account_root, atomic_write, bind_root, is_immutable_version_path, is_private_path,
   is_sync_ignored, load_or_create_device, load_or_default_state, lookup_root, namespace_has_pending, new_version_id,
-  root_binding, validate_project_id, validate_relative_path, version_path_for, ConflictEntry, ConflictKind,
-  ConflictSide, Device, EditProtection, FileKind, FlightOptions, IdTokenProvider, LeaseHeldBy, LeaseSession,
-  LocalProvider, LocalSaver, Namespace, NihoEnvironment, NihoProvider, OpenedFileSource, ProjectSyncSnapshot,
-  ProjectTarget, ProviderKind, RootBinding, SaveGroup, SaveKind, SaveWrite, SyncEngine, SyncErrorKind, SyncEvent,
-  SyncOptions, SyncReason, SyncStatus, TombstoneChoice, Usage, VaultError, VaultProvider, DOCS_ROOT_DIRS,
-  DOCS_ROOT_FILES, DOCS_ROOT_PROJECT_ID, FLOWS_PROJECT_ID, PROFILE_PROJECT_ID, TEXT_MAX_BYTES,
+  root_binding, scan_project_target, validate_project_id, validate_relative_path, version_path_for, ConflictEntry,
+  ConflictKind, ConflictSide, Device, EditProtection, FileKind, FlightOptions, IdTokenProvider, LeaseHeldBy,
+  LeaseSession, LocalProvider, LocalSaver, ManifestFile, Namespace, NihoEnvironment, NihoProvider, OpenedFileSource,
+  ProjectSyncSnapshot, ProjectTarget, ProviderKind, RootBinding, SaveGroup, SaveKind, SaveWrite, ScanLimits,
+  SyncEngine, SyncErrorKind, SyncEvent, SyncOptions, SyncReason, SyncStatus, TombstoneChoice, Usage, VaultError,
+  VaultProvider, DOCS_ROOT_DIRS, DOCS_ROOT_FILES, DOCS_ROOT_PROJECT_ID, FLOWS_PROJECT_ID, PROFILE_PROJECT_ID,
+  TEXT_MAX_BYTES,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, Weak};
@@ -3080,7 +3082,190 @@ async fn forward_events(inner: Weak<CloudInner>, context: Weak<Context>, mut eve
   }
 }
 
+/// UI に返すのは検証済みのテキストだけ。写真・音声の bytes は WebView に渡さない。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalFolderExportSnapshot {
+  pub generation: u64,
+  pub files: Vec<ManifestFile>,
+  pub texts: BTreeMap<String, String>,
+}
+
+fn local_export_path(path: &str) -> bool {
+  let segments: Vec<&str> = path.split('/').collect();
+  let safe = |segment: &str| {
+    !segment.is_empty()
+      && segment.len() <= 200
+      && segment
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+  };
+  if path == "project.json" || path == "transcript.md" {
+    return true;
+  }
+  if segments.len() == 2 && segments[0] == "pages" && segments[1].ends_with(".md") {
+    return safe(segments[1]);
+  }
+  if segments.len() == 2 && segments[0] == "artifacts" && segments[1].ends_with(".md") {
+    return safe(segments[1]);
+  }
+  if segments.len() == 2 && segments[0] == "assets" && safe(segments[1]) {
+    return [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+      .iter()
+      .any(|suffix| segments[1].to_ascii_lowercase().ends_with(suffix));
+  }
+  segments.len() >= 3
+    && segments[0] == "recordings"
+    && safe(segments[1])
+    && ((segments.len() == 3 && matches!(segments[2], "recording.json" | "transcript.md"))
+      || (segments.len() == 4 && segments[2] == "artifacts" && safe(segments[3]) && segments[3].ends_with(".md")))
+}
+
+#[cfg(test)]
+mod local_export_path_tests {
+  use super::local_export_path;
+
+  #[test]
+  fn only_document_text_and_supported_assets_can_leave_the_local_vault() {
+    for path in [
+      "project.json",
+      "transcript.md",
+      "pages/page_1.md",
+      "artifacts/article_A.md",
+      "recordings/rec_1/recording.json",
+      "recordings/rec_1/transcript.md",
+      "recordings/rec_1/artifacts/article_A.md",
+      "assets/photo_1.webp",
+    ] {
+      assert!(local_export_path(path), "{path}");
+    }
+    for path in [
+      "../secret.md",
+      "pages/../secret.md",
+      "assets/audio.mp3",
+      "recordings/rec_1/audio.wav",
+      "recordings/rec_1/artifacts/../../secret.md",
+      "private/tokens.json",
+    ] {
+      assert!(!local_export_path(path), "{path}");
+    }
+  }
+}
+
 impl Cloud {
+  fn local_folder_export_target(
+    &self,
+    project_id: &str,
+    generation: Option<u64>,
+  ) -> CommandResult<(Arc<Context>, ProjectTarget)> {
+    let context = self
+      .inner
+      .context()
+      .ok_or_else(|| CommandError::new("folder_changed", "フォルダを開き直してください。"))?;
+    if !self.inner.context_is_current(&context)
+      || generation.is_some_and(|expected| expected != context.generation)
+      || self
+        .inner
+        .observed_storage()
+        .is_none_or(|storage| storage.mode != StorageMode::Local)
+      || context.binding.account_key.as_ref() != self.inner.current_account_key().as_ref()
+    {
+      return Err(CommandError::new(
+        "folder_changed",
+        "保存先が変わりました。フォルダを開き直してください。",
+      ));
+    }
+    let target = project_target(&context.root, project_id)
+      .ok_or_else(|| CommandError::new("folder_not_found", "フォルダを開き直してください。"))?;
+    Ok((context, target))
+  }
+
+  pub(crate) fn local_folder_export_snapshot(&self, project_id: &str) -> CommandResult<LocalFolderExportSnapshot> {
+    let (context, target) = self.local_folder_export_target(project_id, None)?;
+    let state = load_or_default_state(
+      &self.inner.data_dir,
+      &context.binding.namespace(),
+      &context.binding.root_id,
+      project_id,
+    )
+    .map_err(|_| CommandError::new("folder_unreadable", "フォルダの中身を読めませんでした。"))?;
+    let scanned = scan_project_target(&target, &state, &context.device.device_id, ScanLimits::default())
+      .map_err(|_| CommandError::new("folder_unreadable", "フォルダの中身を読めませんでした。"))?;
+    let files: Vec<ManifestFile> = scanned
+      .files
+      .into_iter()
+      .filter(|file| local_export_path(&file.path))
+      .collect();
+    if files.len() > 1000 || !files.iter().any(|file| file.path == "project.json") {
+      return Err(CommandError::new(
+        "folder_unreadable",
+        "フォルダの中身を読めませんでした。",
+      ));
+    }
+    let mut texts = BTreeMap::new();
+    let mut total = 0_u64;
+    for file in &files {
+      if file.path.starts_with("assets/") {
+        continue;
+      }
+      total = total.saturating_add(file.bytes);
+      if file.bytes > 8 * 1024 * 1024 || total > 16 * 1024 * 1024 {
+        return Err(CommandError::new("export_too_large", "書き出す内容が大きすぎます。"));
+      }
+      let mut source = OpenedFileSource::open(&target.working_copy, &file.path, &file.sha256, file.bytes)
+        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+      let mut bytes = Vec::with_capacity(file.bytes as usize);
+      source
+        .file_mut()
+        .and_then(|opened| opened.read_to_end(&mut bytes).map_err(VaultError::from))
+        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+      source
+        .verify_identity()
+        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+      let text = String::from_utf8(bytes)
+        .map_err(|_| CommandError::new("folder_unreadable", "フォルダの中身を読めませんでした。"))?;
+      texts.insert(file.path.clone(), text);
+    }
+    if !self.inner.context_is_current(&context) {
+      return Err(CommandError::new("folder_changed", "保存先が変わりました。"));
+    }
+    Ok(LocalFolderExportSnapshot {
+      generation: context.generation,
+      files,
+      texts,
+    })
+  }
+
+  pub(crate) fn local_folder_export_file(
+    &self,
+    project_id: &str,
+    generation: u64,
+    path: &str,
+    sha256: &str,
+    bytes: u64,
+  ) -> CommandResult<Vec<u8>> {
+    let (context, target) = self.local_folder_export_target(project_id, Some(generation))?;
+    if !local_export_path(path) || bytes > 50 * 1024 * 1024 {
+      return Err(CommandError::new(
+        "invalid_export",
+        "書き出すファイルを選び直してください。",
+      ));
+    }
+    let mut source = OpenedFileSource::open(&target.working_copy, path, sha256, bytes)
+      .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+    let mut output = Vec::with_capacity(bytes as usize);
+    source
+      .file_mut()
+      .and_then(|opened| opened.read_to_end(&mut output).map_err(VaultError::from))
+      .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+    source
+      .verify_identity()
+      .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
+    if output.len() != bytes as usize || !self.inner.context_is_current(&context) {
+      return Err(CommandError::new("folder_changed", "フォルダが更新されました。"));
+    }
+    Ok(output)
+  }
   pub(crate) fn allows_cloud_jobs(&self) -> bool {
     self
       .inner
