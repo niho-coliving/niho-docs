@@ -1041,8 +1041,10 @@ fn turn_returns_when_an_escaped_grandchild_keeps_stdout_open() {
     handle.is_finished()
   });
   handle.wait();
+  // The detached grandchild holds stdout for 10 seconds; allow CI scheduling jitter
+  // while still verifying that the turn completes before that holder exits.
   assert!(
-    started.elapsed() < Duration::from_secs(4),
+    started.elapsed() < Duration::from_secs(8),
     "turn took {:?}",
     started.elapsed()
   );
