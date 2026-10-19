@@ -14,9 +14,10 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::CString;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::os::fd::{AsRawFd, FromRawFd};
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -1134,6 +1135,70 @@ pub(crate) fn verify_snapshot_placement(root: &Path, snapshot: &VerifiedSnapshot
     if !file.expired_audio && file.staging_file.is_none() {
       return Err(ClosingError::Mismatch);
     }
+  }
+  Ok(())
+}
+
+/// 外部 close を確定する前に、stage を残したまま行う保存の追加容量を確認する。
+/// LocalSaver は app data に新旧 snapshot、作業コピー側に新しい本文を一時保存する。
+/// JSON と履歴の構造マージでは両側に追加の版を作るため、その最大分も予約する。
+pub(crate) fn ensure_snapshot_apply_space(app_data: &Path, root: &Path, snapshot: &VerifiedSnapshot) -> Result<()> {
+  let projects: BTreeMap<_, _> = snapshot
+    .projects
+    .iter()
+    .map(|project| (project.id.as_str(), project))
+    .collect();
+  let mut app_bytes = 0_u64;
+  let mut root_bytes = 0_u64;
+  for file in snapshot.files.iter().filter(|file| !file.expired_audio) {
+    let project = projects.get(file.project_ref.as_str()).ok_or(ClosingError::Mismatch)?;
+    let local = target(root, project)?;
+    let current = OpenedFileSource::capture(&local.working_copy, &file.path)?;
+    if current
+      .as_ref()
+      .is_some_and(|existing| existing.sha256() == file.sha256)
+    {
+      continue;
+    }
+    let previous = current.as_ref().map_or(0, OpenedFileSource::bytes);
+    app_bytes = app_bytes
+      .checked_add(file.bytes)
+      .and_then(|value| value.checked_add(previous))
+      .ok_or(ClosingError::InsufficientSpace)?;
+    root_bytes = root_bytes
+      .checked_add(file.bytes)
+      .ok_or(ClosingError::InsufficientSpace)?;
+    if current.is_some()
+      && (file.path.ends_with(".json") || file.path.ends_with("/runs.jsonl") || file.path == "runs.jsonl")
+    {
+      // remote 版と構造マージ版の両方。マージ後本文の上限を両入力の和で保守的に見積もる。
+      let merged_bound = file
+        .bytes
+        .checked_add(previous)
+        .ok_or(ClosingError::InsufficientSpace)?;
+      app_bytes = app_bytes
+        .checked_add(merged_bound)
+        .ok_or(ClosingError::InsufficientSpace)?;
+      root_bytes = root_bytes
+        .checked_add(merged_bound)
+        .ok_or(ClosingError::InsufficientSpace)?;
+    }
+  }
+  let app_volume = fs::metadata(app_data)?.dev();
+  let root_volume = fs::metadata(root)?.dev();
+  if app_volume == root_volume {
+    let needed = required_free_bytes(
+      app_bytes
+        .checked_add(root_bytes)
+        .ok_or(ClosingError::InsufficientSpace)?,
+    )?;
+    if disk_free_bytes(app_data)? < needed {
+      return Err(ClosingError::InsufficientSpace);
+    }
+  } else if disk_free_bytes(app_data)? < required_free_bytes(app_bytes)?
+    || disk_free_bytes(root)? < required_free_bytes(root_bytes)?
+  {
+    return Err(ClosingError::InsufficientSpace);
   }
   Ok(())
 }

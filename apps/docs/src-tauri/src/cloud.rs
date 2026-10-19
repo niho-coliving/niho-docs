@@ -11,9 +11,10 @@
 //!   `cloud://applied`・`cloud://remote`。
 
 use crate::docs_closing::{
-  apply_committed_snapshot, cleanup_applied_close_stages, cleanup_close_stage, disk_free_bytes, mark_close_intent,
-  pending_close_intent, receive_snapshot, required_free_bytes, snapshot_applied, verify_snapshot_placement,
-  verify_staged_snapshot, ClosingError, HttpSnapshotTransport, SnapshotIdentity,
+  apply_committed_snapshot, cleanup_applied_close_stages, cleanup_close_stage, disk_free_bytes,
+  ensure_snapshot_apply_space, mark_close_intent, pending_close_intent, receive_snapshot, required_free_bytes,
+  snapshot_applied, verify_snapshot_placement, verify_staged_snapshot, ClosingError, HttpSnapshotTransport,
+  SnapshotIdentity,
 };
 use crate::docs_reopening::{LocalInventory, ReopeningError, ReopeningPreview, FREE_QUOTA_BYTES};
 use crate::docs_storage_api::{
@@ -2087,26 +2088,7 @@ impl CloudInner {
     if attempt.epoch.parse::<u64>().is_err() || attempt.closing_id.is_empty() {
       return Err(CommandError::new("docs_storage_changed", "保存先を確認できません。"));
     }
-    // Closing attempt の再開も、snapshot を読む前に最新の必要容量を再評価する。
-    if matches!(attempt.phase.as_str(), "DRAINING" | "SNAPSHOT_READY") {
-      let preflight = api
-        .closing_preflight(&token)
-        .await
-        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
-      if preflight.epoch != attempt.epoch {
-        return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
-      }
-      transfer_bytes = preflight
-        .transfer_bytes
-        .parse::<u64>()
-        .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
-      if attempt.phase == "DRAINING" {
-        let required = required_free_bytes(transfer_bytes).map_err(closing_command_error)?;
-        if disk_free_bytes(&self.data_dir).map_err(closing_command_error)? < required {
-          return Err(closing_command_error(ClosingError::InsufficientSpace));
-        }
-      }
-    }
+    // begin 後は CLOSING のため preflight は 409。受信側が固定 manifest の未受信量を検査する。
     if matches!(attempt.phase.as_str(), "DRAINING" | "SNAPSHOT_READY")
       && chrono::DateTime::parse_from_rfc3339(&attempt.expires_at).is_ok_and(|expires| expires <= chrono::Utc::now())
     {
@@ -2185,20 +2167,6 @@ impl CloudInner {
         "実行中の処理を待っています。後で再開してください。",
       ));
     }
-    if attempt.phase == "SNAPSHOT_READY" {
-      // Drain 完了後にもう一度確認し、最初の表示や再開開始後に増えた転送量も含める。
-      let preflight = api
-        .closing_preflight(&token)
-        .await
-        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
-      if preflight.epoch != attempt.epoch {
-        return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
-      }
-      transfer_bytes = preflight
-        .transfer_bytes
-        .parse::<u64>()
-        .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
-    }
     let digest = attempt
       .manifest_digest
       .clone()
@@ -2221,6 +2189,7 @@ impl CloudInner {
       verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?
     };
     verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
+    ensure_snapshot_apply_space(&self.data_dir, &context.root, &verified).map_err(closing_command_error)?;
     drop(transition);
     Ok(PreparedClosing {
       closing_id: identity.closing_id,
@@ -2302,6 +2271,7 @@ impl CloudInner {
     };
     let verified = verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?;
     verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
+    ensure_snapshot_apply_space(&self.data_dir, &context.root, &verified).map_err(closing_command_error)?;
     if verified.file_count != prepared.file_count
       || verified.expired_audio_count != prepared.expired_audio_count
       || verified
@@ -3726,30 +3696,24 @@ impl Cloud {
         "フォルダの中身を読めませんでした。",
       ));
     }
-    let mut texts = BTreeMap::new();
-    let mut total = 0_u64;
-    for file in &files {
-      if file.path.starts_with("assets/") {
-        continue;
-      }
-      total = total.saturating_add(file.bytes);
-      if file.bytes > 8 * 1024 * 1024 || total > 16 * 1024 * 1024 {
-        return Err(CommandError::new("export_too_large", "書き出す内容が大きすぎます。"));
-      }
-      let mut source = OpenedFileSource::open(&target.working_copy, &file.path, &file.sha256, file.bytes)
-        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
-      let mut bytes = Vec::with_capacity(file.bytes as usize);
-      source
-        .file_mut()
-        .and_then(|opened| opened.read_to_end(&mut bytes).map_err(VaultError::from))
-        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
-      source
-        .verify_identity()
-        .map_err(|_| CommandError::new("folder_changed", "フォルダが更新されました。"))?;
-      let text = String::from_utf8(bytes)
-        .map_err(|_| CommandError::new("folder_unreadable", "フォルダの中身を読めませんでした。"))?;
-      texts.insert(file.path.clone(), text);
+    // 選択前は全本文を WebView に渡さない。木に必須の project.json だけ固定する。
+    let project = files
+      .iter()
+      .find(|file| file.path == "project.json")
+      .expect("checked above");
+    if project.bytes > 8 * 1024 * 1024 {
+      return Err(CommandError::new("export_too_large", "フォルダの構造が大きすぎます。"));
     }
+    let bytes = self.local_folder_export_file(
+      project_id,
+      context.generation,
+      &project.path,
+      &project.sha256,
+      project.bytes,
+    )?;
+    let text = String::from_utf8(bytes)
+      .map_err(|_| CommandError::new("folder_unreadable", "フォルダの中身を読めませんでした。"))?;
+    let texts = BTreeMap::from([(project.path.clone(), text)]);
     if !self.inner.context_is_current(&context) {
       return Err(CommandError::new("folder_changed", "保存先が変わりました。"));
     }

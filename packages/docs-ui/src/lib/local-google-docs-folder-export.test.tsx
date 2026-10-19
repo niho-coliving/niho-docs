@@ -48,7 +48,7 @@ afterEach(() => { document.body.innerHTML = ""; });
 
 describe("この Mac だけのフォルダ書き出し", () => {
   it("選んだページの本文と写真だけを一時送信対象にし、欠けたファイルを拒否する", async () => {
-    const prepared = await buildLocalFolderExportPlan(snapshot, server);
+    const prepared = await buildLocalFolderExportPlan(snapshot, server, async (file) => texts[file.path as keyof typeof texts]);
     expect(prepared.plan.nodes.map((node) => node.key)).toEqual(["doc:first", "doc:second"]);
     expect(localFolderExportFiles(prepared, ["doc:first"]).map((file) => file.path))
       .toEqual(["project.json", "pages/first.md", "assets/photo.png"]);
@@ -57,9 +57,25 @@ describe("この Mac だけのフォルダ書き出し", () => {
       .toThrow("folder_changed");
   });
 
+  it("未選択の本文が合計16MiBを超えても小さいページを選べる", async () => {
+    const large = "あ".repeat(6 * 1024 * 1024); // UTF-8 で 18 MiB
+    const largeSnapshot: DocsDriveLocalFolderExportSnapshot = {
+      generation: 8,
+      texts: { "project.json": JSON.stringify(project) },
+      files: snapshot.files.map((file) => file.path === "pages/first.md"
+        ? { ...file, bytes: new TextEncoder().encode(large).length } : file),
+    };
+    const prepared = await buildLocalFolderExportPlan(largeSnapshot, server,
+      async (file) => file.path === "pages/first.md" ? large : texts[file.path as keyof typeof texts]);
+    expect(prepared.snapshot.texts).toEqual({ "project.json": JSON.stringify(project) });
+    expect(localFolderExportFiles(prepared, ["doc:second"]).map((file) => file.path))
+      .toEqual(["project.json", "pages/second.md"]);
+  });
+
   it("LOCAL の木と選択内容を Mac の送信経路へ渡し、説明を一度だけ表示する", async () => {
     const { host, calls } = createFakeHost({
       docsDriveFolderExportLocalSnapshot: async () => snapshot,
+      docsDriveFolderExportLocalText: async (_projectId, _generation, file) => texts[file.path as keyof typeof texts],
       docsDriveFolderExportLocalPlan: async () => server,
       docsDriveFolderExportLocal: async (request) => ({ exportId: request.exportId,
         createdAt: "2026-10-19T00:00:00Z", status: "completed", documentId: "document1",

@@ -2811,6 +2811,7 @@ pub fn run() {
       google_docs::docs_drive_folder_export_plan,
       google_docs::docs_drive_folder_export_local_plan,
       google_docs::docs_drive_folder_export_local_snapshot,
+      google_docs::docs_drive_folder_export_local_text,
       google_docs::docs_drive_folder_export_local,
       google_docs::docs_drive_folder_export,
       google_docs::docs_drive_folder_export_status,

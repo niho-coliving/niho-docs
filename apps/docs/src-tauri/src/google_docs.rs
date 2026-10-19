@@ -1023,6 +1023,21 @@ pub async fn docs_drive_folder_export_local_snapshot(
   cloud.local_folder_export_snapshot(&project_id)
 }
 
+/// 計画表示に必要な本文だけを世代・hash 固定で読む。読み終えたら WebView 側で捨てる。
+#[tauri::command]
+pub async fn docs_drive_folder_export_local_text(
+  cloud: State<'_, Cloud>,
+  project_id: String,
+  generation: u64,
+  file: LocalFolderExportFile,
+) -> Result<String, CommandError> {
+  if file.bytes > 50 * 1024 * 1024 || file.path.starts_with("assets/") {
+    return Err(invalid_folder_request("書き出すファイルを選び直してください。"));
+  }
+  let bytes = cloud.local_folder_export_file(&project_id, generation, &file.path, &file.sha256, file.bytes)?;
+  String::from_utf8(bytes).map_err(|_| invalid_folder_response())
+}
+
 #[tauri::command]
 pub async fn docs_drive_folder_export_local_plan(
   handle: State<'_, AccountHandle>,
