@@ -8,6 +8,8 @@ NIHO が著作権を持つコードに、第三者による利用・改変・再
 
 公開コードと非公開サービスの接続条件は [`docs/security/publication-gates.md`](docs/security/publication-gates.md) に記録しています。Photo は別の段階で扱います。
 
+公開開発から非公開の本番配布までの現在地と接続方針は [`docs/architecture/release-boundary.md`](docs/architecture/release-boundary.md) に記録しています。公開 `main` の更新だけでは公式サービスは更新されません。
+
 ## 現在の抽出範囲
 
 - `packages/docs-core`: Docs の純粋な型・文書規則・会話・実行状態のロジック。
