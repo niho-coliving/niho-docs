@@ -103,6 +103,9 @@ import {
   type CloudProjectEvent,
   type CloudRemoteEvent,
   type CloudState,
+  type ClosingPreview,
+  type ClosingProgress,
+  type PreparedClosing,
   type ConflictEntry,
   type ConflictSide,
   type DeletedProject,
@@ -313,6 +316,7 @@ export class FakeBridge implements Bridge {
   folderExportResults: Array<DocsDriveFolderExportStatus | CommandError> = [];
   folderExportStatusResults: Array<DocsDriveFolderExportStatus | CommandError> = [];
   folderExportResumeResults: Array<DocsDriveFolderExportStatus | CommandError> = [];
+  closingOtherMacs: ClosingPreview["preflight"]["otherMacs"] = [];
   settings: unknown = null;
   /**
    * 工程（フロー）の保存（Rust の store_flows.rs と同じ規則）: flows/<id>.json は flowFiles、flows/index.json は flowIndex
@@ -1733,6 +1737,7 @@ export class FakeBridge implements Bridge {
   private cloudProjectListeners = new Set<(event: CloudProjectEvent) => void>();
   private cloudAppliedListeners = new Set<(event: CloudAppliedEvent) => void>();
   private cloudRemoteListeners = new Set<(event: CloudRemoteEvent) => void>();
+  private cloudClosingProgressListeners = new Set<(progress: ClosingProgress) => void>();
 
   private recordCloud(name: string, ...args: unknown[]) {
     this.cloudCalls.push({ name, args });
@@ -1831,6 +1836,46 @@ export class FakeBridge implements Bridge {
       provider: "niho", status: "active", reopeningPending: false, storage: { ...this.cloud.storage,
         mode: "CLOUD", epoch: String(Number(this.cloud.storage.epoch) + 1), changedAt: new Date().toISOString() } };
     return structuredClone(this.cloud);
+  }
+  async cloudStorageClosingPreview(): Promise<ClosingPreview> {
+    this.recordCloud("cloudStorageClosingPreview");
+    if (this.cloud.storage?.mode !== "CLOUD" && this.cloud.storage?.mode !== "CLOSING") {
+      throw { code: "docs_storage_changed", message: "保存先が変わりました。" };
+    }
+    return { preflight: { epoch: this.cloud.storage.epoch, transferBytes: "0", folders: 0, pages: 0,
+      unexpiredAudio: 0, expiredAudio: 0, deletedFolders: 0, otherMacs: this.closingOtherMacs,
+      active: { runs: 0, composerTurns: 0, folderExports: 0 } }, requiredFreeBytes: 0, availableFreeBytes: 1024 ** 3 };
+  }
+  async cloudStorageClosingPrepare(): Promise<PreparedClosing> {
+    this.recordCloud("cloudStorageClosingPrepare");
+    if (this.cloud.storage?.mode !== "CLOUD" && this.cloud.storage?.mode !== "CLOSING") {
+      throw { code: "docs_storage_changed", message: "保存先が変わりました。" };
+    }
+    const epoch = this.cloud.storage.epoch;
+    this.cloud = { ...this.cloud, storage: { ...this.cloud.storage, mode: "CLOSING",
+      closing: { deviceName: this.cloud.deviceName, expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() } } };
+    const progress = { done: 0, total: 0 };
+    for (const listener of this.cloudClosingProgressListeners) listener(progress);
+    return { closingId: "test-closing", epoch, manifestDigest: "0".repeat(64),
+      fileCount: 0, expiredAudioCount: 0, deletedFolderCount: 0 };
+  }
+  async cloudStorageClosingConfirm(prepared: PreparedClosing): Promise<CloudState> {
+    this.recordCloud("cloudStorageClosingConfirm", prepared);
+    if (this.cloud.storage?.mode !== "CLOSING") {
+      throw { code: "docs_storage_changed", message: "保存先が変わりました。" };
+    }
+    this.cloud = { ...this.cloud, provider: "local", status: "local",
+      contextGeneration: this.cloud.contextGeneration + 1,
+      storage: { ...this.cloud.storage, mode: "LOCAL", epoch: String(Number(this.cloud.storage.epoch) + 1),
+        closing: null, changedAt: new Date().toISOString() } };
+    return structuredClone(this.cloud);
+  }
+  async cloudStorageClosingCancel(): Promise<void> {
+    this.recordCloud("cloudStorageClosingCancel");
+  }
+  async onCloudClosingProgress(handler: (progress: ClosingProgress) => void): Promise<() => void> {
+    this.cloudClosingProgressListeners.add(handler);
+    return () => this.cloudClosingProgressListeners.delete(handler);
   }
   async cloudSetProvider(provider: VaultProviderKind, rebind?: boolean) {
     this.recordCloud("cloudSetProvider", provider, rebind ?? false);

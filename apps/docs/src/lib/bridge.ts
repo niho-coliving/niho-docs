@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { MAC_DOCS_CAPABILITIES, type Bridge, type RecordingRef, type ProjectId, type SpeechStatus } from "niho-docs-ui/host/DocsHost";
-import type { CloudState, CloudProjectEvent, CloudAppliedEvent, CloudRemoteEvent, ReopeningPreview } from "./cloud-types";
+import type { CloudState, CloudProjectEvent, CloudAppliedEvent, CloudRemoteEvent, ReopeningPreview, ClosingPreview, ClosingProgress, PreparedClosing } from "./cloud-types";
 import type { UpdateStatus, RecordingEvent } from "niho-docs-ui/host/DocsHost";
 import type { PcRunnerStatus } from "./pc-runner";
 import { PC_RUNNER_STATE_EVENT } from "./pc-runner";
@@ -32,6 +32,7 @@ export const tauriBridge: Bridge = {
     ...MAC_DOCS_CAPABILITIES,
     // 公開クライアントの実装を先に検証する。非公開 API の受付・配備が終わるまで LOCAL の入口を出さない。
     localFolderExport: import.meta.env.VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT === "true",
+    cloudClosing: import.meta.env.VITE_NIHO_DOCS_CLOUD_CLOSING === "true",
   }),
   audioSourceUrl: (path) => convertFileSrc(path),
   explicitMediaLoad: true,
@@ -178,6 +179,10 @@ export const tauriBridge: Bridge = {
   cloudStorageSelect: (mode) => invoke<CloudState>("cloud_storage_select", { mode }),
   cloudStorageReopeningPreview: () => invoke<ReopeningPreview>("cloud_storage_reopening_preview"),
   cloudStorageReopen: () => invoke<CloudState>("cloud_storage_reopen"),
+  cloudStorageClosingPreview: () => invoke<ClosingPreview>("cloud_storage_closing_preview"),
+  cloudStorageClosingPrepare: () => invoke<PreparedClosing>("cloud_storage_closing_prepare"),
+  cloudStorageClosingConfirm: (prepared) => invoke<CloudState>("cloud_storage_closing_confirm", { prepared }),
+  cloudStorageClosingCancel: () => invoke<void>("cloud_storage_closing_cancel"),
   cloudSetProvider: (provider, rebind) => invoke("cloud_set_provider", { provider, rebind: rebind ?? null }),
   cloudSetDeviceName: (name) => invoke("cloud_set_device_name", { name }),
   cloudProjectStatus: (projectId) => invoke("cloud_project_status", { projectId }),
@@ -206,6 +211,7 @@ export const tauriBridge: Bridge = {
   onCloudProject: (handler) => listen<CloudProjectEvent>("cloud://project", (event) => handler(event.payload)),
   onCloudApplied: (handler) => listen<CloudAppliedEvent>("cloud://applied", (event) => handler(event.payload)),
   onCloudRemote: (handler) => listen<CloudRemoteEvent>("cloud://remote", (event) => handler(event.payload)),
+  onCloudClosingProgress: (handler) => listen<ClosingProgress>("cloud://closing-progress", (event) => handler(event.payload)),
   pcRunnerStatus: () => invoke("pc_runner_status"),
   setPcRunnerEnabled: (enabled) => invoke("pc_runner_set_enabled", { enabled }),
   onPcRunnerState: (handler) => listen<PcRunnerStatus>(PC_RUNNER_STATE_EVENT, (event) => handler(event.payload)),

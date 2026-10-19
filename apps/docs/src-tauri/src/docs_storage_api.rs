@@ -134,6 +134,77 @@ pub(crate) struct VerifiedReopeningBlob {
   pub retained_until: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingPreflight {
+  pub epoch: String,
+  pub transfer_bytes: String,
+  pub folders: usize,
+  pub pages: usize,
+  pub unexpired_audio: usize,
+  pub expired_audio: usize,
+  pub deleted_folders: usize,
+  pub other_macs: Vec<ClosingMac>,
+  pub active: ClosingActive,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingMac {
+  pub name: String,
+  pub last_used_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingActive {
+  pub runs: usize,
+  pub composer_turns: usize,
+  pub folder_exports: usize,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingAttempt {
+  pub closing_id: String,
+  pub epoch: String,
+  pub phase: String,
+  pub expires_at: String,
+  pub manifest_digest: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingDetail {
+  pub phase: String,
+  pub epoch: String,
+  pub manifest_digest: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingSnapshotReady {
+  pub closing_id: String,
+  pub epoch: String,
+  pub phase: String,
+  pub manifest_digest: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingDrain {
+  pub ready: bool,
+  pub expired: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClosingCommitted {
+  pub closing_id: String,
+  pub mode: StorageMode,
+  pub epoch: String,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ReopeningStep {
@@ -284,6 +355,200 @@ impl DocsStorageApi {
     }
     token.ensure_current().map_err(|_| StorageApiError::Auth)?;
     serde_json::from_slice(&bytes).map_err(|_| StorageApiError::InvalidResponse)
+  }
+
+  pub(crate) async fn closing_preflight(
+    &self,
+    token: &dyn IdTokenProvider,
+  ) -> Result<ClosingPreflight, StorageApiError> {
+    self
+      .reopening_request(Method::POST, "/closing/preflight", token, Some(serde_json::json!({})))
+      .await
+  }
+
+  pub(crate) async fn closing_current(
+    &self,
+    token: &dyn IdTokenProvider,
+  ) -> Result<Option<ClosingAttempt>, StorageApiError> {
+    match self
+      .reopening_request(Method::GET, "/closing/current", token, None)
+      .await
+    {
+      Ok(attempt) => Ok(Some(attempt)),
+      Err(StorageApiError::NotFound) => Ok(None),
+      Err(error) => Err(error),
+    }
+  }
+
+  pub(crate) async fn closing_attempt(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+  ) -> Result<ClosingDetail, StorageApiError> {
+    if !safe_segment(closing_id) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(Method::GET, &format!("/closing/{closing_id}"), token, None)
+      .await
+  }
+
+  pub(crate) async fn begin_closing(
+    &self,
+    token: &dyn IdTokenProvider,
+    epoch: &str,
+  ) -> Result<ClosingAttempt, StorageApiError> {
+    if epoch.parse::<u64>().is_err() {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(
+        Method::POST,
+        "/closing",
+        token,
+        Some(serde_json::json!({ "expectedEpoch": epoch })),
+      )
+      .await
+  }
+
+  pub(crate) async fn closing_drain(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+  ) -> Result<ClosingDrain, StorageApiError> {
+    if !safe_segment(closing_id) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(Method::GET, &format!("/closing/{closing_id}/drain"), token, None)
+      .await
+  }
+
+  pub(crate) async fn closing_snapshot_ready(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+    epoch: &str,
+  ) -> Result<ClosingSnapshotReady, StorageApiError> {
+    if !safe_segment(closing_id) || epoch.parse::<u64>().is_err() {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(
+        Method::POST,
+        &format!("/closing/{closing_id}/snapshot-ready"),
+        token,
+        Some(serde_json::json!({ "storageEpoch": epoch })),
+      )
+      .await
+  }
+
+  pub(crate) async fn close_storage(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+    epoch: &str,
+    digest: &str,
+  ) -> Result<ClosingCommitted, StorageApiError> {
+    if !safe_segment(closing_id) || epoch.parse::<u64>().is_err() || !valid_sha256(digest) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(
+        Method::POST,
+        "/closing/close",
+        token,
+        Some(serde_json::json!({ "closingId": closing_id, "storageEpoch": epoch, "manifestDigest": digest })),
+      )
+      .await
+  }
+
+  /// holder 専用口。一般の vault API で削除済み案件の認可を広げない。
+  pub(crate) async fn snapshot_part(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+    chunk: Option<usize>,
+  ) -> Result<Vec<u8>, StorageApiError> {
+    if !safe_segment(closing_id) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    let part = chunk.map_or_else(|| "manifest".to_owned(), |index| format!("chunks/{index}"));
+    token.ensure_current().map_err(|_| StorageApiError::Auth)?;
+    let bearer = token.id_token().await.map_err(|_| StorageApiError::Auth)?;
+    token.ensure_current().map_err(|_| StorageApiError::Auth)?;
+    let mut response = self
+      .client
+      .get(format!("{}/closing/{closing_id}/snapshot/{part}", self.endpoint))
+      .bearer_auth(bearer)
+      .send()
+      .await
+      .map_err(|_| StorageApiError::Unavailable)?;
+    token.ensure_current().map_err(|_| StorageApiError::Auth)?;
+    match response.status().as_u16() {
+      401 | 403 => return Err(StorageApiError::Auth),
+      404 => return Err(StorageApiError::NotFound),
+      409 => return Err(StorageApiError::Changed),
+      code if code != 200 => return Err(StorageApiError::Unavailable),
+      _ => {}
+    }
+    let limit = if chunk.is_some() {
+      5 * 1024 * 1024
+    } else {
+      8 * 1024 * 1024
+    };
+    if response.content_length().is_some_and(|length| length > limit as u64) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| StorageApiError::Unavailable)? {
+      if bytes.len().saturating_add(chunk.len()) > limit {
+        return Err(StorageApiError::InvalidResponse);
+      }
+      bytes.extend_from_slice(&chunk);
+    }
+    token.ensure_current().map_err(|_| StorageApiError::Auth)?;
+    Ok(bytes)
+  }
+
+  pub(crate) async fn snapshot_object_url<T: DeserializeOwned>(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+    chunk: usize,
+    entry: usize,
+  ) -> Result<T, StorageApiError> {
+    if !safe_segment(closing_id) {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    self
+      .reopening_request(
+        Method::POST,
+        &format!("/closing/{closing_id}/snapshot/objects/{chunk}/{entry}"),
+        token,
+        None,
+      )
+      .await
+  }
+
+  pub(crate) async fn snapshot_heartbeat(
+    &self,
+    token: &dyn IdTokenProvider,
+    closing_id: &str,
+    epoch: &str,
+  ) -> Result<(), StorageApiError> {
+    if !safe_segment(closing_id) || epoch.parse::<u64>().is_err() {
+      return Err(StorageApiError::InvalidResponse);
+    }
+    let _: serde_json::Value = self
+      .reopening_request(
+        Method::POST,
+        &format!("/closing/{closing_id}/heartbeat"),
+        token,
+        Some(serde_json::json!({ "storageEpoch": epoch })),
+      )
+      .await?;
+    Ok(())
   }
 
   pub(crate) async fn current_reopening(

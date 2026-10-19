@@ -158,6 +158,33 @@ export type ReopeningPreview = {
   quotaBytes: number;
 };
 
+export type ClosingPreview = {
+  preflight: {
+    epoch: string;
+    transferBytes: string;
+    folders: number;
+    pages: number;
+    unexpiredAudio: number;
+    expiredAudio: number;
+    deletedFolders: number;
+    otherMacs: { name: string; lastUsedAt: string }[];
+    active: { runs: number; composerTurns: number; folderExports: number };
+  };
+  requiredFreeBytes: number;
+  availableFreeBytes: number;
+};
+
+export type PreparedClosing = {
+  closingId: string;
+  epoch: string;
+  manifestDigest: string;
+  fileCount: number;
+  expiredAudioCount: number;
+  deletedFolderCount: number;
+};
+
+export type ClosingProgress = { done: number; total: number };
+
 export type CloudMigrationFailure = { projectId: string; name: string; reason: string };
 
 /** この Mac の案件をクラウドに上げる移行の進み（bytes は案件ごとのファイルの大きさの和）。 */

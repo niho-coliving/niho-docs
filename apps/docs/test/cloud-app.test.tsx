@@ -435,6 +435,40 @@ describe("設定の保存先のクラウド", () => {
     expect(bridge.cloudCallsOf("cloudStorageReopen")).toHaveLength(1);
   });
 
+  it("クラウドからこの Mac へは受信・照合後に別の確認を挟み、削除完了を知らせる", async () => {
+    const bridge = new FakeBridge();
+    Object.assign(bridge, { capabilities: { cloudClosing: true } });
+    bridge.cloud = activeCloud({ storage: { mode: "CLOUD", epoch: "5", changedAt: null, cleanupPending: false, quotaBytes: 5 * 1024 ** 3, closing: null } });
+    bridge.closingOtherMacs = [{ name: "家の Mac", lastUsedAt: "2026-10-18T00:00:00.000Z" }];
+    screen = await renderApp(bridge, account(signedIn()).transport);
+    const { container } = screen;
+    await click(button(container, "設定"));
+    await click(button(rowOf(container, "保存先")!, "変更"));
+    await until(() => container.querySelector('[role="dialog"]')?.textContent?.includes("家の Mac") ?? false);
+    expect(bridge.cloudCallsOf("cloudStorageClosingConfirm")).toHaveLength(0);
+    await click(button(dialog(container), "受信を始める"));
+    await until(() => container.querySelector('[role="dialog"]')?.textContent?.includes("全件照合しました") ?? false);
+    expect(dialog(container).textContent).toContain("スマホや Web では開けなくなります");
+    expect(bridge.cloudCallsOf("cloudStorageClosingConfirm")).toHaveLength(0);
+    await click(button(dialog(container), "クラウドから削除"));
+    await until(() => rowOf(container, "保存先")?.querySelector(".st")?.textContent === "この Mac だけ");
+    expect(bridge.cloudCallsOf("cloudStorageClosingConfirm")).toHaveLength(1);
+    await act(async () => bridge.emitCloudState({ ...bridge.cloud, storage: { ...bridge.cloud.storage!, cleanupPending: true } }));
+    expect(container.textContent).toContain("クラウドの削除を続けています");
+    await act(async () => bridge.emitCloudState({ ...bridge.cloud, storage: { ...bridge.cloud.storage!, cleanupPending: false } }));
+    await until(() => container.textContent?.includes("クラウドから削除しました") ?? false);
+  });
+
+  it("非公開 API の配備前はクラウドを閉じる入口を出さない", async () => {
+    const bridge = new FakeBridge();
+    bridge.cloud = activeCloud({ storage: { mode: "CLOUD", epoch: "5", changedAt: null,
+      cleanupPending: false, quotaBytes: 5 * 1024 ** 3, closing: null } });
+    screen = await renderApp(bridge, account(signedIn()).transport);
+    const { container } = screen;
+    await click(button(container, "設定"));
+    expect(rowOf(container, "保存先")?.querySelector("button")).toBeNull();
+  });
+
   it("移行は確かめずに始まり（Mac 側）、進み・中断・再開・上げられなかったページとフォルダを出す", async () => {
     const bridge = new FakeBridge();
     await bridge.createProject(pagedProject("朝市"), null, null, []);
@@ -1383,6 +1417,7 @@ describe("同期の契機と、別の Mac の変更の反映", () => {
 
   it("保存先の状態を案件を開いたときと窓が前面に戻ったときに確かめる", async () => {
     const { bridge, projectId } = await docBridge("本文");
+    bridge.cloud = cloudStateOf({ storage: { mode: "LOCAL", epoch: "1", changedAt: null, cleanupPending: false, quotaBytes: 5 * 1024 ** 3, closing: null } });
     screen = await renderApp(bridge);
     await act(async () => window.dispatchEvent(new Event("focus")));
     // LOCAL でも保存先やログイン状態が変わっていないか確かめる

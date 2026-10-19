@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { errorMessage, type Bridge } from "../lib/bridge";
 import { hasOpenConflicts, type CloudController } from "../lib/cloud";
 import type { TombstoneChoice } from "../lib/cloud-types";
@@ -41,6 +41,14 @@ export function CloudNotice(props: {
   const [confirmAside, setConfirmAside] = useState(false);
   const state = cloud.state;
   const snapshot = openProject ? (cloud.snapshots[openProject.id] ?? null) : null;
+  const cleanupPending = state?.storage?.mode === "LOCAL" ? state.storage.cleanupPending : null;
+  const previousCleanupPending = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (previousCleanupPending.current === true && cleanupPending === false) {
+      props.onNotice("クラウドから削除しました");
+    }
+    previousCleanupPending.current = cleanupPending;
+  }, [cleanupPending, props.onNotice]);
 
   const choose = async (choice: TombstoneChoice) => {
     if (!openProject || busy) return;
@@ -59,6 +67,8 @@ export function CloudNotice(props: {
   const items: Item[] = [];
   if (state?.status === "closing") {
     items.push({ key: "closing", text: "クラウドを閉じる手続き中です。この Mac の未送信の変更を残して同期を止めています。" });
+  } else if (state?.storage?.mode === "LOCAL" && state.storage.cleanupPending) {
+    items.push({ key: "cleanup", text: "クラウドの削除を続けています。この Mac の内容は使えます。" });
   } else if (state?.status === "local" && state.message) {
     items.push({ key: "local-transition", text: state.message });
   } else if (state?.status === "storageUnavailable") {

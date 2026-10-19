@@ -10,9 +10,15 @@
 //! - 画面への event: `cloud://state`・`cloud://project`（案件ごとに 150ms に 1 回まで。送るときの最新）・
 //!   `cloud://applied`・`cloud://remote`。
 
+use crate::docs_closing::{
+  apply_committed_snapshot, cleanup_applied_close_stages, cleanup_close_stage, disk_free_bytes, mark_close_intent,
+  pending_close_intent, receive_snapshot, required_free_bytes, snapshot_applied, verify_snapshot_placement,
+  verify_staged_snapshot, ClosingError, HttpSnapshotTransport, SnapshotIdentity,
+};
 use crate::docs_reopening::{LocalInventory, ReopeningError, ReopeningPreview, FREE_QUOTA_BYTES};
 use crate::docs_storage_api::{
-  DocsStorageApi, ReopeningAttempt, ReopeningPhase, StorageApiError, StorageMode, StorageState, StorageStatusClient,
+  ClosingPreflight, DocsStorageApi, ReopeningAttempt, ReopeningPhase, StorageApiError, StorageMode, StorageState,
+  StorageStatusClient,
 };
 use crate::store::{self, SaveSink, SinkKind, SinkWrite, Store, StoreError};
 use crate::{AppState, CommandError, CommandResult};
@@ -1456,6 +1462,7 @@ struct CloudInner {
   /// 既存の通信しない unit fixture は偽 API を使わず、旧 engine 契約を直接検証する。
   storage_gate_enabled: AtomicBool,
   storage_refresh_scheduled: AtomicBool,
+  closing_cancel_requested: AtomicBool,
 }
 
 /// 開発・試験の起動（`is_dev_launch`）は本番のアカウントを共有するので、明示したときだけ NIHO クラウドと同期する。
@@ -1492,6 +1499,45 @@ fn reopening_command_error(error: ReopeningError) -> CommandError {
       CommandError::new("store_changed", "移行中に内容が変わりました。もう一度お試しください。")
     }
   }
+}
+
+fn closing_command_error(error: ClosingError) -> CommandError {
+  match error {
+    ClosingError::Api(StorageApiError::Auth) => CommandError::new("cloud_login_required", "ログインが必要です。"),
+    ClosingError::Api(StorageApiError::Changed | StorageApiError::NotFound) => CommandError::new(
+      "docs_storage_changed",
+      "保存先の状態が変わりました。もう一度確認してください。",
+    ),
+    ClosingError::InsufficientSpace => CommandError::new("store_full", "この Mac の空き容量が足りません。"),
+    ClosingError::Api(StorageApiError::Unavailable | StorageApiError::InvalidResponse) => {
+      CommandError::new("cloud_unavailable", "NIHO に接続できません。途中から再開できます。")
+    }
+    ClosingError::Busy => CommandError::new("store_busy", "別の受信が進んでいます。"),
+    ClosingError::Cancelled => CommandError::new("store_cancelled", "受信を中断しました。途中から再開できます。"),
+    _ => CommandError::new(
+      "store_io",
+      "クラウドの全データを照合できません。クラウドは削除していません。",
+    ),
+  }
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClosingPreview {
+  pub preflight: ClosingPreflight,
+  pub required_free_bytes: u64,
+  pub available_free_bytes: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedClosing {
+  pub closing_id: String,
+  pub epoch: String,
+  pub manifest_digest: String,
+  pub file_count: usize,
+  pub expired_audio_count: usize,
+  pub deleted_folder_count: usize,
 }
 
 #[derive(Clone)]
@@ -1542,6 +1588,7 @@ impl CloudInner {
       reopening_api: DocsStorageApi::new(niho_environment).ok(),
       storage_gate_enabled: AtomicBool::new(!cfg!(test)),
       storage_refresh_scheduled: AtomicBool::new(false),
+      closing_cancel_requested: AtomicBool::new(false),
     }
   }
 
@@ -1891,6 +1938,421 @@ impl CloudInner {
         .await?
         .preview,
     )
+  }
+
+  async fn closing_preview(self: &Arc<Self>) -> CommandResult<ClosingPreview> {
+    if !self.cloud_allowed.load(Ordering::SeqCst) {
+      return Err(dev_cloud_disabled());
+    }
+    let storage = self
+      .observed_storage()
+      .ok_or_else(|| CommandError::new("cloud_unavailable", "保存先を確認できません。"))?;
+    if storage.mode != StorageMode::Cloud {
+      return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+    }
+    let account = self
+      .account
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let ticket = account
+      .session_ticket()
+      .map_err(|_| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let token = ExpectedSessionToken {
+      account: account.clone(),
+      ticket,
+      context: None,
+    };
+    let api = self
+      .reopening_api
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_unavailable", "NIHO に接続できません。"))?;
+    let preflight = api
+      .closing_preflight(&token)
+      .await
+      .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+    if preflight.epoch != storage.epoch {
+      return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+    }
+    let bytes = preflight
+      .transfer_bytes
+      .parse::<u64>()
+      .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
+    let required = required_free_bytes(bytes).map_err(closing_command_error)?;
+    let available = disk_free_bytes(&self.data_dir).map_err(closing_command_error)?;
+    Ok(ClosingPreview {
+      preflight,
+      required_free_bytes: required,
+      available_free_bytes: available,
+    })
+  }
+
+  async fn prepare_closing(self: &Arc<Self>) -> CommandResult<PreparedClosing> {
+    let _guard = self.reconcile_lock.lock().await;
+    self.closing_cancel_requested.store(false, Ordering::SeqCst);
+    if !self.cloud_allowed.load(Ordering::SeqCst) {
+      return Err(dev_cloud_disabled());
+    }
+    let storage = self
+      .observed_storage()
+      .filter(|state| matches!(state.mode, StorageMode::Cloud | StorageMode::Closing))
+      .ok_or_else(|| CommandError::new("docs_storage_changed", "保存先が変わりました。"))?;
+    let context = self
+      .context()
+      .filter(|context| context.binding.account_key.is_some())
+      .ok_or_else(|| CommandError::new("store_busy", "この Mac の保存先を準備しています。"))?;
+    let transition = {
+      let mut operations = lock(&self.operations);
+      if operations.active > 0 || operations.root_transitioning {
+        return Err(CommandError::new(
+          "store_busy",
+          "開いている文書の保存が終わってから、もう一度お試しください。",
+        ));
+      }
+      operations.root_transitioning = true;
+      RootTransitionLease {
+        state: self.operations.clone(),
+      }
+    };
+    let account = self
+      .account
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let ticket = account
+      .session_ticket()
+      .map_err(|_| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let account_key = account_key(&self.env, &ticket.user_id);
+    if context.binding.account_key.as_deref() != Some(account_key.as_str()) {
+      return Err(CommandError::new(
+        "docs_storage_changed",
+        "この Mac のアカウントが変わりました。",
+      ));
+    }
+    let token = ExpectedSessionToken {
+      account: account.clone(),
+      ticket: ticket.clone(),
+      context: None,
+    };
+    let api = self
+      .reopening_api
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_unavailable", "NIHO に接続できません。"))?;
+    let mut transfer_bytes = 0;
+    let mut attempt = match api
+      .closing_current(&token)
+      .await
+      .map_err(|error| closing_command_error(ClosingError::Api(error)))?
+    {
+      Some(attempt) => attempt,
+      None if storage.mode == StorageMode::Cloud => {
+        let preflight = api
+          .closing_preflight(&token)
+          .await
+          .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+        if preflight.epoch != storage.epoch {
+          return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+        }
+        transfer_bytes = preflight
+          .transfer_bytes
+          .parse::<u64>()
+          .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
+        let needed = required_free_bytes(transfer_bytes).map_err(closing_command_error)?;
+        if disk_free_bytes(&self.data_dir).map_err(closing_command_error)? < needed {
+          return Err(closing_command_error(ClosingError::InsufficientSpace));
+        }
+        match api.begin_closing(&token, &storage.epoch).await {
+          Ok(attempt) => attempt,
+          Err(error) => api
+            .closing_current(&token)
+            .await
+            .ok()
+            .flatten()
+            .ok_or_else(|| closing_command_error(ClosingError::Api(error)))?,
+        }
+      }
+      None => {
+        return Err(CommandError::new(
+          "docs_storage_changed",
+          "切り替えの担当 Mac が違います。",
+        ))
+      }
+    };
+    if attempt.epoch.parse::<u64>().is_err() || attempt.closing_id.is_empty() {
+      return Err(CommandError::new("docs_storage_changed", "保存先を確認できません。"));
+    }
+    // Closing attempt の再開も、snapshot を読む前に最新の必要容量を再評価する。
+    if matches!(attempt.phase.as_str(), "DRAINING" | "SNAPSHOT_READY") {
+      let preflight = api
+        .closing_preflight(&token)
+        .await
+        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+      if preflight.epoch != attempt.epoch {
+        return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+      }
+      transfer_bytes = preflight
+        .transfer_bytes
+        .parse::<u64>()
+        .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
+      if attempt.phase == "DRAINING" {
+        let required = required_free_bytes(transfer_bytes).map_err(closing_command_error)?;
+        if disk_free_bytes(&self.data_dir).map_err(closing_command_error)? < required {
+          return Err(closing_command_error(ClosingError::InsufficientSpace));
+        }
+      }
+    }
+    if matches!(attempt.phase.as_str(), "DRAINING" | "SNAPSHOT_READY")
+      && chrono::DateTime::parse_from_rfc3339(&attempt.expires_at).is_ok_and(|expires| expires <= chrono::Utc::now())
+    {
+      return Err(CommandError::new(
+        "docs_storage_changed",
+        "切り替えの期限が切れました。もう一度始めてください。",
+      ));
+    }
+    self.refresh_storage_status().await;
+    self.reconcile_locked(true);
+    if !self
+      .observed_storage()
+      .is_some_and(|state| state.mode == StorageMode::Closing && state.epoch == attempt.epoch)
+    {
+      return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+    }
+    for _ in 0..120 {
+      if self.closing_cancel_requested.load(Ordering::SeqCst) {
+        return Err(closing_command_error(ClosingError::Cancelled));
+      }
+      if attempt.phase != "DRAINING" {
+        break;
+      }
+      let drain = api
+        .closing_drain(&token, &attempt.closing_id)
+        .await
+        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+      if drain.expired {
+        return Err(CommandError::new(
+          "docs_storage_changed",
+          "切り替えの期限が切れました。もう一度始めてください。",
+        ));
+      }
+      if drain.ready {
+        let ready = match api
+          .closing_snapshot_ready(&token, &attempt.closing_id, &attempt.epoch)
+          .await
+        {
+          Ok(ready) => ready,
+          Err(error) => {
+            let current = api.closing_current(&token).await.ok().flatten();
+            if current
+              .as_ref()
+              .is_some_and(|current| current.phase == "SNAPSHOT_READY")
+            {
+              attempt = current.expect("checked");
+              break;
+            }
+            return Err(closing_command_error(ClosingError::Api(error)));
+          }
+        };
+        if ready.phase != "SNAPSHOT_READY" || ready.closing_id != attempt.closing_id || ready.epoch != attempt.epoch {
+          return Err(CommandError::new("docs_storage_changed", "snapshot を確認できません。"));
+        }
+        attempt.phase = ready.phase;
+        attempt.manifest_digest = Some(ready.manifest_digest);
+        break;
+      }
+      api
+        .snapshot_heartbeat(&token, &attempt.closing_id, &attempt.epoch)
+        .await
+        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+      tokio::time::sleep(Duration::from_secs(5)).await;
+      attempt = api
+        .closing_current(&token)
+        .await
+        .map_err(|error| closing_command_error(ClosingError::Api(error)))?
+        .ok_or_else(|| CommandError::new("docs_storage_changed", "切り替えの状態が変わりました。"))?;
+    }
+    if !matches!(
+      attempt.phase.as_str(),
+      "SNAPSHOT_READY" | "DECISION_PENDING" | "DECIDED_LOCAL"
+    ) {
+      return Err(CommandError::new(
+        "store_busy",
+        "実行中の処理を待っています。後で再開してください。",
+      ));
+    }
+    if attempt.phase == "SNAPSHOT_READY" {
+      // Drain 完了後にもう一度確認し、最初の表示や再開開始後に増えた転送量も含める。
+      let preflight = api
+        .closing_preflight(&token)
+        .await
+        .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+      if preflight.epoch != attempt.epoch {
+        return Err(CommandError::new("docs_storage_changed", "保存先が変わりました。"));
+      }
+      transfer_bytes = preflight
+        .transfer_bytes
+        .parse::<u64>()
+        .map_err(|_| CommandError::new("cloud_unavailable", "受信量を確認できません。"))?;
+    }
+    let digest = attempt
+      .manifest_digest
+      .clone()
+      .ok_or_else(|| CommandError::new("docs_storage_changed", "snapshot がありません。"))?;
+    let identity = SnapshotIdentity {
+      user_id: ticket.user_id.clone(),
+      closing_id: attempt.closing_id.clone(),
+      epoch: attempt.epoch.clone(),
+      manifest_digest: digest.clone(),
+    };
+    let verified = if attempt.phase == "SNAPSHOT_READY" {
+      let progress =
+        |done: usize, total: usize| self.emit("cloud://closing-progress", json!({ "done": done, "total": total }));
+      let transport = HttpSnapshotTransport::new(api, &token, &self.closing_cancel_requested, &progress)
+        .map_err(closing_command_error)?;
+      receive_snapshot(&transport, &self.data_dir, &account_key, &identity, transfer_bytes)
+        .await
+        .map_err(closing_command_error)?
+    } else {
+      verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?
+    };
+    verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
+    drop(transition);
+    Ok(PreparedClosing {
+      closing_id: identity.closing_id,
+      epoch: identity.epoch,
+      manifest_digest: identity.manifest_digest,
+      file_count: verified.file_count,
+      expired_audio_count: verified.expired_audio_count,
+      deleted_folder_count: verified
+        .projects
+        .iter()
+        .filter(|project| project.deleted_at.is_some())
+        .count(),
+    })
+  }
+
+  async fn confirm_closing(self: &Arc<Self>, prepared: PreparedClosing) -> CommandResult<CloudState> {
+    let guard = self.reconcile_lock.lock().await;
+    let context = self
+      .context()
+      .filter(|context| context.binding.account_key.is_some())
+      .ok_or_else(|| CommandError::new("docs_storage_changed", "この Mac の保存先が変わりました。"))?;
+    let transition = {
+      let mut operations = lock(&self.operations);
+      if operations.active > 0 || operations.root_transitioning {
+        return Err(CommandError::new(
+          "store_busy",
+          "開いている文書の保存が終わってから、もう一度お試しください。",
+        ));
+      }
+      operations.root_transitioning = true;
+      RootTransitionLease {
+        state: self.operations.clone(),
+      }
+    };
+    let account = self
+      .account
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let ticket = account
+      .session_ticket()
+      .map_err(|_| CommandError::new("cloud_login_required", "ログインが必要です。"))?;
+    let account_key = account_key(&self.env, &ticket.user_id);
+    if context.binding.account_key.as_deref() != Some(account_key.as_str()) {
+      return Err(CommandError::new(
+        "docs_storage_changed",
+        "この Mac のアカウントが変わりました。",
+      ));
+    }
+    let token = ExpectedSessionToken {
+      account: account.clone(),
+      ticket: ticket.clone(),
+      context: None,
+    };
+    let api = self
+      .reopening_api
+      .as_ref()
+      .ok_or_else(|| CommandError::new("cloud_unavailable", "NIHO に接続できません。"))?;
+    let detail = api
+      .closing_attempt(&token, &prepared.closing_id)
+      .await
+      .map_err(|error| closing_command_error(ClosingError::Api(error)))?;
+    if detail.epoch != prepared.epoch
+      || detail.manifest_digest.as_deref() != Some(&prepared.manifest_digest)
+      || !matches!(
+        detail.phase.as_str(),
+        "SNAPSHOT_READY" | "DECISION_PENDING" | "DECIDED_LOCAL" | "COMMITTED"
+      )
+    {
+      return Err(CommandError::new(
+        "docs_storage_changed",
+        "受信済み snapshot が変わりました。",
+      ));
+    }
+    let identity = SnapshotIdentity {
+      user_id: ticket.user_id,
+      closing_id: prepared.closing_id.clone(),
+      epoch: prepared.epoch.clone(),
+      manifest_digest: prepared.manifest_digest.clone(),
+    };
+    let verified = verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?;
+    verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
+    if verified.file_count != prepared.file_count
+      || verified.expired_audio_count != prepared.expired_audio_count
+      || verified
+        .projects
+        .iter()
+        .filter(|project| project.deleted_at.is_some())
+        .count()
+        != prepared.deleted_folder_count
+    {
+      return Err(CommandError::new(
+        "docs_storage_changed",
+        "受信済み snapshot を照合できません。",
+      ));
+    }
+    mark_close_intent(&self.data_dir, &account_key, &context.binding.root_id, &identity)
+      .map_err(closing_command_error)?;
+    if detail.phase != "COMMITTED" {
+      match api
+        .close_storage(&token, &identity.closing_id, &identity.epoch, &identity.manifest_digest)
+        .await
+      {
+        Ok(committed)
+          if committed.mode == StorageMode::Local
+            && committed.closing_id == identity.closing_id
+            && committed.epoch == identity.epoch => {}
+        Ok(_) => {
+          return Err(CommandError::new(
+            "docs_storage_changed",
+            "切り替えの結果を確認できません。",
+          ))
+        }
+        Err(error) => {
+          let after = api.closing_attempt(&token, &identity.closing_id).await.ok();
+          if !after.is_some_and(|after| {
+            after.phase == "COMMITTED"
+              && after.epoch == identity.epoch
+              && after.manifest_digest.as_deref() == Some(&identity.manifest_digest)
+          }) {
+            return Err(closing_command_error(ClosingError::Api(error)));
+          }
+        }
+      }
+    }
+    drop(transition);
+    drop(guard);
+    self.reconcile().await;
+    if !self
+      .observed_storage()
+      .is_some_and(|state| state.mode == StorageMode::Local && state.epoch == identity.epoch)
+      || self
+        .context()
+        .is_some_and(|context| context.binding.account_key.is_some())
+    {
+      return Err(CommandError::new(
+        "store_io",
+        "この Mac への切り替えを再開してください。受信済みデータは残っています。",
+      ));
+    }
+    Ok(self.state())
   }
 
   async fn reopen_local_storage(self: &Arc<Self>) -> CommandResult<CloudState> {
@@ -2256,6 +2718,7 @@ impl CloudInner {
     let _guard = self.reconcile_lock.lock().await;
     let Some(context) = self.context() else { return };
     if context.binding.account_key.is_none() {
+      let _ = cleanup_applied_close_stages(&self.data_dir);
       return;
     }
     self.invalidate_context();
@@ -2271,19 +2734,72 @@ impl CloudInner {
         state: self.operations.clone(),
       }
     };
-    let saver = context.saver.clone();
-    let root = context.root.clone();
-    let recovered = tauri::async_runtime::spawn_blocking(move || {
-      targets_of_root(&root)
-        .iter()
-        .all(|target| saver.recover(target).is_ok())
-    })
-    .await
-    .unwrap_or(false);
+    let pending = match (
+      context.binding.account_key.as_deref(),
+      self.account.as_ref().and_then(|account| account.session_ticket().ok()),
+    ) {
+      (Some(key), Some(ticket)) if account_key(&self.env, &ticket.user_id) == key => pending_close_intent(
+        &self.data_dir,
+        key,
+        &ticket.user_id,
+        &context.binding.root_id,
+        &storage.epoch,
+      ),
+      _ => Err(ClosingError::Mismatch),
+    };
+    // applied marker の後に archive 中で落ちた場合、移動済み project の旧 namespace を
+    // recover で作り直すと archive の宛先と衝突する。作業コピーはすでに確定済みなので再回復しない。
+    let already_applied = pending
+      .as_ref()
+      .ok()
+      .and_then(|intent| intent.as_ref())
+      .and_then(|intent| {
+        context
+          .binding
+          .account_key
+          .as_deref()
+          .and_then(|key| snapshot_applied(&self.data_dir, key, &intent.identity).ok())
+      })
+      .unwrap_or(false);
+    let recovered = if already_applied {
+      true
+    } else {
+      let saver = context.saver.clone();
+      let root = context.root.clone();
+      tauri::async_runtime::spawn_blocking(move || {
+        targets_of_root(&root)
+          .iter()
+          .all(|target| saver.recover(target).is_ok())
+      })
+      .await
+      .unwrap_or(false)
+    };
     if recovered {
       if let (Some(key), Ok(epoch)) = (context.binding.account_key.as_deref(), storage.epoch.parse::<u64>()) {
-        if archive_account_root(&self.data_dir, key, &context.binding.root_id, epoch).is_ok() {
-          let _ = bind_root(&self.data_dir, &context.binding.root_id, None);
+        let applied = match pending.as_ref() {
+          Ok(Some(intent)) => apply_committed_snapshot(
+            &self.data_dir,
+            key,
+            &context.binding.root_id,
+            &context.root,
+            self.device(),
+            &intent,
+          )
+          .is_ok(),
+          Ok(None) => true, // 別の Mac が確定した場合。旧 outbox は archive に残す。
+          Err(_) => false,
+        };
+        if applied {
+          if archive_account_root(&self.data_dir, key, &context.binding.root_id, epoch).is_ok()
+            && bind_root(&self.data_dir, &context.binding.root_id, None).is_ok()
+          {
+            if let Ok(Some(intent)) = pending.as_ref() {
+              let _ = cleanup_close_stage(&self.data_dir, key, &intent.identity);
+            }
+          }
+        } else {
+          // staging の1件でも欠ければ root を切り離さない。次の status 更新で同じ attempt から再開する。
+          *lock(&self.storage) = None;
         }
       }
     }
@@ -4323,6 +4839,46 @@ pub async fn cloud_storage_reopen(state: State<'_, AppState>, cloud: State<'_, C
     ));
   }
   cloud.inner.reopen_local_storage().await
+}
+
+#[tauri::command]
+pub async fn cloud_storage_closing_preview(cloud: State<'_, Cloud>) -> CommandResult<ClosingPreview> {
+  cloud.inner.closing_preview().await
+}
+
+#[tauri::command]
+pub async fn cloud_storage_closing_prepare(
+  state: State<'_, AppState>,
+  cloud: State<'_, Cloud>,
+) -> CommandResult<PreparedClosing> {
+  let busy = {
+    let run_locks = state
+      .run_locks
+      .lock()
+      .map_err(|_| CommandError::new("run_lock", "実行状態を確認できませんでした。"))?;
+    crate::busy_running(&state, &run_locks)?
+  };
+  if busy {
+    return Err(CommandError::new(
+      "vault_busy",
+      "実行が終わってから保存先を切り替えてください。",
+    ));
+  }
+  cloud.inner.prepare_closing().await
+}
+
+#[tauri::command]
+pub async fn cloud_storage_closing_confirm(
+  cloud: State<'_, Cloud>,
+  prepared: PreparedClosing,
+) -> CommandResult<CloudState> {
+  cloud.inner.confirm_closing(prepared).await
+}
+
+#[tauri::command]
+pub async fn cloud_storage_closing_cancel(cloud: State<'_, Cloud>) -> CommandResult<()> {
+  cloud.inner.closing_cancel_requested.store(true, Ordering::SeqCst);
+  Ok(())
 }
 
 /// 保存先を NIHO クラウドにする（別のアカウントの保存先をこのアカウントで使う `rebind` のとき。保存先は NIHO クラウドだけで、
