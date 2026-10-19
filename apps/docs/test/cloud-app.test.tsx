@@ -469,6 +469,17 @@ describe("設定の保存先のクラウド", () => {
     expect(rowOf(container, "保存先")?.querySelector("button")).toBeNull();
   });
 
+  it("すでに受信中なら新規切替の入口が無効でも再開できる", async () => {
+    const bridge = new FakeBridge();
+    bridge.cloud = activeCloud({ storage: { mode: "CLOSING", epoch: "5", changedAt: null,
+      cleanupPending: false, quotaBytes: 5 * 1024 ** 3,
+      closing: { deviceName: "テストの Mac", expiresAt: "2026-10-20T00:00:00.000Z" } } });
+    screen = await renderApp(bridge, account(signedIn()).transport);
+    const { container } = screen;
+    await click(button(container, "設定"));
+    expect(button(rowOf(container, "保存先")!, "受信を再開")).toBeTruthy();
+  });
+
   it("移行は確かめずに始まり（Mac 側）、進み・中断・再開・上げられなかったページとフォルダを出す", async () => {
     const bridge = new FakeBridge();
     await bridge.createProject(pagedProject("朝市"), null, null, []);
