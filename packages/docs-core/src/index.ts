@@ -41,3 +41,4 @@ export * from "./candidates.js";
 export * from "./speech-result.js";
 export * from "./auto-version.js";
 export * from "./page-sharing.js";
+export * from "./storage-words.js";
