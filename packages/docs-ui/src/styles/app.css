@@ -2564,17 +2564,6 @@
   align-self: flex-start;
   padding: 6px 8px;
 }
-:where([data-docs-app-root]):where([data-docs-shared-ui]) .rules {
-  white-space: pre-wrap;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--niho-text-sub);
-  background: var(--docs-inset);
-  border: 1px solid var(--docs-line);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-
 /* ===== 設定 ===== */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .prow {
   display: grid;
@@ -2758,6 +2747,22 @@
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .model-cell {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .model-select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .effort-select {
+  flex: 0 0 68px;
+  width: 68px;
+}
+@media (max-width: 640px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .model-cell { flex-wrap: wrap; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .model-select { flex-basis: 100%; }
 }
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .pr + .pr:not(.hd) {
   border-top: 1px solid var(--docs-line);

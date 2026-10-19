@@ -4,7 +4,6 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSPrope
 import {
   BUILT_IN_PROFILE_IDS,
   EFFORTS,
-  FIXED_RULES,
   LANGUAGES,
   MAC_CONTINUATION_PLACE_OPTIONS,
   PROVIDER_IDS,
@@ -579,9 +578,9 @@ function ModelCell(props: {
   const effort = value?.effort ?? "high";
   const where = `${profile.name}・${providerLabel(provider)}`;
   return (
-    <span className="cell">
+    <span className="cell model-cell">
       <select
-        className="sel sm"
+        className="sel sm model-select"
         aria-label={`${where}のモデル`}
         value={model}
         onChange={(event) => props.onChange(provider, event.target.value, fitEffort(provider, event.target.value, effort))}
@@ -596,7 +595,7 @@ function ModelCell(props: {
         )}
       </select>
       <select
-        className="sel sm"
+        className="sel sm effort-select"
         aria-label={`${where}の思考量`}
         value={effort}
         onChange={(event) => props.onChange(provider, model, event.target.value as Effort)}
@@ -1424,15 +1423,6 @@ export function Settings(props: {
               <span className="num">{usage.speech.runs > 0 ? formatDuration(usage.speech.audioSec * 1000) : "—"}</span>
               <span className="num">{usageValue(usage.speech, apiMode ? "cost" : "duration")}</span>
             </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="ch">
-            <h2>固定の決まり</h2>
-          </div>
-          <div className="cb">
-            <div className="rules">{FIXED_RULES}</div>
           </div>
         </div>
       </div>

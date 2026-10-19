@@ -2,7 +2,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { act } from "react";
 import {
-  FIXED_RULES,
   FLOW_TEMPLATES,
   ROOT_RECORDING_ID,
   SOURCE_STEP_ID,
@@ -1299,7 +1298,8 @@ describe("工程設計と設定", () => {
     const claudeUsage = [...container.querySelectorAll(".urow")].find((row) => row.querySelector("b")?.textContent === "Claude");
     expect(claudeUsage?.textContent).toContain("2 回");
     expect(claudeUsage?.textContent).toContain("取得できません");
-    expect(container.querySelector(".rules")?.textContent).toBe(FIXED_RULES);
+    expect(container.textContent).not.toContain("固定の決まり");
+    expect(container.querySelector(".rules")).toBeNull();
     // 方式の 1 択（今はサブスクリプション。API キーの行・Deepgram は出ない）
     expect(container.querySelector('[aria-label="接続の方式"] button[aria-pressed="true"]')?.textContent).toBe("サブスクリプション");
     expect(container.textContent).not.toContain("API キーで使います");

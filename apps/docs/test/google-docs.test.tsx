@@ -91,6 +91,23 @@ async function connectedDoc() {
 }
 
 describe("Google ドキュメント接続", () => {
+  it("接続済みなら確認ボタンを出さず、再確認に失敗したときだけ再確認を出す", async () => {
+    const { bridge, container } = await connectedDoc();
+    await click(button(container, "設定"));
+    const card = container.querySelector<HTMLElement>(".google-docs-card")!;
+    expect(card.textContent).toContain("taro@example.com に新しい Google ドキュメントを作成します。");
+    expect([...card.querySelectorAll("button")].map((item) => item.textContent?.trim())).toEqual(["解除"]);
+
+    const readConnection = bridge.docsDriveConnection.bind(bridge);
+    bridge.docsDriveConnection = async () => { throw new Error("接続を確認できませんでした"); };
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(button(card, "再確認")).toBeTruthy();
+
+    bridge.docsDriveConnection = readConnection;
+    await click(button(card, "再確認"));
+    expect([...card.querySelectorAll("button")].map((item) => item.textContent?.trim())).toEqual(["解除"]);
+  });
+
   it("未ログインではAPIを呼ばず、ログイン後は接続を読み、ブラウザから戻ったfocusで確認する", async () => {
     const bridge = new FakeBridge();
     const account = new FakeAccount({ kind: "signedOut" });

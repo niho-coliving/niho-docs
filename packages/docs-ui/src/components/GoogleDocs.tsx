@@ -23,7 +23,7 @@ export function GoogleDocsConnectionCard(props: { googleDocs: GoogleDocsControll
               ) : googleDocs.connectionLoading && !googleDocs.connection ? (
                 <p className="help">接続を確認しています…</p>
               ) : connected ? (
-                <p className="help"><b>{googleDocs.connection?.connectedEmail}</b> に新しいGoogle ドキュメントを作成します。</p>
+                <p className="help"><b>{googleDocs.connection?.connectedEmail}</b> に新しい Google ドキュメントを作成します。</p>
               ) : needsReconnect ? (
                 <p className="help">Google への接続が切れています。もう一度接続してください。</p>
               ) : (
@@ -34,9 +34,11 @@ export function GoogleDocsConnectionCard(props: { googleDocs: GoogleDocsControll
               <div className="google-docs-actions">
                 {connected ? (
                   <>
-                    <button type="button" className="btn outline sm" disabled={actionBusy || googleDocs.connectionLoading} onClick={() => void googleDocs.refreshConnection()}>
-                      確認
-                    </button>
+                    {googleDocs.connectionError && (
+                      <button type="button" className="btn outline sm" disabled={actionBusy || googleDocs.connectionLoading} onClick={() => void googleDocs.refreshConnection()}>
+                        再確認
+                      </button>
+                    )}
                     <button type="button" className="btn ghost sm" disabled={actionBusy} onClick={() => setConfirmDisconnect(true)}>
                       解除
                     </button>
