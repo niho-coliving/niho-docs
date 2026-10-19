@@ -3,12 +3,13 @@
 //! 任意 URL / method の proxy は公開しない。NIHO の ID token と書き出す本文は Rust の中だけで扱い、
 //! Google の認可 URL・接続の公開状態・書き出し結果だけを WebView へ返す。
 
+use crate::cloud::{Cloud, LocalFolderExportSnapshot};
 use crate::CommandError;
 use niho_desktop_account::http::{HttpClient, HttpErrorKind, HttpMethod, HttpRequest, HttpResponse, ReqwestClient};
 use niho_desktop_account::{service::Profile, tauri::AccountHandle, Environment};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
 use tauri::State;
 use url::Url;
@@ -515,7 +516,7 @@ fn folder_project_id_is_valid(value: &str) -> bool {
       .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
 }
 
-/// 書き出しの木の key（`context`・`doc:<pageId>`・`rec:<pageId>`・`step:<pageId>:<stepId>`・`cand:…`）。
+/// 書き出しのページの key（従来の録音・候補の木と工程・独自ページの一覧の両方）。
 fn folder_node_key_is_valid(value: &str) -> bool {
   (1..=200).contains(&value.len())
     && value
@@ -788,7 +789,7 @@ fn parse_folder_node(value: &Value, known: &HashSet<String>) -> Result<FolderExp
     .get("title")
     .and_then(Value::as_str)
     .ok_or_else(invalid_folder_plan)?;
-  // 親の行は子の行より前に来る（並びのまま字下げするため）
+  // 従来 API の子は親より後に並ぶ。新しい API はすべてルートに並べる。
   let parent_key = match object.get("parentKey") {
     Some(Value::Null) => None,
     Some(Value::String(parent)) if known.contains(parent) => Some(parent.clone()),
@@ -953,6 +954,216 @@ fn folder_export_id(export_id: &str) -> Result<(), CommandError> {
   } else {
     Err(invalid_folder_request("書き出しを始めからやり直してください。"))
   }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalFolderExportFile {
+  path: String,
+  sha256: String,
+  bytes: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalFolderUpload {
+  path: String,
+  status: String,
+  url: Option<String>,
+  #[serde(default)]
+  headers: BTreeMap<String, String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalFolderUploadReply {
+  export_id: String,
+  uploads: Vec<LocalFolderUpload>,
+}
+
+fn local_folder_content_type(path: &str) -> Option<&'static str> {
+  if path.ends_with(".json") {
+    Some("application/json")
+  } else if path.ends_with(".md") {
+    Some("text/markdown")
+  } else if path.ends_with(".png") {
+    Some("image/png")
+  } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+    Some("image/jpeg")
+  } else if path.ends_with(".gif") {
+    Some("image/gif")
+  } else if path.ends_with(".webp") {
+    Some("image/webp")
+  } else {
+    None
+  }
+}
+
+/// 署名 URL は API の応答でも再検証する。WebView から URL を受け取る口は作らない。
+fn local_folder_upload_url(raw: &str) -> Result<Url, CommandError> {
+  let url = Url::parse(raw).map_err(|_| invalid_folder_response())?;
+  let host = url.host_str().unwrap_or("");
+  if url.scheme() != "https"
+    || url.port_or_known_default() != Some(443)
+    || !(host == "storage.googleapis.com" || host.ends_with(".storage.googleapis.com"))
+    || !url.username().is_empty()
+    || url.password().is_some()
+    || url.fragment().is_some()
+  {
+    return Err(invalid_folder_response());
+  }
+  Ok(url)
+}
+
+#[tauri::command]
+pub async fn docs_drive_folder_export_local_snapshot(
+  cloud: State<'_, Cloud>,
+  project_id: String,
+) -> Result<LocalFolderExportSnapshot, CommandError> {
+  cloud.local_folder_export_snapshot(&project_id)
+}
+
+#[tauri::command]
+pub async fn docs_drive_folder_export_local_plan(
+  handle: State<'_, AccountHandle>,
+  project_id: String,
+) -> Result<FolderExportPlan, CommandError> {
+  if !folder_project_id_is_valid(&project_id) {
+    return Err(invalid_folder_request("フォルダを開き直してください。"));
+  }
+  let response = call(
+    &handle,
+    &client()?,
+    HttpMethod::Get,
+    "me/docs-drive/folder-exports/plan-local",
+    &[("projectId", &project_id)],
+    None,
+    false,
+  )
+  .await?;
+  parse_folder_plan(response, &project_id)
+}
+
+#[tauri::command]
+pub async fn docs_drive_folder_export_local(
+  handle: State<'_, AccountHandle>,
+  cloud: State<'_, Cloud>,
+  request_data: FolderExportRequest,
+  generation: u64,
+  files: Vec<LocalFolderExportFile>,
+) -> Result<FolderExportStatus, CommandError> {
+  let mut body = folder_export_body(&request_data)?;
+  if files.is_empty() || files.len() > 1000 || !files.iter().any(|file| file.path == "project.json") {
+    return Err(invalid_folder_request("入れるページを選び直してください。"));
+  }
+  let mut seen = HashSet::new();
+  let mut total = 0_u64;
+  let mut manifest = Vec::with_capacity(files.len());
+  for file in &files {
+    let content_type = local_folder_content_type(&file.path).ok_or_else(invalid_folder_response)?;
+    if !seen.insert(file.path.as_str())
+      || file.bytes > 50 * 1024 * 1024
+      || file.sha256.len() != 64
+      || !file.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+      return Err(invalid_folder_request("入れるページを選び直してください。"));
+    }
+    total = total.saturating_add(file.bytes);
+    manifest.push(json!({ "path": file.path, "sha256": file.sha256, "bytes": file.bytes,
+      "contentType": content_type }));
+  }
+  if total > 500 * 1024 * 1024 {
+    return Err(invalid_folder_request("書き出す内容が大きすぎます。"));
+  }
+  // 準備の前に、手元の保存先・本人・全ファイルの確定 hash を再検証する。
+  for file in &files {
+    let _ = cloud.local_folder_export_file(
+      &request_data.project_id,
+      generation,
+      &file.path,
+      &file.sha256,
+      file.bytes,
+    )?;
+  }
+  let client = client()?;
+  let prepare = json!({ "source": "upload", "exportId": request_data.export_id,
+    "projectId": request_data.project_id, "files": manifest });
+  let response = call(
+    &handle,
+    &client,
+    HttpMethod::Post,
+    "me/docs-drive/folder-exports/uploads",
+    &[],
+    Some(&prepare),
+    false,
+  )
+  .await?;
+  if response.status != 200 {
+    return Err(folder_api_error(&response));
+  }
+  let reply: LocalFolderUploadReply = serde_json::from_slice(&response.body).map_err(|_| invalid_folder_response())?;
+  if reply.export_id != request_data.export_id || reply.uploads.len() != files.len() {
+    return Err(invalid_folder_response());
+  }
+  let transfer = reqwest::Client::builder()
+    .redirect(reqwest::redirect::Policy::none())
+    .timeout(Duration::from_secs(180))
+    .build()
+    .map_err(|_| invalid_folder_response())?;
+  let mut received = HashSet::new();
+  for upload in reply.uploads {
+    let file = files
+      .iter()
+      .find(|file| file.path == upload.path)
+      .ok_or_else(invalid_folder_response)?;
+    if !received.insert(upload.path.clone()) {
+      return Err(invalid_folder_response());
+    }
+    if upload.status == "present" {
+      continue;
+    }
+    if upload.status != "upload" {
+      return Err(invalid_folder_response());
+    }
+    let url = local_folder_upload_url(upload.url.as_deref().ok_or_else(invalid_folder_response)?)?;
+    let bytes = cloud.local_folder_export_file(
+      &request_data.project_id,
+      generation,
+      &file.path,
+      &file.sha256,
+      file.bytes,
+    )?;
+    let content_type = local_folder_content_type(&file.path).ok_or_else(invalid_folder_response)?;
+    let mut put = transfer
+      .put(url)
+      .header(reqwest::header::CONTENT_TYPE, content_type)
+      .body(bytes);
+    for (name, value) in &upload.headers {
+      let lower = name.to_ascii_lowercase();
+      if lower == "content-type" && value == content_type {
+        continue;
+      }
+      if !lower.starts_with("x-goog-") {
+        return Err(invalid_folder_response());
+      }
+      put = put.header(name.as_str(), value.as_str());
+    }
+    let result = put
+      .send()
+      .await
+      .map_err(|_| transport_error(HttpErrorKind::Network, false))?;
+    if !result.status().is_success() {
+      return Err(error(
+        "network",
+        "一時ファイルを送れませんでした。もう一度お試しください。",
+      ));
+    }
+  }
+  body["source"] = json!("upload");
+  // start は generation/hash をサーバーでも照合する。同じ ID の再試行は同じ manifest だけ。
+  let path = format!("me/docs-drive/folder-exports/{}/start", request_data.export_id);
+  let response = call(&handle, &client, HttpMethod::Post, &path, &[], Some(&body), true).await?;
+  parse_folder_status_response(response, &request_data.export_id)
 }
 
 #[tauri::command]
@@ -1227,7 +1438,7 @@ mod tests {
       "projectId": "proj_0001",
       "revision": 3,
       "title": "  鎌倉の朝市  ",
-      "include": ["doc:memo", "rec:rec1", "step:rec1:fix"],
+      "include": ["step:rec1:fix", "doc:memo"],
       "timestamps": false,
     });
     for (key, value) in fields.as_object().unwrap() {
@@ -1244,12 +1455,24 @@ mod tests {
       "title": "鎌倉の朝市",
       "nodes": [
         { "key": "context", "kind": "context", "title": "背景情報", "parentKey": null, "chars": 120, "defaultSelected": false },
-        { "key": "rec:rec1", "kind": "recording", "title": "朝市の録音", "parentKey": null, "chars": 80, "defaultSelected": true },
-        { "key": "step:rec1:fix", "kind": "step", "title": "修正版", "parentKey": "rec:rec1", "chars": 25400, "charsWithoutTimestamps": 21000, "defaultSelected": true }
+        { "key": "step:rec1:fix", "kind": "step", "title": "修正版", "parentKey": null, "chars": 25400, "charsWithoutTimestamps": 21000, "defaultSelected": true },
+        { "key": "doc:memo", "kind": "document", "title": "取材メモ", "parentKey": null, "chars": 8, "defaultSelected": true }
       ],
       "limits": { "maxTabs": 100, "maxChars": 1000000 },
       "latest": null,
     })
+  }
+
+  #[test]
+  fn folder_plan_accepts_existing_cloud_tree_during_api_transition() {
+    let mut value = folder_plan_value();
+    value["nodes"] = json!([
+      { "key": "context", "kind": "context", "title": "背景情報", "parentKey": null, "chars": 120, "defaultSelected": false },
+      { "key": "rec:rec1", "kind": "recording", "title": "朝市の録音", "parentKey": null, "chars": 80, "defaultSelected": true },
+      { "key": "cand:rec1:fix:v1", "kind": "candidate", "title": "修正版", "parentKey": "rec:rec1", "chars": 200, "defaultSelected": true }
+    ]);
+    let plan = parse_folder_plan(response(200, value), "proj_0001").unwrap();
+    assert_eq!(plan.nodes[2].parent_key.as_deref(), Some("rec:rec1"));
   }
 
   #[test]
@@ -1259,7 +1482,7 @@ mod tests {
       body,
       json!({
         "exportId": FOLDER_EXPORT_ID, "projectId": "proj_0001", "revision": 3, "title": "鎌倉の朝市",
-        "include": ["doc:memo", "rec:rec1", "step:rec1:fix"], "timestamps": false,
+        "include": ["step:rec1:fix", "doc:memo"], "timestamps": false,
       })
     );
     let rejected = [
@@ -1312,8 +1535,8 @@ mod tests {
     };
     assert_eq!(plan.revision, 3);
     assert_eq!(plan.nodes.len(), 3);
-    assert_eq!(plan.nodes[2].parent_key.as_deref(), Some("rec:rec1"));
-    assert_eq!(plan.nodes[2].chars_without_timestamps, Some(21000));
+    assert_eq!(plan.nodes[2].parent_key, None);
+    assert_eq!(plan.nodes[1].chars_without_timestamps, Some(21000));
     assert_eq!(plan.nodes[0].chars_without_timestamps, None);
     assert_eq!(
       plan.limits,

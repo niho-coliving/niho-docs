@@ -28,7 +28,11 @@ function channel<T>(handler: (value: T) => void): Channel<T> {
 }
 
 export const tauriBridge: Bridge = {
-  capabilities: MAC_DOCS_CAPABILITIES,
+  capabilities: Object.freeze({
+    ...MAC_DOCS_CAPABILITIES,
+    // 公開クライアントの実装を先に検証する。非公開 API の受付・配備が終わるまで LOCAL の入口を出さない。
+    localFolderExport: import.meta.env.VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT === "true",
+  }),
   audioSourceUrl: (path) => convertFileSrc(path),
   explicitMediaLoad: true,
   importSampleUrl: (flowId, url) => importSampleUrl(tauriBridge, flowId, url),
@@ -213,6 +217,10 @@ export const tauriBridge: Bridge = {
   docsDriveExportStatus: (exportId) => invoke("docs_drive_export_status", { exportId }),
   docsDriveOpenDocument: (documentId) => invoke("docs_drive_open_document", { documentId }),
   docsDriveFolderExportPlan: (projectId) => invoke("docs_drive_folder_export_plan", { projectId }),
+  docsDriveFolderExportLocalPlan: (projectId) => invoke("docs_drive_folder_export_local_plan", { projectId }),
+  docsDriveFolderExportLocalSnapshot: (projectId) => invoke("docs_drive_folder_export_local_snapshot", { projectId }),
+  docsDriveFolderExportLocal: (requestData, generation, files) =>
+    invoke("docs_drive_folder_export_local", { requestData, generation, files }),
   docsDriveFolderExport: (requestData) => invoke("docs_drive_folder_export", { requestData }),
   docsDriveFolderExportStatus: (exportId) => invoke("docs_drive_folder_export_status", { exportId }),
   docsDriveFolderExportResume: (exportId) => invoke("docs_drive_folder_export_resume", { exportId }),

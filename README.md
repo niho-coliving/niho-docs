@@ -24,6 +24,10 @@ NIHO が著作権を持つコードに、第三者による利用・改変・再
 
 `packages/desktop-account` のテストのうち、非公開サーバーの登録表をソースとして読む 2 件も元リポジトリに残しています。公開側の端末テストに加え、元リポジトリ側の契約照合を依存切り替え時に維持します。
 
+## LOCAL フォルダの Google ドキュメント書き出し
+
+Mac のクライアント実装は公開側で検証します。既存の CLOUD 書き出し形式も読み取れます。`この Mac だけ` の書き出し入口は既定で非表示です。非公開 API の `/me/docs-drive/folder-exports/plan-local` とアップロード受付を配備・受入したビルドだけ、`VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT=true` を指定して有効にします。選んだファイルは一時的に NIHO API の管理する保存先へ送ります。
+
 ```sh
 npm -C packages/docs-core ci
 npm -C packages/docs-core run check

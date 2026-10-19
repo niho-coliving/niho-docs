@@ -21,6 +21,7 @@ import {
   type FolderExportMeasure,
 } from "./google-docs-folder-export";
 import { googleDocsOwnerKey, type GoogleDocsController } from "./use-google-docs";
+import { buildLocalFolderExportPlan, localFolderExportFiles, type LocalFolderExportPlan } from "./local-google-docs-folder-export";
 
 /**
  * フォルダの書き出し（#18838）の状態。Web（apps/web/app/app/docs/_lib/use-docs-google-folder-export.ts）と同じ振る舞いにする:
@@ -105,6 +106,7 @@ export type GoogleDocsFolderExportController = {
   connectionFailed: boolean;
   /** 開いているフォルダの同期の状態（開いていなければ null）。 */
   sync: FolderExportSyncState | null;
+  local: boolean;
   open: (target: FolderExportTarget & { prepare?: () => Promise<boolean> }) => void;
   close: () => void;
   reload: () => void;
@@ -205,9 +207,12 @@ function statusFields(status: DocsDriveFolderExportStatus, tracked: FolderExport
 function folderExportUnsavedReason(
   state: Pick<GoogleDocsFolderExportState, "target" | "preparing" | "prepareFailed">,
   sync: FolderExportSyncState | null,
+  local = false,
 ): string | null {
   if (state.target && sync === "unavailable") return FOLDER_EXPORT_TEXT.notInCloud;
-  if (!state.target || state.preparing || state.prepareFailed || sync !== "settled") return FOLDER_EXPORT_TEXT.unsaved;
+  if (!state.target || state.preparing || state.prepareFailed || sync !== "settled") {
+    return local ? FOLDER_EXPORT_TEXT.localUnsaved : FOLDER_EXPORT_TEXT.unsaved;
+  }
   return null;
 }
 
@@ -242,6 +247,8 @@ export function useGoogleDocsFolderExport(props: {
   syncState: (projectId: string) => FolderExportSyncState;
   /** そのフォルダの同期の状態を読み直す（反映したあとで解決する）。 */
   refreshSync: (projectId: string) => void | Promise<void>;
+  /** 「この Mac だけ」は Mac の固定 snapshot を使う。 */
+  local: boolean;
   /** タイムスタンプの既定（表示の設定。ダイアログの中で変えても設定は書き換えない）。 */
   defaultTimestamps: boolean;
 }): GoogleDocsFolderExportController {
@@ -260,6 +267,7 @@ export function useGoogleDocsFolderExport(props: {
   const autoChecks = useRef<{ exportId: string; count: number } | null>(null);
   /** 受付の写し（フォルダごとに 1 つ。本人が変わったら捨てる）。 */
   const receiptsRef = useRef(new Map<string, Receipt>());
+  const localPreparedRef = useRef<LocalFolderExportPlan | null>(null);
   /** 「新しく書き出す」でやめた書き出し。開き直しても `latest` から戻さない。 */
   const dismissedRef = useRef(new Set<string>());
   const [resumeAfterConnect, setResumeAfterConnect] = useState(false);
@@ -287,7 +295,8 @@ export function useGoogleDocsFolderExport(props: {
     const connected = () => connectionRef.current?.status === "CONNECTED";
     const unsavedNow = () => {
       const current = stateRef.current;
-      return folderExportUnsavedReason(current, current.target ? latest.current.syncState(current.target.projectId) : null);
+      return folderExportUnsavedReason(current, current.target ? latest.current.syncState(current.target.projectId) : null,
+        latest.current.local);
     };
     const refreshConnection = () => latest.current.googleDocs.refreshConnection();
 
@@ -349,8 +358,13 @@ export function useGoogleDocsFolderExport(props: {
       const before = stateRef.current;
       patch({ planStatus: initial || !before.plan ? "loading" : "reloading", notice: null });
       try {
-        const plan = await bridge.docsDriveFolderExportPlan(projectId);
+        const prepared = latest.current.local
+          ? await Promise.all([bridge.docsDriveFolderExportLocalSnapshot(projectId), bridge.docsDriveFolderExportLocalPlan(projectId)])
+            .then(([snapshot, server]) => buildLocalFolderExportPlan(snapshot, server))
+          : null;
+        const plan = prepared?.plan ?? await bridge.docsDriveFolderExportPlan(projectId);
         if (!mountedRef.current || seq !== planSeq.current || stateRef.current.scope !== scope) return;
+        localPreparedRef.current = prepared;
         const current = stateRef.current;
         const selected = current.plan
           ? reconcileFolderExportSelection(current.plan.nodes, plan.nodes, current.selected)
@@ -429,7 +443,13 @@ export function useGoogleDocsFolderExport(props: {
     const post = async (operation: Operation, tracked: FolderExportTracked, request: DocsDriveFolderExportRequest) => {
       patch({ phase: "sending", busy: "post", error: null, notReceived: false, attempt: stateRef.current.attempt + 1 });
       try {
-        applyStatus(operation, await bridge.docsDriveFolderExport(request));
+        const prepared = localPreparedRef.current;
+        if (latest.current.local && !prepared) throw { code: "folder_changed", message: "" };
+        const result = latest.current.local && prepared
+          ? await bridge.docsDriveFolderExportLocal(request, prepared.snapshot.generation,
+            localFolderExportFiles(prepared, request.include))
+          : await bridge.docsDriveFolderExport(request);
+        applyStatus(operation, result);
       } catch (raw) {
         if (!isCurrent(operation)) return;
         const error = failureOf(raw);
@@ -505,7 +525,7 @@ export function useGoogleDocsFolderExport(props: {
       await run(current.tracked, "lookup");
     };
 
-    /** 開いているフォルダの書きかけを書き残してから、同期の状態を読み直す（書き残せなければ書き出させない）。 */
+    /** 開いているフォルダの書きかけを確定してから、同期状態または LOCAL snapshot を読み直す。 */
     const prepare = (projectId: string, flush: (() => Promise<boolean>) | undefined) => {
       const scope = stateRef.current.scope;
       if (!flush) {
@@ -518,6 +538,9 @@ export function useGoogleDocsFolderExport(props: {
         // 書き残した直後は、同期の状態が書き残す前のまま「済み」に見える。読み直した状態を反映してから書き出せるようにする
         // （先に解除すると、古い状態のまま「書き出す」が有効になり、未同期の編集を含まない旧版を受け付けてしまう）
         await Promise.resolve(latest.current.refreshSync(projectId)).catch(() => undefined);
+        if (!mountedRef.current || stateRef.current.scope !== scope) return;
+        // LOCAL は同期状態が変わらない。flush 前の snapshot を送らないよう、確定後の木を必ず取り直す。
+        if (ok && latest.current.local) await loadPlan({ initial: false });
         if (!mountedRef.current || stateRef.current.scope !== scope) return;
         patch({ preparing: false, prepareFailed: !ok });
       });
@@ -533,6 +556,7 @@ export function useGoogleDocsFolderExport(props: {
         operationRef.current = null;
         planSeq.current += 1;
         autoChecks.current = null;
+        localPreparedRef.current = null;
         current = freshState(scope, null, latest.current.defaultTimestamps);
       }
       current = { ...current, target: { projectId, folderName }, confirmRestart: false };
@@ -683,6 +707,7 @@ export function useGoogleDocsFolderExport(props: {
     planSeq.current += 1;
     autoChecks.current = null;
     receiptsRef.current = new Map();
+    localPreparedRef.current = null;
     dismissedRef.current = new Set();
     const before = stateRef.current;
     // 初めてのログインでは、開こうとしていたフォルダと「設定へ進む」から戻る印を残す（ログインの前は何も受け付けていない）
@@ -701,7 +726,7 @@ export function useGoogleDocsFolderExport(props: {
   const connectedNow = connection?.status === "CONNECTED";
   const exportId = shown.tracked?.exportId ?? null;
   const sync = shown.target ? props.syncState(shown.target.projectId) : null;
-  const unsaved = folderExportUnsavedReason(shown, sync);
+  const unsaved = folderExportUnsavedReason(shown, sync, props.local);
 
   // 接続の変化（useGoogleDocs が確かめ直すたび）を、結果の分からない受付へ当てる
   const previousConnection = useRef<DocsDriveConnection | null>(connection);
@@ -793,5 +818,6 @@ export function useGoogleDocsFolderExport(props: {
     connectionLoading: ownerMatches && googleDocs.connectionLoading,
     connectionFailed: ownerMatches && googleDocs.connectionError !== null,
     sync,
+    local: props.local,
   };
 }
