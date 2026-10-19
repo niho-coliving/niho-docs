@@ -34,7 +34,6 @@ const RESPONSE_MAX_BYTES: usize = 1024 * 1024;
 const LIST_MAX_BYTES: usize = 4 * 1024 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_STEPS: usize = 32;
-const MAX_REFERENCES: usize = 64;
 /// 画面へ返す「結果を確かめていない依頼」の数。
 const MAX_PENDING: usize = 50;
 /// 一覧のために読む記録の数（新しい順）。
@@ -138,13 +137,6 @@ fn input_changed() -> CommandError {
   failure(
     "personal_niho_input_changed",
     "実行を始めた後に録音・工程・参考ページが変わりました。もう一度実行してください。",
-  )
-}
-
-fn reference_unavailable() -> CommandError {
-  failure(
-    "personal_niho_reference_unavailable",
-    "参考ページの一部が見つからないため、NIHO API には渡せません。参考ページを確かめてください。",
   )
 }
 
@@ -876,6 +868,14 @@ fn prepare(op: &PersonalOperation, head: &Map<String, Value>) -> CommandResult<C
     return Err(input_changed());
   }
   let synced = |path: &str| synced_file(&vault, &target.working_copy, path);
+  // 参考文書の本文は API 側がフォルダ台帳から導出する。送信前に同じ台帳の文書がすべて同期済みか確認し、
+  // 手元に届いていない変更やまだ送っていない変更を API が古い本文で処理しないようにする。
+  for reference in store
+    .personal_references(project_id, &rec)
+    .map_err(|_| input_changed())?
+  {
+    synced(&reference.path)?;
+  }
   let prefix = rec.prefix.as_str();
   let (project_file, _) = synced(if project_id.is_some() {
     "project.json"
@@ -916,14 +916,6 @@ fn prepare(op: &PersonalOperation, head: &Map<String, Value>) -> CommandResult<C
     .get("models")
     .and_then(Value::as_object)
     .ok_or_else(input_changed)?;
-  let refs = match recording.get("refs") {
-    None | Some(Value::Null) => Vec::new(),
-    Some(Value::Array(items)) => items
-      .iter()
-      .map(|item| item.as_str().ok_or_else(input_changed))
-      .collect::<CommandResult<Vec<&str>>>()?,
-    Some(_) => return Err(input_changed()),
-  };
   let input = head
     .get("input")
     .and_then(Value::as_object)
@@ -1006,48 +998,8 @@ fn prepare(op: &PersonalOperation, head: &Map<String, Value>) -> CommandResult<C
     });
   }
 
-  // 参考ページ: 録音の refs と同じ数・同じ順（台帳の文書だけ）。本文のあるページは固定入力と同じ中身（本文の空のページは
-  // 固定入力に入らない〔read_material と同じ〕が、API へは refs の数だけ渡す）
-  if refs.len() > MAX_REFERENCES {
-    return Err(too_large());
-  }
-  let ledger: Vec<String> = store
-    .personal_references(project_id, &rec)
-    .map_err(|_| reference_unavailable())?
-    .into_iter()
-    .map(|reference| reference.page_id)
-    .collect();
-  if ledger.len() != refs.len() || ledger.iter().zip(&refs).any(|(known, page)| known != page) {
-    return Err(reference_unavailable());
-  }
-  let fixed_refs = input
-    .get("referencePages")
-    .and_then(Value::as_array)
-    .ok_or_else(snapshot_invalid)?;
-  let mut fixed_refs = fixed_refs.iter();
-  let mut references = Vec::with_capacity(refs.len());
-  for page_id in &refs {
-    crate::safe_id(page_id).map_err(|_| reference_unavailable())?;
-    let path = format!("pages/{page_id}.md");
-    let (file, bytes) = synced(&path)?;
-    let body = String::from_utf8(bytes).map_err(|_| input_changed())?;
-    if !body.trim().is_empty() {
-      let Some(entry) = fixed_refs.next() else {
-        return Err(input_changed());
-      };
-      let same = entry.get("pageId").and_then(Value::as_str) == Some(*page_id)
-        && entry.get("path").and_then(Value::as_str) == Some(path.as_str())
-        && entry.get("sha256").and_then(Value::as_str) == Some(file.sha256.as_str())
-        && entry.get("bytes").and_then(Value::as_u64) == Some(file.bytes);
-      if !same {
-        return Err(input_changed());
-      }
-    }
-    references.push(file);
-  }
-  if fixed_refs.next().is_some() {
-    return Err(input_changed());
-  }
+  // 参考は API が受付時のフォルダ台帳から導出して固定する。legacy recording.refs や捕捉済み client 値は送らない。
+  let references = Vec::new();
 
   let consent_version = head
     .get("consentVersion")

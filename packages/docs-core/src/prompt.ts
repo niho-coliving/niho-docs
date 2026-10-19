@@ -17,7 +17,7 @@ export type PromptMaterials = {
   /** source の版に保存された話者名対応。AIへ渡す本文から対応済みラベルも外す。 */
   transcriptSpeakerNames?: Readonly<Record<string, string>>;
   artifacts: Readonly<Record<string, string | undefined>>;
-  /** 参考ページ（録音のページで選んだ文書。付けた順。本文が空の文書は入力に入れない）。 */
+  /** 参考ページ（同じフォルダから自動で固定した独立文書。台帳順。本文が空の文書は入力に入れない）。 */
   refs: readonly PromptRef[];
   /** 背景情報（録音の話者人数・言語 ＋ フォルダの登場人物・固有名詞・背景）。 */
   info: RecordingInfo;

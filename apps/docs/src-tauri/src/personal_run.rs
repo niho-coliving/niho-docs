@@ -45,6 +45,7 @@ const MAX_CANDIDATE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PRIVATE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_AGGREGATE_BYTES: usize = 1024 * 1024;
 const MAX_RECORD_BYTES: usize = 256 * 1024;
+const MAX_REFERENCE_PAGES: usize = 64;
 /// JS の Number で正確に表せる整数の上限（canonical の数値表記を JS と合わせるため、超える整数は断る）。
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 const ID_ALPHABET: &[u8] = b"abcdefghijkmnpqrstuvwxyz23456789";
@@ -1925,8 +1926,13 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
       }
     }
   }
+  // 文字起こしだけの実行には AI 工程の参考文書を読まず、参考文書の上限も適用しない。
+  let references = if selected.is_empty() {
+    Vec::new()
+  } else {
+    store.personal_references(project_id, &rec)?
+  };
   // 参考ページ（本文が空の文書は入力に入れない。runner の usedRefs と同じ）
-  let references = store.personal_references(project_id, &rec)?;
   let mut reference_pages = Vec::new();
   let mut reference_titles = Vec::new();
   for reference in references
@@ -1942,6 +1948,12 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
       "content": reference.body,
       "expectedSha256": sha,
     }));
+  }
+  if reference_pages.len() > MAX_REFERENCE_PAGES {
+    return Err(failure(
+      "personal_references_too_many",
+      "同じフォルダの文書が64件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。",
+    ));
   }
   let mut expected = Map::new();
   for step_id in &selected {

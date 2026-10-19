@@ -8,6 +8,8 @@ import {
   pageTitle,
   planProject,
   projectPages,
+  recordingAutoReferencePages,
+  RECORDING_AUTO_REFERENCE_MAX,
   projectWithRootRecording,
   recordingInfo,
   recordingOf,
@@ -32,8 +34,8 @@ import type { Bridge, LoadedPages, LoadedProject, LoadedRecording, ProjectId, Re
 /**
  * 録音の見え方（工程ごとの成果物・済・stale・版）。録音は常に自分の flowSnapshot（作成時のフロー＋解決済みのモデル）を使う。
  * 工程設計でフローを直しても既存の録音へは自動で反映しない（録音のページの「この録音の工程を今の設計に更新」で snapshot を
- * 作り直す。docs-core の recordingWithCurrentFlow）。案件名・固有名詞・背景情報は案件（project.json）、話者人数・言語・参考は
- * 録音（P3 #18566）のもの。工程の入力には参考の文書の本文を足す（materials.refs）。
+ * 作り直す。docs-core の recordingWithCurrentFlow）。案件名・固有名詞・背景情報は案件（project.json）、話者人数・言語は録音
+ * （P3 #18566）のもの。工程の入力には同じフォルダの独立文書を自動で足す（materials.refs）。
  */
 
 const NO_RECORDING = { code: "store_no_recording", message: "録音のページが見つかりません。" };
@@ -64,6 +66,8 @@ export type RecordingView = {
   materials: PromptMaterials;
   /** 今の文書が版になっていない工程（自動保存した書きかけ。版は編集のまとまりごとに自動で残す・#18912）。 */
   unversioned: string[];
+  /** 参考文書が実行上限を超えている場合、録音画面は開いたまま AI 工程だけを止める。 */
+  executionBlockReason: string | null;
   /** 写しがこの Mac に無い音声の file（クラウドから取得中・期限切れ）。 */
   missingInputs: string[];
 };
@@ -113,7 +117,7 @@ export function runsOf(runs: readonly RunRecord[], stepId: string, candidate: Ar
 
 /**
  * 録音の値（root は project.json から、ほかは recording.json を docs-core の recordingOf で読み替える。P1 の録音の話者人数・
- * 言語は案件の info、参考は文書のページだけ）。無ければ録音が見つからない。
+ * 言語は案件の info）。無ければ録音が見つからない。
  */
 export function viewRecording(project: Project, entry: Pick<PageEntry, "id" | "recordingId">, stored: RecordingFile | null): Recording {
   const id = entry.recordingId ?? entry.id;
@@ -128,13 +132,12 @@ export async function readRefBodies(bridge: Bridge, projectId: ProjectId, refs: 
   return Object.fromEntries(refs.map((pageId, index) => [pageId, bodies[index] ?? ""]));
 }
 
-/** 工程の入力の参考ページ（付けた順。タイトルは画面の名前、本文が空の文書は入れない）。 */
-function promptRefs(project: Project, recording: Recording, bodies: Readonly<Record<string, string>>): PromptRef[] {
-  const pages = projectPages(project);
-  return recording.refs.flatMap((pageId) => {
-    const page = pages.find((candidate) => candidate.id === pageId);
+/** 工程の入力の参考ページ（フォルダの台帳順。タイトルは画面の名前、本文が空の文書は入れない）。 */
+function promptRefs(pages: readonly PageEntry[], bodies: Readonly<Record<string, string>>): PromptRef[] {
+  return pages.flatMap((page) => {
+    const pageId = page.id;
     const body = bodies[pageId] ?? "";
-    return page && body.trim() ? [{ pageId, title: pageTitle(page), body }] : [];
+    return body.trim() ? [{ pageId, title: pageTitle(page), body }] : [];
   });
 }
 
@@ -174,7 +177,10 @@ export function buildRecordingView(
       ? transcript
       : artifacts[sourceCandidate.artifactId] ?? "";
   const transcriptSpeakerNames = sourceProblem ? undefined : latestVersionRecord(loaded.runs, SOURCE_STEP_ID, sourceCandidate)?.transcriptSpeakerNames;
-  const refs = frozenRefs ? [...frozenRefs] : promptRefs(project, recording, refBodies);
+  const refs = frozenRefs ? [...frozenRefs] : promptRefs(projectId === null ? [] : recordingAutoReferencePages(project), refBodies);
+  const executionBlockReason = refs.length > RECORDING_AUTO_REFERENCE_MAX
+    ? `同じフォルダの文書が${RECORDING_AUTO_REFERENCE_MAX}件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。`
+    : null;
   const info = recordingInfo(project, recording);
   const plan = planProject({ flow, sourceName, source, ...(transcriptSpeakerNames ? { transcriptSpeakerNames } : {}), artifacts, refs, info, latestBasis });
   const rec = { projectId, recordingId: entry.recordingId ?? entry.id };
@@ -194,6 +200,7 @@ export function buildRecordingView(
     plan,
     materials: { sourceName, source, ...(transcriptSpeakerNames ? { transcriptSpeakerNames } : {}), artifacts, refs, info },
     unversioned: loaded.unversioned ?? [],
+    executionBlockReason,
     missingInputs: loaded.missingInputs ?? [],
   };
 }
@@ -208,8 +215,9 @@ export async function loadRecordingView(
 ): Promise<RecordingView> {
   const rec = { projectId, recordingId: entry.recordingId ?? entry.id };
   const loaded = await bridge.loadRecording(rec);
-  const recording = viewRecording(project, entry, loaded.recording);
-  const bodies = frozenRefs ? {} : await readRefBodies(bridge, projectId, recording.refs);
+  viewRecording(project, entry, loaded.recording);
+  const autoPageIds = projectId === null ? [] : recordingAutoReferencePages(project).map((page) => page.id);
+  const bodies = frozenRefs ? {} : await readRefBodies(bridge, projectId, autoPageIds);
   return buildRecordingView(project, entry, loaded, bodies, projectId, frozenRefs);
 }
 

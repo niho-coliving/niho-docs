@@ -15,7 +15,7 @@ export function useDocumentChat(open: OpenProject | null, pageId: string | null)
     key, projectId: open.id, recordingId: pageId, project: open.project, page, flow,
     recording: { version: 1, id: pageId, createdAt: page.createdAt, flowSnapshot: flow, source: { kind: "text" },
       speakers: "auto", language: "ja", refs: [], moveGeneration: page.moveGeneration ?? 0 },
-    sourceName: "文書", source: "", transcript: "", sourceProblem: null, artifacts: {}, runs: [], unversioned: [], missingInputs: [],
+    sourceName: "文書", source: "", transcript: "", sourceProblem: null, artifacts: {}, runs: [], unversioned: [], executionBlockReason: null, missingInputs: [],
     materials: { sourceName: "文書", source: "", artifacts: {}, refs: [], info },
     plan: planProject({ flow, sourceName: "文書", source: "", artifacts: {}, info, latestBasis: {} }),
   } : null;

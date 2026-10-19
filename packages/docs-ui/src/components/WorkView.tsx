@@ -411,6 +411,7 @@ export function stepRunState(input: StepRunInput) {
         chatBusy: chatBusyHere,
         leaseNote: input.leaseNote ?? null,
         candidateReason: candidateChoiceReason({ recording: view.recording, flow: view.flow, queue: runQueue, fixedStepId }),
+        executionReason: !isSource && view.executionBlockReason ? { reason: view.executionBlockReason, setup: false } : null,
         setupReason: input.setupReasonFor(runQueue, rerunnable || canRun),
       });
   const runBlocked = runningOnRecording || gate !== null || input.saving;
@@ -448,7 +449,8 @@ export function WorkView(props: WorkViewProps) {
   const lastDone = [...view.plan.steps].reverse().find((step) => step.done);
   // 別の工程で実行を押せない理由（入力欄の「＋ → 工程を実行」。1 工程ずつ見る）
   const stepRunReason = (id: string): string | null =>
-    candidateChoiceReason({ recording: view.recording, flow: view.flow, queue: [id], fixedStepId }) ?? props.setupReasonFor([id], true);
+    candidateChoiceReason({ recording: view.recording, flow: view.flow, queue: [id], fixedStepId }) ??
+    (id === SOURCE_STEP_ID ? null : view.executionBlockReason) ?? props.setupReasonFor([id], true);
   // 実行の帯: 同じ録音の別の工程が動いているときは「止める」、押せないときは理由（準備の不足は設定への導線つき）
   const band =
     runningOnRecording && !runningHere && activeRun ? (
@@ -726,7 +728,7 @@ export function WorkView(props: WorkViewProps) {
             projectRunning={activeRun !== null && activeRun.projectId === view.projectId && !runIsOn(activeRun, view)}
             chat={props.chat}
             loadPartial={props.loadPartial}
-            runBlocked={props.anyRunActive || chatBusyHere || props.saving || Boolean(props.leaseNote)}
+            runBlocked={props.anyRunActive || chatBusyHere || props.saving || Boolean(props.leaseNote) || Boolean(view.executionBlockReason)}
             stepRunReason={stepRunReason}
             saving={props.saving}
             onRunStep={props.onRunStep}

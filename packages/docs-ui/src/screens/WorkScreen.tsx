@@ -196,9 +196,6 @@ export function WorkScreen(props: Props) {
         sourceFlow && (!sameFlowDesign(rv.flow, sourceFlow) || unregistered.length > 0)
           ? { disabled: runningProject, unregistered: unregistered.length > 0, onUpdate: () => setConfirmUpdate(true) }
           : null;
-      const docPages = open.pages
-        .filter((candidate) => candidate.kind === "doc")
-        .map((candidate) => ({ id: candidate.id, title: pageTitle({ ...candidate, title: rawTitle(candidate) }) }));
       // 何をするかはページのボタン、続きをどこで作るかは設定（#18947）。ページには場所の 1 行と、ボタンごとの押せない理由だけを渡す
       const continuation = settings.personalExecution.continuation;
       // 後工程に使う文字起こし（#19108。台帳が無ければ transcript.md）
@@ -245,8 +242,6 @@ export function WorkScreen(props: Props) {
         bridge,
         recording: { active: capture.active, saving: capture.saving, start: () => void capture.start(captureTarget(recordingPage.id)) },
         view: rv,
-        docPages,
-        onOpenPage: (pageId) => void selectPage(pageId),
         activeRun,
         notice,
         blockedReason,

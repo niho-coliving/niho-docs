@@ -853,11 +853,10 @@ fn the_folder_request_is_fixed_once_in_exact_bytes_and_persisted_with_its_key_be
     let body = String::from_utf8(requests[1].body.clone().unwrap()).unwrap();
     let working = h.working_copy(Some("proj1"));
     let expected = format!(
-      r#"{{"baseRevision":7,"recordingPageId":"pg1","recordingId":"rec1","projectFile":{},"recordingFile":{},"audio":[],"sourceVersion":{},"references":[{}],"basis":[],"transcriptionExecutor":null,"generationExecutor":"niho_api","consentVersion":"{CONSENT}","steps":{STEPS},"containerRef":{{"kind":"folder","projectId":"proj1"}}}}"#,
+      r#"{{"baseRevision":7,"recordingPageId":"pg1","recordingId":"rec1","projectFile":{},"recordingFile":{},"audio":[],"sourceVersion":{},"references":[],"basis":[],"transcriptionExecutor":null,"generationExecutor":"niho_api","consentVersion":"{CONSENT}","steps":{STEPS},"containerRef":{{"kind":"folder","projectId":"proj1"}}}}"#,
       file_ref(&working, "project.json"),
       file_ref(&working, "recordings/rec1/recording.json"),
       file_ref(&working, &source_path("rec1")),
-      file_ref(&working, "pages/ref1.md"),
     );
     assert_eq!(body, expected, "Web と同じ欄・同じ順の 1 回だけの bytes");
     assert!(!body.contains("requestId") && !body.contains("priorArtifacts"));
@@ -1208,7 +1207,10 @@ fn unsynced_inputs_are_refused_before_anything_is_sent() {
     for (intent, broken) in cases {
       h.seed(Some("proj1"), broken);
       let (opened, snapshot_sha) = reserved(&h, intent, Some("proj1")).await;
-      let error = submit_with(&h, &opened, intent, &snapshot_sha).await.err().unwrap();
+      let error = submit_with(&h, &opened, intent, &snapshot_sha)
+        .await
+        .err()
+        .unwrap_or_else(|| panic!("{intent}: expected unsynced inputs to be refused"));
       assert_eq!(error.code, "personal_niho_not_synced", "{intent}");
       assert!(!h.intents(&h.key).join(format!("{intent}.niho.json")).exists());
       close(&h.state, &h.cloud, &opened.handle).await.unwrap();
@@ -1254,17 +1256,21 @@ fn the_source_must_be_the_current_transcript_and_no_step_may_be_saved_yet() {
     assert_eq!(error.code, "personal_niho_steps_mismatch");
     close(&h.state, &h.cloud, &opened.handle).await.unwrap();
 
-    // 固定した後に参考ページが変わった（同期も済んだ）
+    // 固定した後に参考ページが変わっても、client の古い本文では止めず API が受付時のフォルダ台帳から固定する
     let (opened, snapshot_sha) = reserved(&h, "intent-ref", Some("proj1")).await;
     fs::write(h.root.join("projects/proj1/pages/ref1.md"), "書き換えた参考").unwrap();
     h.seed(Some("proj1"), |_| {});
-    let error = submit_with(&h, &opened, "intent-ref", &snapshot_sha)
-      .await
-      .err()
-      .unwrap();
-    assert_eq!(error.code, "personal_niho_input_changed");
+    assert_eq!(
+      submit_with(&h, &opened, "intent-ref", &snapshot_sha)
+        .await
+        .unwrap()
+        .status,
+      "accepted"
+    );
+    let body: Value = serde_json::from_slice(h.server.posted().last().unwrap().body.as_deref().unwrap()).unwrap();
+    assert_eq!(body["references"], json!([]));
     close(&h.state, &h.cloud, &opened.handle).await.unwrap();
-    assert_eq!(h.server.count(), 0);
+    assert_eq!(h.server.count(), 3);
   });
 }
 

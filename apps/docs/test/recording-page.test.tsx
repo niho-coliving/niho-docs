@@ -8,7 +8,6 @@ import {
   LANGUAGES,
   NIHO_API_MODEL_SWAP_NOTE,
   RECORDING_FIELD_LABELS,
-  RECORDING_REF_WORDS,
   SOURCE_STEP_ID,
   SPEAKER_MODES,
   countChars,
@@ -16,8 +15,6 @@ import {
   createFlowSnapshot,
   defaultProfiles,
   languageLabel,
-  recordingRefOpenLabel,
-  recordingRefRemoveLabel,
   speakerLabel,
   type Flow,
   type Project,
@@ -27,14 +24,14 @@ import {
 } from "@niho/docs-core";
 import { cursorToEnd, flush, typeText } from "./block-editor-helpers";
 import { button, click, renderApp, selectOption, typeInto, type Screen } from "./dom";
-import { activeCloud, FakeBridge, done } from "./fake-bridge";
+import { activeCloud, FakeBridge, done, recordingView } from "./fake-bridge";
 import { defaultSettings, normalizeSettings, type AppSettings } from "../src/lib/settings";
 import type { PersonalOpenRequest } from "../src/lib/bridge";
 import { addPage, exportFromMenu, newFromMenu, openAudio, openPageMenu, pageMenuButton, pageMenuItems, railChildren, railCurrent, railItem, railPages, rebuild, rebuildItem, seedRun, shownVersion, titleInput, until, seedText } from "./pages";
 
 /**
- * フォルダの音声（背景情報のページの「音声」。#18566 P3・#18914）と成果物の子ページ: props の表（話者人数・言語・参考・工程）
- * 参考ページを工程の入力に・成果物の子ページ（タイトル＋メタ行・上の帯の履歴・書き出し・自動の版）・音声の削除・文書のページの「/」。
+ * フォルダの音声（背景情報のページの「音声」。#18566 P3・#18914）と成果物の子ページ: props の表（話者人数・言語・工程）
+ * 同じフォルダの独立文書を工程の入力に・成果物の子ページ（タイトル＋メタ行・上の帯の履歴・書き出し・自動の版）・音声の削除・文書のページの「/」。
  */
 
 let screen: Screen | null = null;
@@ -574,8 +571,26 @@ describe("録音のページの始め方（何をするかはボタン、どこ�
   });
 });
 
-describe("参考ページを工程の入力に", () => {
-  it("事前メモを参考に付けて工程を実行すると、依頼に「## 参考ページ」と本文が入り、記録に id と字数が残る。成果物は子ページとしてレールと面に並ぶ", async () => {
+describe("同じフォルダの独立文書を工程の入力に", () => {
+  it("参考文書が上限を超えても録音を開けて、実行の理由を表示する", async () => {
+    const bridge = new FakeBridge();
+    const flow = minutesFlow();
+    bridge.flow = flow;
+    const project = await bridge.createProject(pagedProject("文書上限"), null, null, []);
+    for (let index = 0; index < 65; index += 1) {
+      const page = await bridge.createPage(project.id, { kind: "doc", title: `参考 ${index + 1}`, createdAt: "2026-10-16T00:00:00.000Z" });
+      await bridge.writePage(project.id, page.id, `本文 ${index + 1}`);
+    }
+    await textRecording(bridge, project.id, flow, "第1回", "確定した本文");
+    screen = await renderApp(bridge);
+    await openAudio(screen.container, project.name);
+
+    expect(railCurrent(screen.container)).toBe("背景情報");
+    expect(runbar(screen.container).textContent).toContain("同じフォルダの文書が64件を超えているため");
+    expect(button(runbar(screen.container), "続きを作成").disabled).toBe(true);
+  });
+
+  it("事前メモを自動で工程へ入れ、依頼と記録に残す。成果物は子ページとしてレールと面に並ぶ", async () => {
     const bridge = new FakeBridge();
     const flow = minutesFlow();
     bridge.flow = flow;
@@ -588,7 +603,8 @@ describe("参考ページを工程の入力に", () => {
     await addPage(container, "音声");
     const rec = stored.project.pages!.find((page) => page.kind === "rec")!;
     const recording = () => bridge.recording(stored.project.id, rec.id);
-    // 新しい録音: 話者人数は自動・言語は設定の文字起こしの言語・参考は無し・工程は最後に使ったフロー（今は 1 本）
+    expect((await recordingView(bridge, stored.project.id, rec.id)).materials.refs.map((ref) => ref.pageId)).toEqual([memo.id]);
+    // 新しい録音: 話者人数は自動・言語は設定の文字起こしの言語・legacy refs は空・工程は最後に使ったフロー（今は 1 本）
     expect(recording().recording).toMatchObject({ speakers: "auto", language: "ja", refs: [] });
     expect(container.querySelector<HTMLSelectElement>("#rec-speakers")?.value).toBe("auto");
     expect(container.querySelector<HTMLSelectElement>("#rec-language")?.value).toBe("ja");
@@ -600,16 +616,7 @@ describe("参考ページを工程の入力に", () => {
     expect(railCurrent(container)).toBe("背景情報");
     await seedText(bridge, container, "[00:00:05] 最近、任せるのが苦手で。");
 
-    // 参考に事前メモを付ける（その場で保存）
-    const props = container.querySelector<HTMLElement>(".props")!;
-    expect(props.querySelector(".chip")).toBeNull();
-    await click(button(props, "ページ"));
-    await click(button(container.querySelector<HTMLElement>(".addref .pop")!, "事前メモ"));
-    expect(recording().recording.refs).toEqual([memo.id]);
-    expect(props.querySelector(".chip")?.textContent).toBe("事前メモ");
-    expect(props.querySelector(".chip .x")?.getAttribute("aria-label")).toBe("事前メモを外す");
-    // 付けた文書はメニューに出ない（ほかに文書が無ければ「＋ ページ」も出さない）
-    expect(container.querySelector(".addref")).toBeNull();
+    expect(container.querySelector(".props .refs")).toBeNull();
 
     await click(button(container, "続きを作成"));
     await until(() => (recording().versions[flow.steps[1]!.id]?.length ?? 0) === 1);
@@ -647,7 +654,7 @@ describe("参考ページを工程の入力に", () => {
     expect(bodyEditor(container).getText()).toContain("成果物 1");
   });
 
-  it("参考の × で外れ、チップを押すとその文書のページを開く。参考の本文を直すと、参考を使って作ったページの本文の上に 1 行が出る", async () => {
+  it("録音の後に足した独立文書も次の実行へ自動で入り、本文を直すと使ったページに前提変更が出る", async () => {
     const bridge = new FakeBridge();
     const flow = minutesFlow();
     bridge.flow = flow;
@@ -656,11 +663,11 @@ describe("参考ページを工程の入力に", () => {
     const { memo, stored, project } = await coachingProject(bridge);
     const other = await bridge.createPage(project.id, { kind: "doc", title: "前回のふりかえり", createdAt: "2026-10-16T00:00:00.000Z" });
     const recId = await textRecording(bridge, project.id, flow, "第1回", "本文");
-    bridge.recording(project.id, recId).recording.refs = [memo.id, other.id];
+    // 古い手動 refs は空でも、現在のフォルダ台帳から毎回選ぶ。
+    bridge.recording(project.id, recId).recording.refs = [];
     screen = await renderApp(bridge);
     const { container } = screen;
     await openAudio(container);
-    const chips = () => [...container.querySelectorAll(".props .chip")].map((chip) => chip.textContent);
     // 元が変わった知らせは録音から作ったページの本文の上の 1 行（背景情報のページには作ったページの列を置かない。#18914・#18915）
     const stalePages = async () => {
       const names: string[] = [];
@@ -672,8 +679,8 @@ describe("参考ページを工程の入力に", () => {
       await openAudio(container);
       return names;
     };
-    expect(chips()).toEqual(["事前メモ", "前回のふりかえり"]);
-    // 本文の空の文書は工程の入力に入らない（チップには出る）
+    expect(container.querySelector(".props .refs")).toBeNull();
+    // 本文が空の文書は工程の入力に入らない。
     await click(button(container, "続きを作成"));
     await until(() => container.querySelector(".runbar .note")?.textContent?.endsWith("に完了") === true);
     expect(bridge.turnRequests[0]!.user_prompt).toContain("### 事前メモ");
@@ -681,17 +688,8 @@ describe("参考ページを工程の入力に", () => {
     expect(stored.recordings[recId]!.runs.find((run) => run.kind === "run")?.refs).toEqual([{ pageId: memo.id, chars: countChars(MEMO.trim()) }]);
     expect(await stalePages()).toEqual([]);
 
-    // × で外す（その場で保存）
-    await click(container.querySelector('.props button[aria-label="前回のふりかえりを外す"]')!);
-    expect(stored.recordings[recId]!.recording.refs).toEqual([memo.id]);
-    expect(chips()).toEqual(["事前メモ"]);
-    // 外した文書は「＋ ページ」から付け直せる
-    await click(button(container.querySelector<HTMLElement>(".props")!, "ページ"));
-    expect([...container.querySelectorAll(".addref .pop .mi")].map((item) => item.textContent)).toEqual(["前回のふりかえり"]);
-    await click(button(container.querySelector<HTMLElement>(".props")!, "ページ"));
-
-    // チップを押すとその文書のページを開く。本文を直して戻ると、参考を使って作ったページに「参考のページが変わりました。」
-    await click(container.querySelector<HTMLElement>(".props .chip .go")!);
+    // 文書ページを通常のレールから開いて直すと、使ったページに「参考のページが変わりました。」
+    await click(railItem(container, "事前メモ"));
     expect(railCurrent(container)).toBe("事前メモ");
     await act(async () => {
       bodyEditor(container).commands.insertContent("追記");
@@ -703,14 +701,13 @@ describe("参考ページを工程の入力に", () => {
 });
 
 describe("録音の項目は Web と同じ docs-core の言葉（#18903）", () => {
-  it("項目名は 話者人数 → 言語 → 参考 の順、選択肢・参考の押し先・メニュー・チップの文は docs-core のまま", async () => {
+  it("項目名は 話者人数 → 言語 → 工程 の順で、手動の参考欄を出さない", async () => {
     const bridge = new FakeBridge();
     const flow = minutesFlow();
     bridge.flow = flow;
-    const { memo, project } = await coachingProject(bridge);
+    const { project } = await coachingProject(bridge);
     await bridge.createPage(project.id, { kind: "doc", title: "前回のふりかえり", createdAt: "2026-10-16T00:00:00.000Z" });
     const recId = await textRecording(bridge, project.id, flow, "第1回", "本文");
-    bridge.recording(project.id, recId).recording.refs = [memo.id];
     screen = await renderApp(bridge);
     const { container } = screen;
     // 録音の項目は背景情報のページの「音声」にある（録音のページは無い。#18914）
@@ -719,26 +716,15 @@ describe("録音の項目は Web と同じ docs-core の言葉（#18903）", () 
     expect([...props.querySelectorAll(":scope > .k")].map((key) => key.textContent)).toEqual([
       RECORDING_FIELD_LABELS.speakers,
       RECORDING_FIELD_LABELS.language,
-      RECORDING_FIELD_LABELS.refs,
       FLOW_CHOICE_LABEL,
     ]);
     const optionsOf = (id: string) => [...container.querySelectorAll<HTMLOptionElement>(`#${id} option`)].map((option) => option.textContent);
     expect(optionsOf("rec-speakers")).toEqual(SPEAKER_MODES.map(speakerLabel));
     expect(optionsOf("rec-language")).toEqual(LANGUAGES.map(languageLabel));
-    // チップ（押すと開く・✕ で外す）
-    expect(props.querySelector(".chip .go")?.getAttribute("title")).toBe(recordingRefOpenLabel("事前メモ"));
-    expect(props.querySelector(".chip .x")?.getAttribute("aria-label")).toBe(recordingRefRemoveLabel("事前メモ"));
-    // 「＋ ページ」と、まだ付けていない文書の一覧
-    const add = props.querySelector<HTMLButtonElement>(".addref .addchip")!;
-    expect(add.getAttribute("aria-label")).toBe(RECORDING_REF_WORDS.addLabel);
-    expect(add.textContent).toBe(RECORDING_REF_WORDS.add);
-    await click(add);
-    expect(props.querySelector(".addref .pop")?.getAttribute("aria-label")).toBe(RECORDING_REF_WORDS.menuLabel);
-    expect([...props.querySelectorAll(".addref .pop .mi")].map((item) => item.textContent)).toEqual(["前回のふりかえり"]);
-    expect(props.querySelector(".refs .help")).toBeNull();
+    expect(props.querySelector(".refs")).toBeNull();
   });
 
-  it("文書のページが無いと参考の欄は案内だけ。新しい録音の言語の既定は設定の文字起こしの言語", async () => {
+  it("新しい録音の言語の既定は設定の文字起こしの言語", async () => {
     const bridge = new FakeBridge();
     const flow = minutesFlow();
     bridge.flow = flow;
@@ -752,9 +738,7 @@ describe("録音の項目は Web と同じ docs-core の言葉（#18903）", () 
     const rec = stored.project.pages!.find((page) => page.kind === "rec")!;
     expect(bridge.recording(project.id, rec.id).recording).toMatchObject({ speakers: "auto", language: "en", refs: [] });
     expect(container.querySelector<HTMLSelectElement>("#rec-language")?.value).toBe("en");
-    const refs = container.querySelector<HTMLElement>(".props .refs")!;
-    expect(refs.querySelector(".addref")).toBeNull();
-    expect(refs.querySelector(".help")?.textContent).toBe(RECORDING_REF_WORDS.empty);
+    expect(container.querySelector(".props .refs")).toBeNull();
   });
 });
 
@@ -915,7 +899,7 @@ describe("話者人数・言語は録音ごと", () => {
     expect(stored.recording).toMatchObject({ speakers: "2", language: "en", refs: [] });
   });
 
-  it("実行中（同じ案件）は話者人数・言語・参考を変えられない", async () => {
+  it("実行中（同じ案件）は話者人数・言語を変えられない", async () => {
     const bridge = new FakeBridge();
     const flow = minutesFlow();
     bridge.flow = flow;
@@ -931,7 +915,6 @@ describe("話者人数・言語は録音ごと", () => {
     await until(() => container.querySelector(".runbar .note")?.textContent === "議事録を実行中");
     expect(container.querySelector<HTMLSelectElement>("#rec-speakers")?.disabled).toBe(true);
     expect(container.querySelector<HTMLSelectElement>("#rec-language")?.disabled).toBe(true);
-    expect(button(container.querySelector<HTMLElement>(".props")!, "ページ").disabled).toBe(true);
     release();
     await until(() => container.querySelector<HTMLSelectElement>("#rec-speakers")?.disabled === false);
   });

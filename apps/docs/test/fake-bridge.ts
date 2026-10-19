@@ -2506,10 +2506,11 @@ export class FakeBridge implements Bridge {
     const pages = this.pagesOf(stored);
     const references = [];
     const titles = [];
-    for (const pageId of data.refs) {
-      const page = pages.find((candidate) => candidate.id === pageId && candidate.kind === "doc");
-      const content = page ? stored.docs[pageId] ?? "" : "";
-      if (!page || !content.trim()) continue;
+    const autoReferencePages = op.request.projectId === null ? [] : pages.filter((page) => page.kind === "doc" && !page.derivation);
+    for (const page of autoReferencePages) {
+      const pageId = page.id;
+      const content = stored.docs[pageId] ?? "";
+      if (!content.trim()) continue;
       const sha = await sha256Text(content);
       titles.push({ pageId, title: page.title });
       references.push({ pageId, path: `pages/${pageId}.md`, versionId: `p_${sha.slice(0, 32)}`, content, expectedSha256: sha });
@@ -2810,20 +2811,6 @@ export class FakeBridge implements Bridge {
       if (!model || !fixed || model.provider !== fixed.provider || model.model !== fixed.model || model.effort !== fixed.effort) throw NIHO_INPUT_CHANGED;
       return { stepKey: stepId, kind: index === 0 ? "REVISION" : "INSIGHT", provider: model.provider, model: model.model, effort: model.effort };
     });
-    const pages = this.pagesOf(stored);
-    const fixedRefs = [...head.input.referencePages];
-    const references = [];
-    for (const pageId of data.refs) {
-      if (!pages.some((page) => page.id === pageId && page.kind === "doc")) throw NIHO_REFERENCE_UNAVAILABLE;
-      const content = stored.docs[pageId] ?? "";
-      const ref = await fileRef(`pages/${pageId}.md`, content);
-      if (content.trim()) {
-        const entry = fixedRefs.shift();
-        if (!entry || entry.pageId !== pageId || entry.path !== ref.path || entry.sha256 !== ref.sha256 || entry.bytes !== ref.bytes) throw NIHO_INPUT_CHANGED;
-      }
-      references.push(ref);
-    }
-    if (fixedRefs.length > 0) throw NIHO_INPUT_CHANGED;
     const projectId = op.request.projectId;
     return JSON.stringify({
       baseRevision: this.personalNihoBaseRevision,
@@ -2833,7 +2820,7 @@ export class FakeBridge implements Bridge {
       recordingFile: await fileRef(`recordings/${rid}/recording.json`, JSON.stringify(data.recording)),
       audio: [],
       sourceVersion: sourceRef,
-      references,
+      references: [],
       basis: [],
       transcriptionExecutor: null,
       generationExecutor: "niho_api",
@@ -3115,7 +3102,6 @@ const NIHO_SOURCE_NOT_CURRENT = { code: "personal_niho_source_not_current", mess
 const NIHO_PARTIAL_SAVED = { code: "personal_niho_partial_saved", message: "途中までの工程が保存済みのため、NIHO API には渡せません。この Mac で続けてください。" };
 const NIHO_STEPS_MISMATCH = { code: "personal_niho_steps_mismatch", message: "NIHO API に任せられるのは、この録音の工程を全部まとめて実行するときだけです。" };
 const NIHO_INPUT_CHANGED = { code: "personal_niho_input_changed", message: "実行を始めた後に録音・工程・参考ページが変わりました。もう一度実行してください。" };
-const NIHO_REFERENCE_UNAVAILABLE = { code: "personal_niho_reference_unavailable", message: "参考ページの一部が見つからないため、NIHO API には渡せません。参考ページを確かめてください。" };
 const NIHO_CLOSED = { code: "personal_niho_closed", message: "この依頼は受け付けられなかったことを確かめ済みです。新しく実行してください。" };
 const NIHO_RESULT_UNKNOWN = { code: "personal_niho_result_unknown", message: "NIHO API へ送信しましたが、受付結果を確認できません。自動では送り直しません。" };
 const NIHO_RESULT_UNKNOWN_BEFORE = { code: "personal_niho_result_unknown", message: "前回の依頼の受付結果を確認できていません。自動では送り直しません。受付結果を確認してください。" };
