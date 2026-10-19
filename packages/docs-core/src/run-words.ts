@@ -169,6 +169,48 @@ export const RUN_STOP_CONFIRM = {
   confirmLabel: RUN_ACTION_LABELS.stop,
 } as const;
 
+/** 工程の 1 行の状態。 */
+export type NextStepStatus = "done" | "running" | "waiting" | "todo";
+
+/**
+ * 録音から作ったページの「次の工程」の入口の言葉（Epic #18937 S4・#19050。正は docs/design/design-guide-docs.md §1・§3）。
+ * 右レール上段「工程」・「AIと作る」の ＋／「/」の一覧・スマホの本文の末尾「次の工程」・本文の上の帯が同じ言葉を使う。
+ * 工程を実行する語（続きを作成・工程を実行・止める）は {@link RUN_START_LABELS}・{@link RUN_ACTION_LABELS} のまま増やさない。
+ */
+export const NEXT_STEPS_WORDS = {
+  /** 右レール上段の見出し。 */
+  heading: "工程",
+  /** スマホの本文の末尾のまとまりの見出し（全部できていれば {@link allDoneHeading}）。 */
+  mobileHeading: "次の工程",
+  allDoneHeading: "すべての工程ができています",
+  /** 見出しの右の 1 語（残りは `nextStepsSummary`）。 */
+  running: "処理中",
+  allDone: "すべて完了",
+  /** 行の右。開いているページの行は {@link thisPage}。 */
+  statusLabels: { done: "完了", running: "処理中", waiting: "待機中", todo: "未作成" } as const satisfies Record<NextStepStatus, string>,
+  thisPage: "このページ",
+  /** 実行中の主ボタン。 */
+  runningButton: "処理中…",
+  /** 「AIと作る」の ＋ と一覧。 */
+  plusLabel: "工程やスキルを選ぶ",
+  menuHeading: RUN_ACTION_LABELS.run,
+  menuHint: "/ でも開けます",
+  /** チップを外す × の読み上げ名。 */
+  removeChip: "工程を外す",
+  /** チップを選んだときの送信ボタン。 */
+  execute: "実行",
+  close: "閉じる",
+  stop: RUN_ACTION_LABELS.stop,
+  /** 「AIと作る」の依頼中は工程を実行できない理由（Mac の実行を押せない理由と同じ文。§3）。 */
+  composerBusy: "「AIと作る」の依頼が終わると実行できます。",
+  /** 工程の実行中は「AIと作る」を送れない理由（Mac と同じ文）。 */
+  runBusy: "工程の実行が終わってから送れます。",
+  /** 工程の実行中は本文を読み取り専用にする理由。 */
+  editLocked: "工程を実行しています。終わるまで編集できません。",
+  /** 選んだ工程に指示を添えようとしたとき（Web に、工程へ指示を添えて送る経路は無い）。 */
+  instructionOnMac: "工程に指示を添えて実行するのは、Macアプリで使えます。",
+} as const;
+
 /** 前提変更の印（design-guide-docs.md §2）。確かめられないときは unknown。 */
 export const STALE_LABELS = { stale: "前提変更", unknown: "前提を確認できません" } as const;
 
