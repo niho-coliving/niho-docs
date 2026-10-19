@@ -22,7 +22,7 @@ func fixtureURL(_ name: String, _ ext: String) throws -> URL {
         }
         return URL(fileURLWithPath: path)
     }
-    try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Fixtures"))
+    return try XCTUnwrap(Bundle.module.url(forResource: name, withExtension: ext, subdirectory: "Fixtures"))
 }
 
 func littleEndianBytes(_ samples: [Int16]) -> [UInt8] {
