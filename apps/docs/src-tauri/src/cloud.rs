@@ -1298,6 +1298,14 @@ impl CapturedOperation {
     }
   }
 
+  /// 本人の接続と、API で確認済みの LOCAL 保存先が捕捉した operation に一致するか。
+  pub(crate) fn local_device_api_scope(&self) -> Option<String> {
+    if self.ensure_current().is_err() || self.cloud_inner()?.observed_storage()?.mode != StorageMode::Local {
+      return None;
+    }
+    self.context.session.as_ref().map(|ticket| ticket.connection_id.clone())
+  }
+
   /// 捕捉した namespace の、その対象（案件・docs-root）の同期の状態（基準の版・未送信の path）。読めなければ None。
   pub(crate) fn vault_state(&self, project_id: &str) -> Option<niho_desktop_vault::VaultState> {
     let inner = self.cloud_inner()?;

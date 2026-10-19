@@ -14,7 +14,7 @@ import { newPersonalId, runNativePersonalExecution, type NativePersonalDeps, typ
 import { latestVersionRecord, recordingKey, recordingRef, stepName, versionsOf, type RecordingView } from "../lib/project-view";
 import { candidateChoiceReason } from "../lib/run-gate";
 import { startRouteOf } from "../lib/run-start";
-import { type ActiveRun, type RunNotice } from "../lib/run-state";
+import { DELIVERY_ACK_PENDING_NOTICE, type ActiveRun, type RunNotice } from "../lib/run-state";
 import { type RunProgress } from "../lib/runner";
 import { activeProviders, effectiveEngine, engineConnection, engineIdLabel, engineProvider, type AppSettings } from "../lib/settings";
 import { draftKey, LIVE_FLUSH_MS, versionKey, type Draft, type NihoRunConfirmation, type RebuildRequest, type RebuildUndo, type ToastAction } from "./workspace-model";
@@ -237,7 +237,7 @@ export function useExecutionActions(context: Context) {
           setActiveRun(runRef.current);
           onProgress(progress);
         },
-        ...(route.kind === "generation_only" && route.executor === "niho_api"
+        ...(route.kind === "generation_only" && (route.executor === "niho_api" || route.executor === "device_niho_api")
           ? {
               confirmNihoExecution: async ({ access, models, swap, sourceVersion }: Parameters<NonNullable<NativePersonalDeps["confirmNihoExecution"]>>[0]) => {
                 if (controller.signal.aborted || !sameCapturedScope()) throw new PersonalCancellationError();
@@ -270,6 +270,7 @@ export function useExecutionActions(context: Context) {
                     context: capturedContext,
                     modelLabel,
                     swap,
+                    deviceDelivery: route.kind === "generation_only" && route.executor === "device_niho_api",
                     sourceVersionLabel,
                     accept: () => finish(true),
                     cancel: () => finish(false),
@@ -298,6 +299,9 @@ export function useExecutionActions(context: Context) {
       });
       if (result.state === "submitted") {
         setNotice({ projectId: rec.projectId, recordingId: rec.recordingId, stepId: "execution", kind: "submitted", message: remoteRunAcceptedLabel({ state: result.remoteState, reasonCode: result.remoteReasonCode }) });
+      } else if (result.state === "completed" && result.deliveryAckPending) {
+        setNotice({ projectId: rec.projectId, recordingId: rec.recordingId, stepId: "execution", kind: "submitted",
+          message: DELIVERY_ACK_PENDING_NOTICE });
       } else if (result.state === "input_changed") {
         setNotice({ projectId: rec.projectId, recordingId: rec.recordingId, stepId: "execution", kind: "failed", message: "元の内容が変わりました。内容を確かめてから作り直してください。" });
       } else if (result.state === "failed" || result.state === "result_unknown") {
@@ -362,6 +366,8 @@ export function useExecutionActions(context: Context) {
       step: trigger === "step",
       action,
       continuation: settingsRef.current.personalExecution.continuation,
+      localStorage: cloud.state?.storage?.mode === "LOCAL",
+      deviceDeliveryAvailable: bridge.capabilities?.personalDeviceDelivery === true,
     });
     const runQueue = route.kind === "local_transcription_only" ? [SOURCE_STEP_ID]
       : route.kind === "generation_only" ? queue.filter((id) => id !== SOURCE_STEP_ID) : queue;
@@ -443,7 +449,7 @@ export function useExecutionActions(context: Context) {
           runQueue,
           fixedTarget,
           route,
-          route.kind === "generation_only" && route.executor === "niho_api" ? "pending-v1" : "local-v1",
+          route.kind === "generation_only" && (route.executor === "niho_api" || route.executor === "device_niho_api") ? "pending-v1" : "local-v1",
           controller,
           rebuild && runQueue.length === 1 && runQueue[0] === rebuild.stepId ? rebuild : null,
         );

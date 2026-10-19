@@ -469,6 +469,8 @@ export type DocsCapabilities = {
   localFolderExport?: boolean;
   /** NIHO API の CLOUD から LOCAL への安全な切り替え受付が利用可能な場合だけ有効にする。 */
   cloudClosing?: boolean;
+  /** LOCAL 本文を端末から一時配送して NIHO API で工程を実行できる場合だけ有効にする。 */
+  personalDeviceDelivery?: boolean;
 };
 
 export const MAC_DOCS_CAPABILITIES: Readonly<DocsCapabilities> = Object.freeze({
@@ -828,6 +830,12 @@ export interface Bridge {
   /** operation なし（再起動の後も使える）。今ログインしている本人・保存先の依頼だけ。 */
   personalNihoConfirm(intentId: string, action: PersonalNihoConfirmAction): Promise<PersonalNihoConfirmResult>;
   personalNihoPending(): Promise<PersonalNihoPendingList>;
+  /** LOCAL の固定入力で NIHO API に一工程を配送し、一時結果を受け取る。 */
+  personalDeviceGenerate(handle: string, snapshotSha256: string, stepId: string, versionId: string): Promise<{ text: string; runId: string }>;
+  /** 結果をローカルに公開した後だけ受領を通知する。 */
+  personalDeviceAck(handle: string, stepId: string, versionId: string): Promise<void>;
+  /** 再起動後にも保存済みの結果の未確認通知を回復する。 */
+  personalDeviceRecoverAcks(): Promise<{ acknowledged: number; pending: number }>;
 }
 
 
@@ -905,6 +913,9 @@ export const NATIVE_DOCS_OPERATIONS = [
   "personalNihoSubmit",
   "personalNihoConfirm",
   "personalNihoPending",
+  "personalDeviceGenerate",
+  "personalDeviceAck",
+  "personalDeviceRecoverAcks",
   "docsDriveFolderExportLocalPlan",
   "docsDriveFolderExportLocalSnapshot",
   "docsDriveFolderExportLocal",

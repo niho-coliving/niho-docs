@@ -7,6 +7,7 @@ import { rerunQueueOf, type RecordingView } from "../lib/project-view";
 import { runSetupReason, type RunReadinessStatuses } from "../lib/run-readiness";
 import { setupQueueOf } from "../lib/run-start";
 import { type AppSettings } from "../lib/settings";
+import type { CloudController } from "../lib/cloud";
 import { readinessKeyOf, type Phase } from "./workspace-model";
 
 type Context = {
@@ -19,6 +20,8 @@ type Context = {
   view: RecordingView | null;
   readiness: RunReadinessStatuses;
   selectedStepId: string | null;
+  cloud: CloudController;
+  deviceDeliveryAvailable: boolean;
 };
 
 /** 現在の工程の準備不足を判定し、設定変更・前面化の後に確かめ直す。 */
@@ -26,7 +29,7 @@ export function useRunReadiness(context: Context) {
   const {
     settings, phase, screen, readinessKeyRef,
     refreshReadiness, settingsRef, view, readiness,
-    selectedStepId,
+    selectedStepId, cloud, deviceDeliveryAvailable,
   } = context;
 
   // 実行の前の準備: 普段の画面へ戻ったとき（設定で AI にログインした・音声モデルを取得した後など）と、接続の方式・登録した AI・
@@ -52,7 +55,8 @@ export function useRunReadiness(context: Context) {
   // 任せるときはこの Mac の準備を見ない
   const setupReasonFor = (queue: readonly string[], mode: boolean | RunStartAction = false): string | null => {
     if (!view) return null;
-    const readinessQueue = setupQueueOf(queue, mode, settings.personalExecution.continuation);
+    const readinessQueue = setupQueueOf(queue, mode, settings.personalExecution.continuation,
+      cloud.state?.storage?.mode === "LOCAL", deviceDeliveryAvailable);
     return readinessQueue === null ? null : runSetupReason({ queue: readinessQueue, flow: view.flow, settings, statuses: readiness });
   };
   const setupReason = selectedStart ? setupReasonFor(selectedQueue, selectedStart) : null;

@@ -2872,6 +2872,9 @@ pub fn run() {
       personal_run::niho::personal_niho_submit,
       personal_run::niho::personal_niho_confirm,
       personal_run::niho::personal_niho_pending,
+      personal_run::device::personal_device_generate,
+      personal_run::device::personal_device_ack,
+      personal_run::device::personal_device_recover_acks,
       pc_runner::pc_runner_status,
       pc_runner::pc_runner_set_enabled
     ])

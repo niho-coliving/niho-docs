@@ -3,6 +3,7 @@ import {
   ROOT_RECORDING_ID,
   SOURCE_STEP_ID,
   contractProvider,
+  nihoApiProvider,
   type Connection,
   type FlowSnapshot,
   type Project,
@@ -20,6 +21,7 @@ import { cloudSettled } from "./cloud";
 import { DOCS_ROOT_PROJECT_ID, type ProjectSyncSnapshot } from "./cloud-types";
 import {
   PersonalCancellationError,
+  PersonalDispatchError,
   PersonalExecutionError,
   PersonalRemoteRejectionError,
   canonical,
@@ -151,6 +153,8 @@ export type NativePersonalResult = PersonalExecutionResult & {
   localSaved: boolean;
   /** 同期の状態で、この録音の保存先に未送信・未確定・競合が無いことを確かめた（確かめられなければ false）。 */
   cloudAcked: boolean;
+  /** LOCAL の結果は保存済みだが受領通知が未確認。 */
+  deliveryAckPending: boolean;
 };
 
 /** runs.jsonl の行に、runner が測った実行の詳細（前提・字数・トークン・時間など）のうち公開してよい欄だけを足す。 */
@@ -290,8 +294,15 @@ export async function runNativePersonalExecution(deps: NativePersonalDeps, reque
       stepIds: [...request.stepIds],
       ...(request.outputTarget ? { outputTarget: structuredClone(request.outputTarget) } : {}),
     };
-    const result = await createPersonalExecutionController(native.ports)(execution);
-    return { ...result, localSaved: native.localSaved(), cloudAcked: await native.cloudAcked() };
+    let result: PersonalExecutionResult;
+    try {
+      result = await createPersonalExecutionController(native.ports)(execution);
+    } finally {
+      // 後続工程が失敗しても、先に公開できた版の受領通知は再試行する。
+      await native.retryDeliveryAcks();
+    }
+    return { ...result, localSaved: native.localSaved(), cloudAcked: await native.cloudAcked(),
+      deliveryAckPending: native.deliveryAckPending() };
   } finally {
     deps.signal?.removeEventListener("abort", onAbort);
     // controller が lease を返していれば二度目は released:false で無害。開いたまま失敗したときもここで閉じる
@@ -323,6 +334,8 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
   const referenceTexts = new Map<string, string>();
   /** runner が測った実行の詳細（候補の版 ID → 記録）。公開の行に足す。 */
   const runDetails = new Map<string, RunRecord>();
+  const deviceVersions = new Set<string>();
+  const pendingDeliveryAcks = new Map<string, string>();
 
   const cancel = () => {
     stopRequested = true;
@@ -491,7 +504,8 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
     return { complete: false, reason };
   };
 
-  const nihoRoute = request.route.kind === "generation_only" && request.route.executor === "niho_api";
+  const nihoRoute = request.route.kind === "generation_only" &&
+    (request.route.executor === "niho_api" || request.route.executor === "device_niho_api");
 
   const readMaterial = async (): Promise<PersonalMaterial> => {
     const read = await bridge.personalReadMaterial(handle, { stepIds: [...request.stepIds] });
@@ -535,11 +549,11 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       };
       // 端末内の文字起こしだけを NIHO に届かないまま開いた: Native が検証した手元の写しを使う
       if (!opened.cloudLease) {
-        await ensureNihoIdle();
+        if (!(request.route.kind === "generation_only" && request.route.executor === "device_niho_api")) await ensureNihoIdle();
         return { complete: true };
       }
       const synced = await syncNow();
-      if (synced.complete) await ensureNihoIdle();
+      if (synced.complete && !(request.route.kind === "generation_only" && request.route.executor === "device_niho_api")) await ensureNihoIdle();
       return synced;
     },
 
@@ -554,8 +568,39 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
     },
 
     async prepareRequest({ request: prepared, material: fixedMaterial }) {
-      if (!(prepared.route.kind === "generation_only" && prepared.route.executor === "niho_api")) return { request: prepared };
+      if (!(prepared.route.kind === "generation_only" &&
+        (prepared.route.executor === "niho_api" || prepared.route.executor === "device_niho_api"))) return { request: prepared };
       const access = await bridge.personalNihoAccess(handle, prepared.stepIds.length);
+      const materialIdentity = (material: PersonalSnapshotMaterial) => {
+        const { baseManifestRevision: _manifestRevision, sourceVersion, ...inputs } = material;
+        void _manifestRevision;
+        const stableSourceVersion = sourceVersion
+          ? (({ synced, ...version }) => {
+              void synced;
+              return version;
+            })(sourceVersion)
+          : null;
+        return canonical({ ...inputs, sourceVersion: stableSourceVersion });
+      };
+      if (prepared.route.executor === "device_niho_api") {
+        const models = prepared.stepIds.map((stepId) => fixedMaterial.flow.models[stepId]);
+        // 新規実行の予算は Native で判定する。予算切れの再開は Native が既存受付・同じモデル・同意版を照合した場合だけ許す。
+        const provider = access.provider ? nihoApiProvider(access.provider) : null;
+        const matching = !!provider && !!access.model && models.every((model) =>
+          model?.provider === provider && model.model === access.model);
+        if (!matching || !access.consentVersion || (!access.available && access.reasonCode !== "BUDGET_EXHAUSTED")) {
+          throw new PersonalExecutionError("NIHO_API_NOT_READY", "この録音に固定した AI・同意を確認できません。工程の設定を確かめてください。");
+        }
+        if (deps.signal?.aborted) throw new PersonalCancellationError();
+        await deps.confirmNihoExecution?.({ access, models: models.filter((model): model is ResolvedStepModel => !!model), swap: false,
+          sourceVersion: fixedMaterial.sourceVersion });
+        if (deps.signal?.aborted || stopRequested) throw new PersonalCancellationError();
+        const confirmed = await readMaterial();
+        if (materialIdentity(confirmed) !== materialIdentity(fixedMaterial)) {
+          throw new PersonalExecutionError("INPUT_CHANGED", "確認の間に録音の入力が変わりました。もう一度実行してください。");
+        }
+        return { request: { ...prepared, consentVersion: access.consentVersion }, material: confirmed };
+      }
       // 録音に固定した AI が NIHO の AI と違う工程は、同意の後に NIHO の AI へ持ち替える（docs-core の nihoApiModelSwap。Web と同じ規則）
       const plan = personalNihoModelPlan(access, fixedMaterial.flow, prepared.stepIds);
       if (!plan.ready || !access.consentVersion) {
@@ -572,17 +617,6 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       if (deps.signal?.aborted || stopRequested) throw new PersonalCancellationError();
       const inputChanged = () =>
         new PersonalExecutionError("INPUT_CHANGED", "確認の間に録音の工程・原文・参考などが変わったため、送信しませんでした。もう一度実行してください。");
-      const materialIdentity = (material: PersonalSnapshotMaterial) => {
-        const { baseManifestRevision: _manifestRevision, sourceVersion, ...inputs } = material;
-        void _manifestRevision;
-        const stableSourceVersion = sourceVersion
-          ? (({ synced, ...version }) => {
-              void synced;
-              return version;
-            })(sourceVersion)
-          : null;
-        return canonical({ ...inputs, sourceVersion: stableSourceVersion });
-      };
       const confirmedMaterial = await readMaterial();
       if (deps.signal?.aborted || stopRequested) throw new PersonalCancellationError();
       if (materialIdentity(confirmedMaterial) !== materialIdentity(fixedMaterial)) throw inputChanged();
@@ -729,6 +763,23 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       const target = snapshot.outputTarget?.stepId === stepId ? snapshot.outputTarget : null;
       const artifactId = target?.artifactId ?? stepId;
       const location = { versionId, artifactId, path: `recordings/${snapshot.recordingId}/versions/${artifactId}/${versionId}.md` };
+      if (snapshot.route.kind === "generation_only" && snapshot.route.executor === "device_niho_api") {
+        await beforeSend(snapshot, stepId, true);
+        armed = false;
+        let received: { text: string; runId: string };
+        try {
+          received = await bridge.personalDeviceGenerate(handle, snapshot.snapshotSha256, stepId, versionId);
+        } catch (error) {
+          const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+          if (code === "personal_device_result_unknown" || code === "personal_device_result_missing") {
+            throw new PersonalDispatchError(true, error instanceof Error ? error.message : "結果を受け取れませんでした。依頼の状態を確認してください。");
+          }
+          throw error;
+        }
+        deviceVersions.add(versionId);
+        return { stepId, artifactId, kind: "artifact", versionId, path: location.path,
+          text: received.text, provider: fixedModel.provider, model: fixedModel.model, reportedModel: null };
+      }
       const capture = await runPersonalGenerationStep(
         {
           bridge: operationBridge(),
@@ -795,6 +846,10 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       if (published.status !== "committed") return { status: "input_changed", reason: published.reason };
       saved = published.localSaved || saved;
       lastAggregate = structuredClone(aggregate);
+      if (deviceVersions.has(candidate.versionId)) {
+        try { await bridge.personalDeviceAck(handle, candidate.stepId, candidate.versionId); }
+        catch { pendingDeliveryAcks.set(candidate.versionId, candidate.stepId); }
+      }
       return { status: "committed", version: published.version, displayVersion: published.displayVersion };
     },
 
@@ -832,6 +887,15 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
     ports,
     cancel,
     localSaved: () => saved,
+    async retryDeliveryAcks() {
+      for (const [versionId, stepId] of pendingDeliveryAcks) {
+        try {
+          await bridge.personalDeviceAck(handle, stepId, versionId);
+          pendingDeliveryAcks.delete(versionId);
+        } catch { /* 保存済みの結果は維持して、未確認を表示する。 */ }
+      }
+    },
+    deliveryAckPending: () => pendingDeliveryAcks.size > 0,
     /** 公開した後の同期の状態で、クラウドの受領を確かめる（待たない。確かめられなければ false）。 */
     async cloudAcked(): Promise<boolean> {
       if (!opened.cloudLease || !saved) return false;

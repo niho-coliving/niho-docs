@@ -234,8 +234,8 @@ export function WorkspaceDialogs(props: Props) {
       )}
       {nihoRunConfirmation && (
         <ConfirmDialog
-          title="続きをクラウドで作りますか"
-          confirmLabel="クラウドで作る"
+          title={nihoRunConfirmation.deviceDelivery ? "続きを NIHO API で作りますか" : "続きをクラウドで作りますか"}
+          confirmLabel={nihoRunConfirmation.deviceDelivery ? "NIHO API に頼む" : "クラウドで作る"}
           onConfirm={() => {
             const pending = nihoRunConfirmation;
             const same = viewRef.current?.key === pending.capturedKey &&
@@ -248,9 +248,11 @@ export function WorkspaceDialogs(props: Props) {
           }}
           onCancel={() => nihoRunConfirmation.cancel()}
         >
-          <p className="msg">クラウドで続きを作ります。受付後も完了するまで実行状態を確認してください。</p>
+          <p className="msg">{nihoRunConfirmation.deviceDelivery
+            ? "固定した原文・参考情報を NIHO API へ一時送信し、結果をこの Mac に保存します。"
+            : "クラウドで続きを作ります。受付後も完了するまで実行状態を確認してください。"}</p>
           {nihoRunConfirmation.swap && <p className="hint">{NIHO_API_MODEL_SWAP_NOTE}</p>}
-          {nihoRunConfirmation.swap && <p className="hint">AI: {nihoRunConfirmation.modelLabel}</p>}
+          {(nihoRunConfirmation.swap || nihoRunConfirmation.deviceDelivery) && <p className="hint">AI: {nihoRunConfirmation.modelLabel}</p>}
           <p className="hint">原文: {nihoRunConfirmation.sourceVersionLabel}</p>
         </ConfirmDialog>
       )}

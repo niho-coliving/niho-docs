@@ -310,13 +310,13 @@ fn rejection_message(reason: &str) -> &'static str {
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct NihoAccessWire {
-  available: bool,
+  pub(super) available: bool,
   reason_code: Option<String>,
   /// 開示された提供元の名前のまま（`GOOGLE` など。形を確かめた値だけ）。工程の provider への読み替えと、NIHO の AI で工程を
   /// 動かせるかは docs-core の nihoApiProvider（画面）と niho_api_step_provider（ここ）が同じ表で決める。形の違う値は null。
-  provider: Option<String>,
-  model: Option<String>,
-  consent_version: Option<String>,
+  pub(super) provider: Option<String>,
+  pub(super) model: Option<String>,
+  pub(super) consent_version: Option<String>,
   max_run_cost_microusd: Option<String>,
   executor_reason_code: Option<String>,
 }
@@ -1129,7 +1129,7 @@ async fn fenced_token(captured: &CapturedOperation) -> CommandResult<String> {
 /// NIHO の AI の提供元（API の開示。大文字・小文字は問わない）→ 工程の provider。NIHO の AI で工程を動かせない提供元は None。
 /// docs-core の nihoApiProvider（NIHO_API_STEP_PROVIDERS。工程は Vertex AI の Gemini だけで動く・#18816）と同じ表で、
 /// apps/docs/test/personal-niho.test.ts がこのソースと docs-core を照らす。
-fn niho_api_step_provider(disclosed: &str) -> Option<&'static str> {
+pub(super) fn niho_api_step_provider(disclosed: &str) -> Option<&'static str> {
   match disclosed.to_ascii_uppercase().as_str() {
     "GOOGLE" => Some("gemini"),
     _ => None,
@@ -1471,7 +1471,11 @@ pub(crate) async fn access(
     return Err(bad_request());
   }
   let op = operation_for(state, handle)?;
-  if !is_niho_route(&op) {
+  if !is_niho_route(&op)
+    && !(op.route.kind == RouteKind::GenerationOnly
+      && op.route.executor == Some(Executor::DeviceNihoApi)
+      && op.captured.local_device_api_scope().is_some())
+  {
     return Err(route_refused());
   }
   if op.stop_requested() || op.captured.ensure_current().is_err() {
@@ -1495,7 +1499,11 @@ pub(crate) async fn submit(
   if intent_id != op.intent_id {
     return Err(intent_mismatch());
   }
-  if !is_niho_route(&op) {
+  if !is_niho_route(&op)
+    && !(op.route.kind == RouteKind::GenerationOnly
+      && op.route.executor == Some(Executor::DeviceNihoApi)
+      && op.captured.local_device_api_scope().is_some())
+  {
     return Err(route_refused());
   }
   let relative = record_relative(&op.identity, &op.intent_id)?;

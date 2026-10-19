@@ -30,6 +30,8 @@ Mac のクライアント実装は公開側で検証します。既存の CLOUD 
 
 CLOUD から `この Mac だけ` への切り替え入口も、非公開 API の事前確認・全件受信・確定を配備・受入したビルドに限り `VITE_NIHO_DOCS_CLOUD_CLOSING=true` で有効にします。すでに移行中のアカウントを再開する操作は、入口の設定に関係なく表示します。
 
+LOCAL の後続工程を NIHO API に一時配送する入口は、非公開 API の端末配送受付・結果受領を配備・受入したビルドに限り `VITE_NIHO_DOCS_DEVICE_DELIVERY=true` で有効にします。無効のビルドは従来の実行経路を使います。
+
 ```sh
 npm -C packages/docs-core ci
 npm -C packages/docs-core run check

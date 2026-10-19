@@ -211,23 +211,30 @@ export function WorkScreen(props: Props) {
       const sourceVersion = latestVersionRecord(rv.runs, SOURCE_STEP_ID, selectedSource)?.version;
       const sourceDone = !rv.plan.remaining.includes(SOURCE_STEP_ID);
       const hasAudio = rv.recording.source.kind === "audio" && rv.recording.source.audio.length > 0;
+      const localDeviceDelivery = bridge.capabilities?.personalDeviceDelivery === true
+        && cloud.state?.storage?.mode === "LOCAL" && continuation === "niho_api";
       // クラウドが受けない続き（startRun の確かめと同じ。押してから断らない）。「文書作成を開始」は原文をこの Mac で作ってから続きを
       // 任せるので、原文が無いことは理由にしない
       // （設定で続きを この Mac にすると作れる理由は、設定への導線を添える）
-      const partialReason: RunGate | null = rv.flow.steps.some((step) => rv.artifacts[step.id] !== undefined)
+      const partialReason: RunGate | null = !localDeviceDelivery && rv.flow.steps.some((step) => rv.artifacts[step.id] !== undefined)
         ? { reason: "途中まで作ったページがある録音の続きは、クラウドでは作れません。設定で続きを「この Mac」にすると作れます", setup: true }
         : null;
       const start: RecordingControlsProps["start"] = {
-        placeLine: runPlaceLine({ transcription: "this_device", continuation: continuation === "niho_api" ? "cloud" : "this_device", sourceDone }),
-        note: continuation === "niho_api" && !personalNihoFixedModels(rv.flow) ? NIHO_API_MODEL_SWAP_NOTE : null,
+        placeLine: localDeviceDelivery
+          ? sourceDone ? "続きは NIHO API で作り、この Mac に保存します" : "文字起こしはこの Mac、続きは NIHO API で作り、この Mac に保存します"
+          : runPlaceLine({ transcription: "this_device", continuation: continuation === "niho_api" ? "cloud" : "this_device", sourceDone }),
+        note: continuation === "niho_api" && !localDeviceDelivery && !personalNihoFixedModels(rv.flow) ? NIHO_API_MODEL_SWAP_NOTE : null,
         reasonFor: (action) => {
           if (action === "transcribeOnly") return hasAudio ? null : { reason: "文字起こしには音声が必要です", setup: false };
           if (cloud.active && accountExecutionProblem) return { reason: accountExecutionProblem, setup: true };
           if (rv.sourceProblem) return { reason: rv.sourceProblem, setup: false };
           if (continuation !== "niho_api") return null;
-          if (selectedSource && selectedSource.artifactId !== SOURCE_STEP_ID) return { reason: SOURCE_CANDIDATE_CLOUD_REASON, setup: true };
+          if (!localDeviceDelivery && selectedSource && selectedSource.artifactId !== SOURCE_STEP_ID) return { reason: SOURCE_CANDIDATE_CLOUD_REASON, setup: true };
           if (action === "create") return partialReason;
-          if (!sourceVersion) return { reason: "クラウドで続きを作るには、この Mac で確定した原文が必要です", setup: false };
+          if (!sourceVersion) return { reason: localDeviceDelivery
+            ? "NIHO API で続きを作るには、この Mac で確定した原文が必要です"
+            : "クラウドで続きを作るには、この Mac で確定した原文が必要です", setup: false };
+          if (localDeviceDelivery) return null;
           return partialReason ?? (rv.plan.remaining.length > 0 && rv.plan.remaining.length !== rv.flow.steps.length
             ? { reason: "途中の工程からの続きは、クラウドでは作れません。設定で続きを「この Mac」にすると作れます", setup: true }
             : null);

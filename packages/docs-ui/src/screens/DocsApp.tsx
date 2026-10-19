@@ -25,7 +25,7 @@ import { cloudSettled, leaseRunNote, remoteLeaseHolder, cloudProjectId as toClou
 import { formatRecordingLength, newId } from "../lib/format";
 import { THIS_MAC_STATUS_UNAVAILABLE, resolveThisMacSelection, type PcRunnerStatus } from "../lib/pc-runner";
 import { loadRecordingView, openProjectOf, recordingKey, recordingProgress, type OpenProject, type RecordingView } from "../lib/project-view";
-import { runBlockedReason } from "../lib/run-state";
+import { DELIVERY_ACK_PENDING_NOTICE, runBlockedReason } from "../lib/run-state";
 import { activeProfiles, activeProviders, transcriptionEngineChoices } from "../lib/settings";
 import { useGoogleDocs } from "../lib/use-google-docs";
 import { useGoogleDocsFolderExport } from "../lib/use-google-docs-folder-export";
@@ -391,6 +391,27 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     chatUnseen,
   });
   cloudActiveRef.current = cloud.active;
+  useEffect(() => {
+    if (cloud.state?.storage?.mode !== "LOCAL" || bridge.capabilities?.personalDeviceDelivery !== true) return;
+    let cancelled = false;
+    let running = false;
+    const pendingMessage = "結果はこの Mac に保存済みですが、NIHO への受領通知を確認できません。接続を確認してから、この画面に戻ってください。";
+    const recover = () => {
+      if (running) return;
+      running = true;
+      void bridge.personalDeviceRecoverAcks().then(({ pending }) => {
+        if (cancelled) return;
+        if (pending > 0) showFailure(pendingMessage);
+        else {
+          setFailure((current) => current?.text === pendingMessage ? null : current);
+          setNotice((current) => current?.message === DELIVERY_ACK_PENDING_NOTICE ? null : current);
+        }
+      }).catch(() => undefined).finally(() => { running = false; });
+    };
+    recover();
+    window.addEventListener("focus", recover);
+    return () => { cancelled = true; window.removeEventListener("focus", recover); };
+  }, [bridge, cloud.state?.storage?.mode, cloud.state?.contextGeneration, setFailure, setNotice, showFailure]);
   const [accountExecution, setAccountExecution] = useState<{
     phase: "local" | "loading" | "ready" | "error";
     preferences: ExecutionPreferences | null;
@@ -1091,6 +1112,8 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     view,
     readiness,
     selectedStepId,
+    cloud,
+    deviceDeliveryAvailable: bridge.capabilities?.personalDeviceDelivery === true,
   });
   const {
     signedOutNow, accountShown, localFallback,
