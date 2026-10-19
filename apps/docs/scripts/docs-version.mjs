@@ -73,6 +73,7 @@ const SHIPPED_FILES = new Set([
   `${DOCS_REL}/tailwind.config.cjs`,
   `${DOCS_REL}/postcss.config.cjs`,
   `${DOCS_UI_REL}/package.json`,
+  "packages/article-style-sample-core/index.ts",
   "packages/ui/package.json",
   "packages/ui/tailwind-theme.cjs",
   "packages/desktop-account/Cargo.toml",
@@ -338,6 +339,7 @@ export function shippedChanged(repoRoot, from, to) {
     DOCS_CORE_REL,
     DOCS_UI_REL,
     VAULT_REL,
+    "packages/article-style-sample-core",
     "packages/ui",
     "packages/desktop-account",
   ]);
@@ -448,6 +450,7 @@ function selfTest() {
     put(`${DOCS_REL}/README.md`, "# docs\n");
     put(`${VAULT_REL}/src/engine.rs`, "pub fn sync() {}\n");
     put(`${VAULT_REL}/tests/provider_http.rs`, "#[test] fn t() {}\n");
+    put("packages/article-style-sample-core/index.ts", "export const sample = 1;\n");
     put("packages/ui/src/styles/tokens.css", "/* baseline */\n");
     put("packages/ui/src/fonts/nunito-latin-variable.woff2", "font-v1\n");
     put("packages/desktop-account/ts/src/use-niho-account.ts", "export const account = 1;\n");
@@ -536,6 +539,14 @@ function selfTest() {
     put("packages/ui/src/fonts/nunito-latin-variable.woff2", "font-v1\n");
     put("packages/desktop-account/ts/src/use-niho-account.ts", "export const account = 1;\n");
 
+    put("packages/article-style-sample-core/index.ts", "export const sample = 2;\n");
+    const articleCoreChanged = shippedChanged(root, docsOnly);
+    assert(
+      articleCoreChanged.length === 1 && articleCoreChanged[0] === "packages/article-style-sample-core/index.ts",
+      `shipped-changed lists article sample core changes: ${articleCoreChanged.join(", ")}`,
+    );
+    put("packages/article-style-sample-core/index.ts", "export const sample = 1;\n");
+
     put(`${VAULT_REL}/src/engine.rs`, "pub fn sync() { let _ = 1; }\n");
     put(`${DOCS_CORE_REL}/src/prompt.ts`, "export const p = 2;\n");
     put(`${DOCS_REL}/src-tauri/src/lib.rs`, "fn main() { let _ = 1; }\n");
@@ -561,6 +572,7 @@ function selfTest() {
     assert(!isShippedPath(`${DOCS_REL}/src/lib/x.test.ts`), "UI tests are not shipped");
     assert(isShippedPath("packages/desktop-account/src/tauri.rs"), "account Rust is shipped");
     assert(isShippedPath("packages/desktop-account/ts/src/use-niho-account.ts"), "account hook is shipped");
+    assert(isShippedPath("packages/article-style-sample-core/index.ts"), "article sample core is bundled into Docs");
     assert(isShippedPath("packages/ui/src/components/account-popover.tsx"), "account UI is shipped");
     assert(isShippedPath("packages/ui/src/styles/tokens.css"), "shared UI tokens are shipped");
     assert(isShippedPath("packages/ui/src/fonts/nunito-latin-variable.woff2"), "shared UI fonts are shipped");
