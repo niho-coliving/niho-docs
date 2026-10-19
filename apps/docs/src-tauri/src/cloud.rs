@@ -2189,7 +2189,8 @@ impl CloudInner {
       verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?
     };
     verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
-    ensure_snapshot_apply_space(&self.data_dir, &context.root, &verified).map_err(closing_command_error)?;
+    ensure_snapshot_apply_space(&self.data_dir, &account_key, &context.root, &verified)
+      .map_err(closing_command_error)?;
     drop(transition);
     Ok(PreparedClosing {
       closing_id: identity.closing_id,
@@ -2271,7 +2272,8 @@ impl CloudInner {
     };
     let verified = verify_staged_snapshot(&self.data_dir, &account_key, &identity).map_err(closing_command_error)?;
     verify_snapshot_placement(&context.root, &verified).map_err(closing_command_error)?;
-    ensure_snapshot_apply_space(&self.data_dir, &context.root, &verified).map_err(closing_command_error)?;
+    ensure_snapshot_apply_space(&self.data_dir, &account_key, &context.root, &verified)
+      .map_err(closing_command_error)?;
     if verified.file_count != prepared.file_count
       || verified.expired_audio_count != prepared.expired_audio_count
       || verified
