@@ -405,6 +405,121 @@ fn editable_artifact_paths_accept_only_current_flow_source_and_candidate_artifac
   let _ = fs::remove_dir_all(root);
 }
 
+fn two_transcripts() -> Value {
+  json!({
+    "stepId": "source",
+    "order": ["tx1", "tx2"],
+    "items": {
+      "tx1": { "id": "tx1", "artifactId": "source", "name": "Gemini", "engine": "gemini", "createdAt": "2026-10-19T01:00:00.000Z" },
+      "tx2": { "id": "tx2", "artifactId": "artifact-tx2", "name": "この Mac", "engine": "this-mac", "createdAt": "2026-10-19T01:00:00.000Z" }
+    }
+  })
+}
+
+#[test]
+fn transcript_candidates_need_audio_save_apart_from_transcript_md_and_keep_the_selection() {
+  let root = temp_root("transcript-candidates");
+  let store = Store::new(root.clone());
+  let created = store
+    .create_project(
+      &candidate_project("朝市"),
+      Some("最初の文字起こし"),
+      Some(&save_record("source1")),
+      &[],
+    )
+    .unwrap();
+  let id = created["id"].as_str().unwrap().to_string();
+  let recording_id = first_recording_id(&store, &id);
+  let dir = root.join(format!("projects/{id}/recordings/{recording_id}"));
+
+  // 文章から作った録音は文字起こしをしないので、文字起こしの案は作れない
+  let error = store
+    .create_candidate_at(
+      Some(&id),
+      ROOT,
+      SOURCE_STEP_ID,
+      &two_transcripts(),
+      "artifact-tx2",
+      None,
+      None,
+    )
+    .unwrap_err();
+  assert!(error.message.contains("音声のある録音"), "{}", error.message);
+
+  let mut raw: Value = serde_json::from_str(&fs::read_to_string(dir.join("recording.json")).unwrap()).unwrap();
+  raw["source"] =
+    json!({ "kind": "audio", "audio": [{ "file": "a.m4a", "hash": "h", "name": "朝市.m4a", "durationSec": 190 }] });
+  fs::write(dir.join("recording.json"), serde_json::to_string(&raw).unwrap()).unwrap();
+  let stale = store.load_recording(&id, ROOT).unwrap().recording.unwrap();
+  store
+    .create_candidate_at(
+      Some(&id),
+      ROOT,
+      SOURCE_STEP_ID,
+      &two_transcripts(),
+      "artifact-tx2",
+      None,
+      None,
+    )
+    .unwrap();
+
+  // 文字起こしの別案は工程 1 でも artifacts/<artifactId>.md と versions/<artifactId>/ に書き、transcript.md を変えない
+  let record = json!({
+    "id": "run-tx2", "kind": "run", "at": "2026-10-19T01:05:00.000Z", "stepId": "source", "stepName": "文字起こし",
+    "candidateId": "tx2", "artifactId": "artifact-tx2", "version": null, "result": "saved", "provider": "this-mac"
+  });
+  let version = store
+    .save_artifact_at(Some(&id), ROOT, "artifact-tx2", true, "[00:00:00] 連売の朝", &record)
+    .unwrap();
+  assert_eq!(version, 1);
+  assert_eq!(
+    fs::read_to_string(dir.join("artifacts/artifact-tx2.md")).unwrap(),
+    "[00:00:00] 連売の朝"
+  );
+  assert_eq!(
+    fs::read_to_string(dir.join("transcript.md")).unwrap(),
+    "最初の文字起こし"
+  );
+  let loaded = store.load_recording(&id, ROOT).unwrap();
+  assert_eq!(loaded.transcript.as_deref(), Some("最初の文字起こし"));
+  assert_eq!(
+    loaded.artifacts.get("artifact-tx2").map(String::as_str),
+    Some("[00:00:00] 連売の朝")
+  );
+  assert!(store
+    .editable_artifact_file_at(Some(&id), ROOT, "artifact-tx2", false)
+    .unwrap()
+    .ends_with("artifacts/artifact-tx2.md"));
+
+  // 後工程に使う案の切替は、画面が知っている今の指定と同じときだけ（別の画面の変更を上書きしない）
+  store.set_source_candidate_at(Some(&id), ROOT, "tx2", None).unwrap();
+  let conflict = store.set_source_candidate_at(Some(&id), ROOT, "tx1", None).unwrap_err();
+  assert_eq!(conflict.code, "store_conflict");
+  assert!(store
+    .set_source_candidate_at(Some(&id), ROOT, "missing", Some("tx2"))
+    .is_err());
+  // 案を足す前の古い録音の写しを通常保存しても、台帳と後工程の指定は消えない
+  store.save_recording(&id, ROOT, &stale).unwrap();
+  let kept = store.load_recording(&id, ROOT).unwrap().recording.unwrap();
+  assert_eq!(kept["sourceCandidateId"], "tx2");
+  assert_eq!(kept["candidateSets"]["source"]["order"], json!(["tx1", "tx2"]));
+  store
+    .set_source_candidate_at(Some(&id), ROOT, "tx1", Some("tx2"))
+    .unwrap();
+  assert_eq!(
+    store.load_recording(&id, ROOT).unwrap().recording.unwrap()["sourceCandidateId"],
+    "tx1"
+  );
+
+  // 文字起こしの案の置き場に、共有工程や transcript.md の名前は使えない
+  let mut alias = two_transcripts();
+  alias["items"]["tx2"]["artifactId"] = json!("shared1");
+  assert!(store
+    .create_candidate_at(Some(&id), ROOT, SOURCE_STEP_ID, &alias, "shared1", None, None)
+    .is_err());
+  let _ = fs::remove_dir_all(root);
+}
+
 #[test]
 fn candidate_ledger_rejects_invalid_identity_aliases_and_non_final_steps() {
   let root = temp_root("candidate-validation");

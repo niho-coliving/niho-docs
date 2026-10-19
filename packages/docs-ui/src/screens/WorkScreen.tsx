@@ -1,6 +1,6 @@
 "use client";
 
-import { NIHO_API_MODEL_SWAP_NOTE, SOURCE_STEP_ID, folderName, pageTitle, runPlaceLine, sameFlowDesign, type Flow, type PageEntry, type PromptRef, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
+import { NIHO_API_MODEL_SWAP_NOTE, SOURCE_CANDIDATE_CLOUD_REASON, SOURCE_STEP_ID, folderName, selectedSourceCandidate, type ArtifactCandidate, pageTitle, runPlaceLine, sameFlowDesign, type Flow, type PageEntry, type PromptRef, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
 import { type DocFlush } from "../components/DocPage";
 import type { EditorToolControls } from "../components/EditorTools";
 import { type FailureAction } from "../components/FailureBand";
@@ -31,6 +31,7 @@ import { RecordingScreen } from "./RecordingScreen";
 import { type Draft, type FlowOrigin, type OpenedArtifactDocument, type RebuildRequest, type RebuildUndo, type RecordingThen, type ToastAction, type ViewingVersion } from "./workspace-model";
 
 import type { useAppRecording } from "../lib/app-recording";
+import type { SourceSwitch } from "./useArtifactActions";
 
 type Props = {
   open: OpenProject | null;
@@ -147,6 +148,8 @@ type Props = {
   changeSettings: (next: AppSettings) => void;
   settingsRef: React.MutableRefObject<AppSettings>;
   addDocPage: (targetProjectId?: ProjectId, afterPageId?: string) => Promise<void>;
+  chooseSourceCandidate: (candidateId: string, undo?: boolean) => Promise<void>;
+  sourceSwitch: SourceSwitch | null;
 };
 
 /** WorkScreen の描画。保存・実行・遷移の操作は controller から受け取る。 */
@@ -180,7 +183,7 @@ export function WorkScreen(props: Props) {
     closeVersion, openVersion, rebuildStep, restoreVersion,
     changeDraft, undoRebuildRef, renameSpeaker, setCandidateNameEdits,
     commitCandidateName, setCompareOpen, changeSettings, settingsRef,
-    addDocPage,
+    addDocPage, chooseSourceCandidate, sourceSwitch,
   } = props;
 
     if (!open) {
@@ -198,7 +201,14 @@ export function WorkScreen(props: Props) {
         .map((candidate) => ({ id: candidate.id, title: pageTitle({ ...candidate, title: rawTitle(candidate) }) }));
       // 何をするかはページのボタン、続きをどこで作るかは設定（#18947）。ページには場所の 1 行と、ボタンごとの押せない理由だけを渡す
       const continuation = settings.personalExecution.continuation;
-      const sourceVersion = latestVersionRecord(rv.runs, SOURCE_STEP_ID)?.version;
+      // 後工程に使う文字起こし（#19108。台帳が無ければ transcript.md）
+      let selectedSource: ArtifactCandidate | null = null;
+      try {
+        selectedSource = selectedSourceCandidate(rv.recording);
+      } catch {
+        selectedSource = null;
+      }
+      const sourceVersion = latestVersionRecord(rv.runs, SOURCE_STEP_ID, selectedSource)?.version;
       const sourceDone = !rv.plan.remaining.includes(SOURCE_STEP_ID);
       const hasAudio = rv.recording.source.kind === "audio" && rv.recording.source.audio.length > 0;
       // クラウドが受けない続き（startRun の確かめと同じ。押してから断らない）。「文書作成を開始」は原文をこの Mac で作ってから続きを
@@ -213,7 +223,9 @@ export function WorkScreen(props: Props) {
         reasonFor: (action) => {
           if (action === "transcribeOnly") return hasAudio ? null : { reason: "文字起こしには音声が必要です", setup: false };
           if (cloud.active && accountExecutionProblem) return { reason: accountExecutionProblem, setup: true };
+          if (rv.sourceProblem) return { reason: rv.sourceProblem, setup: false };
           if (continuation !== "niho_api") return null;
+          if (selectedSource && selectedSource.artifactId !== SOURCE_STEP_ID) return { reason: SOURCE_CANDIDATE_CLOUD_REASON, setup: true };
           if (action === "create") return partialReason;
           if (!sourceVersion) return { reason: "クラウドで続きを作るには、この Mac で確定した原文が必要です", setup: false };
           return partialReason ?? (rv.plan.remaining.length > 0 && rv.plan.remaining.length !== rv.flow.steps.length
@@ -376,6 +388,7 @@ export function WorkScreen(props: Props) {
           startRun, undoRebuildRef, renameSpeaker, loadPartial,
           recordingChat, chatOpen, setCandidateNameEdits, commitCandidateName,
           setCompareOpen, changeSettings, settingsRef, setEditorTools,
+          chooseSourceCandidate, sourceSwitch,
         }} />;
     }
     return <RecordingScreen {...{

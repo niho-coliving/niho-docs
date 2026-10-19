@@ -533,8 +533,10 @@ export type TranscriptionInput = {
   recording: Recording;
   flow: FlowSnapshot;
   jobId: string;
-  /** 文字起こしのエンジン（設定の `effectiveEngine`。省くと この Mac）。 */
+  /** 文字起こしのエンジン（設定の `effectiveEngine`、別案はその案のエンジン。省くと この Mac）。 */
   engine?: TranscriptionEngine;
+  /** 文字起こしの別案（#19108）。版・記録・checkpoint をこの案に書く（省くと最初の案＝transcript.md）。 */
+  candidate?: { id: string; artifactId: string };
   /** 今の方式（Gemini はサブスクリプションなら Antigravity CLI、API キー方式なら Gemini API。省くとサブスクリプション）。 */
   connection?: Connection;
   newId: (prefix: string) => string;
@@ -580,6 +582,7 @@ function transcriptionCheckpoint(input: TranscriptionInput, record: RunRecord, p
     runId: record.id,
     stepId: SOURCE_STEP_ID,
     stepName: "文字起こし",
+    ...(input.candidate ? { candidateId: input.candidate.id, artifactId: input.candidate.artifactId } : {}),
     startedAt: record.at,
     updatedAt: record.at,
     plan: executionPlanFor(),
@@ -705,7 +708,7 @@ async function saveTranscript(
   const saved = Object.assign(record, { result: "saved", outputChars: countChars(markdown) } satisfies Partial<RunRecord>);
   try {
     await checkpoint.assertDurable();
-    const version = await input.bridge.saveArtifact(input.rec, SOURCE_STEP_ID, true, markdown, saved);
+    const version = await input.bridge.saveArtifact(input.rec, input.candidate?.artifactId ?? SOURCE_STEP_ID, true, markdown, saved);
     saved.version = version;
     await checkpoint.write(markdown, "completed", "EndTurn");
     return { status: "saved", version, record: saved, text: markdown };
@@ -723,6 +726,16 @@ async function saveTranscript(
  * 工程 1（文字起こし）: 設定のエンジンで録音の音声の写しを順に文字起こしし、`[hh:mm:ss] 本文` の Markdown を版として保存する。
  * この Mac は niho-speech、Gemini は Antigravity CLI（区切りの WAV を読ませる）。どちらも途中までを checkpoint に書く。
  */
+/** 文字起こしの実行の記録（別案はその案の id と置き場を添える）。 */
+function transcriptionRecord(input: TranscriptionInput): RunRecord {
+  const record = baseRecord(input, "文字起こし", SOURCE_STEP_ID);
+  if (input.candidate) {
+    record.candidateId = input.candidate.id;
+    record.artifactId = input.candidate.artifactId;
+  }
+  return record;
+}
+
 export async function runTranscription(input: TranscriptionInput): Promise<StepRunOutcome> {
   if (input.recording.source.kind !== "audio" || input.recording.source.audio.length === 0) {
     return { status: "failed", record: null, message: "音声がありません。録音のページで音声を足してください。", reasonCode: null };
@@ -733,7 +746,7 @@ export async function runTranscription(input: TranscriptionInput): Promise<StepR
 }
 
 async function runThisMacTranscription(input: TranscriptionInput): Promise<StepRunOutcome> {
-  const record = baseRecord(input, "文字起こし", SOURCE_STEP_ID);
+  const record = transcriptionRecord(input);
   record.provider = "this-mac";
   record.connection = input.connection ?? "subscription";
   const started = Date.now();
@@ -857,7 +870,7 @@ async function runAudioPart(
  */
 async function runGeminiTranscription(input: TranscriptionInput): Promise<StepRunOutcome> {
   const connection = input.connection ?? "subscription";
-  const record = baseRecord(input, "文字起こし", SOURCE_STEP_ID);
+  const record = transcriptionRecord(input);
   Object.assign(record, { provider: "gemini", connection, model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT });
   const started = Date.now();
   // 話者人数・言語は録音の値、固有名詞は案件の値
@@ -1059,7 +1072,7 @@ async function runGeminiTranscription(input: TranscriptionInput): Promise<StepRu
 export const DEEPGRAM_MODEL = "nova-3";
 
 async function runDeepgramTranscription(input: TranscriptionInput): Promise<StepRunOutcome> {
-  const record = baseRecord(input, "文字起こし", SOURCE_STEP_ID);
+  const record = transcriptionRecord(input);
   // 話者人数・言語は録音の値、固有名詞は案件の値
   const info = recordingInfo(input.project, input.recording);
   const terms = projectTranscriptionTerms(info, input.flow.terms);

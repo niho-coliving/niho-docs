@@ -238,7 +238,8 @@ impl VersionPlan {
     markdown: &str,
     record: Option<&Value>,
   ) -> Result<Self> {
-    let latest = if source {
+    // 文字起こしの別案（#19108）は工程 1 でも置き場は artifacts/<artifactId>.md（transcript.md は最初の案だけ）
+    let latest = if source && step_id == SOURCE_STEP_ID {
       dir.join("transcript.md")
     } else {
       dir.join("artifacts").join(format!("{step_id}.md"))
@@ -419,7 +420,7 @@ impl Store {
     if self.run_lock_holder_at(project_id) == Some(std::process::id()) {
       return Err(StoreError::new("store_busy", "実行中は書き換えられません。"));
     }
-    let file = if source {
+    let file = if source && step_id == SOURCE_STEP_ID {
       self.under(&base, &["transcript.md"])?
     } else {
       self.under(&base, &["artifacts", &format!("{step_id}.md")])?

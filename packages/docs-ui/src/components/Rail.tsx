@@ -1,12 +1,13 @@
 "use client";
 
-import { candidatesFor, folderName, pageTitle, recordingChildren, stepSupportsCandidates, type PageEntry, type RecordingChild } from "@niho/docs-core";
+import { candidatesAllowed, candidatesFor, folderName, isSelectedSourceCandidate, pageTitle, recordingChildren, SOURCE_STEP_ID, stepSupportsCandidates, type PageEntry, type RecordingChild } from "@niho/docs-core";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { ProjectId } from "../lib/bridge";
 import { encodeRailDrag, NIHO_DRAG_TYPE, railDropTarget, type RailDrag, type RailDrop, type RailDropZone } from "../lib/rail-dnd";
 import { recordingProgress, type OpenProject } from "../lib/project-view";
 import { runIsOn, type ActiveRun } from "../lib/run-state";
+import type { TranscriptionEngineId } from "../lib/settings";
 import { ChevronIcon, DocIcon, FlowIcon, FolderIcon, GearIcon, MicIcon, MoreIcon, PlusIcon } from "./icons";
 import { usePopover } from "./usePopover";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -20,6 +21,20 @@ function Twisty(props: { open: boolean; label: string; onToggle: () => void }) {
 }
 
 /** フォルダの行の ＋（そのフォルダに ページ／音声。フォルダは入れ子にしないので出さない。Web/PWA と同じ。owner 2026-10-18・#18867）。 */
+/**
+ * 文字起こしの行の ＋（#19108）。エンジンを選ぶだけで、その録音の文字起こしをもう 1 つ作り始める（名前・設定の入力は無い）。使えない
+ * エンジンは理由つきで選べない。今の文字起こしと後工程に使う文字起こしは変わらない。
+ */
+function SourceCandidateMenu(props: { name: string; choices: readonly { engine: TranscriptionEngineId; label: string; reason: string | null }[]; onPick: (engine: TranscriptionEngineId) => void; disabled?: boolean }) {
+  const menu = usePopover();
+  const label = `${props.name}を追加`;
+  return <div ref={menu.ref} className="addpage source-candidate-add"><button type="button" className="ibtn sm candidate-add" title={label} aria-label={label} aria-expanded={menu.open} disabled={props.disabled} onClick={menu.toggle}><PlusIcon /></button>
+    {menu.open && <div className="pop" role="menu"><p className="mi-label">{label}</p>
+      {props.choices.map((choice) => <button key={choice.engine} type="button" className="mi source-engine" role="menuitem" disabled={props.disabled || choice.reason !== null} onClick={() => { menu.setOpen(false); props.onPick(choice.engine); }}><span className="mi-text"><span>{choice.label}</span>{choice.reason && <span className="mi-note">{choice.reason}</span>}</span></button>)}
+      <p className="mi-label mi-foot">今の{props.name}と、後工程に使う{props.name}は変わりません。</p>
+    </div>}</div>;
+}
+
 function AddPageMenu(props: { folderName: string; onAddDoc?: () => void; onAddRecording?: () => void; disabled?: boolean }) {
   const menu = usePopover();
   const pick = (action: () => void) => () => { menu.setOpen(false); action(); };
@@ -80,6 +95,10 @@ export function Rail(props: {
   onNewAudio?: () => void;
   onSelectPage: (projectId: ProjectId, pageId: string, stepId: string | null, candidateId?: string | null) => void; onScreen?: (screen: Screen) => void;
   onAddCandidate?: (projectId: ProjectId, pageId: string, stepId: string) => void;
+  /** 文字起こしの ＋ で選べるエンジン（#19108。渡さなければ文字起こしに ＋ を出さない）。 */
+  sourceEngineChoices?: readonly { engine: TranscriptionEngineId; label: string; reason: string | null }[];
+  /** 文字起こしの ＋ でエンジンを選んだ（その録音の文字起こしをもう 1 つ作る）。 */
+  onAddSourceCandidate?: (projectId: ProjectId, pageId: string, engine: TranscriptionEngineId) => void;
   newProjectId?: ProjectId; onDrop?: (drop: RailDrop) => void; onMoveFolder?: (projectId: string, delta: -1 | 1) => void;
   onDeleteFolder?: (projectId: string) => Promise<boolean>;
   /** フォルダの ⋯ の「Google ドキュメントへ書き出す」（NIHO にログインできないときは渡さず、項目を出さない）。 */
@@ -137,7 +156,9 @@ export function Rail(props: {
     const selected = onWork && props.open?.id === space.id && props.selection?.pageId === page.id;
     return children.map((child) => {
       const candidates = candidatesFor(summary.recording, child.stepId);
-      const supportsCandidates = stepSupportsCandidates(summary.recording.flowSnapshot, child.stepId);
+      const isSource = child.stepId === SOURCE_STEP_ID;
+      const supportsCandidates = isSource ? false : stepSupportsCandidates(summary.recording.flowSnapshot, child.stepId);
+      const sourceAdd = isSource && candidatesAllowed(summary.recording, SOURCE_STEP_ID) && props.onAddSourceCandidate && props.sourceEngineChoices;
       const childSelected = candidates.length <= 1 && selected && props.selection?.stepId === child.stepId && !props.selection?.candidateId;
       const runningChild = running && props.activeRun?.stepId === child.stepId;
       const candidateGroupKey = `${space.id ?? "_outside"}/${page.id}/${child.stepId}`;
@@ -152,10 +173,13 @@ export function Rail(props: {
           {candidates.length > 1 ? <Twisty open={candidatesOpen} label={`${child.name}の案`} onToggle={toggleCandidates} /> : <span className="tw none" />}
           <button type="button" className={`ti${childSelected ? " on" : ""}`} aria-current={childSelected ? "page" : undefined} aria-expanded={candidates.length > 1 ? candidatesOpen : undefined} onClick={candidates.length > 1 ? toggleCandidates : () => props.onSelectPage(space.id, page.id, child.stepId, null)}><span className="ic">{runningChild && !props.activeRun?.candidateId ? <span className="spin" /> : <DocIcon />}</span><span className="t">{child.name}</span></button>
           {supportsCandidates && props.onAddCandidate && <button type="button" className="ibtn sm candidate-add" aria-label={`${child.name}の別案を作成`} title="別案を作成" onClick={() => props.onAddCandidate?.(space.id, page.id, child.stepId)}><PlusIcon /></button>}
+          {sourceAdd && <SourceCandidateMenu name={child.name} choices={props.sourceEngineChoices!} disabled={props.mutationsDisabled} onPick={(engine) => props.onAddSourceCandidate?.(space.id, page.id, engine)} />}
         </div>
         {candidates.length > 1 && candidatesOpen && candidates.map((candidate) => {
           const candidateSelected = selected && props.selection?.stepId === child.stepId && props.selection?.candidateId === candidate.id;
-          return <div className="trow d2" key={candidate.id}><span className="tw none" /><button type="button" className={`ti candidate${candidateSelected ? " on" : ""}`} aria-current={candidateSelected ? "page" : undefined} onClick={() => props.onSelectPage(space.id, page.id, child.stepId, candidate.id)}><span className="n">{runningChild && props.activeRun?.candidateId === candidate.id ? <span className="spin" /> : <DocIcon />}</span><span className="t">{candidate.name}</span></button></div>;
+          // 後工程に使う文字起こし（#19108。印と読み上げの名前で示す。色だけに頼らない）
+          const usedLater = isSource && isSelectedSourceCandidate(summary.recording, candidate.id);
+          return <div className="trow d2" key={candidate.id}><span className="tw none" /><button type="button" className={`ti candidate${candidateSelected ? " on" : ""}`} aria-current={candidateSelected ? "page" : undefined} aria-label={usedLater ? `${candidate.name}（後工程に使用）` : undefined} onClick={() => props.onSelectPage(space.id, page.id, child.stepId, candidate.id)}><span className="n">{runningChild && props.activeRun?.candidateId === candidate.id ? <span className="spin" /> : <DocIcon />}</span><span className="t">{candidate.name}</span>{usedLater && <span className="used-later" aria-hidden="true">後工程に使用</span>}</button></div>;
         })}
       </div>;
     });

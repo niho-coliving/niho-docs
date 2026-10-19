@@ -12,6 +12,7 @@ import {
   recordingInfo,
   recordingOf,
   rootRecording,
+  selectedSourceCandidate,
   sourceStepName,
   type Basis,
   type FlowSnapshot,
@@ -47,7 +48,15 @@ export type RecordingView = {
   recording: Recording;
   flow: FlowSnapshot;
   sourceName: string;
+  /**
+   * 後工程に使う文字起こしの本文（#19108。台帳が無ければ transcript.md、あれば `sourceCandidateId` が指す案）。工程の入力・済・
+   * stale はこれで決める。指定が台帳に無いときは空（後工程を止める）で、`sourceProblem` に理由を持つ。
+   */
   source: string;
+  /** 最初の文字起こし（transcript.md）の本文。文字起こしの最初の案のページはこれを出す。 */
+  transcript: string;
+  /** 後工程に使う文字起こしを決められない理由（指定した案が台帳に無い）。 */
+  sourceProblem: string | null;
   /** artifact id → 最新版。既存の単一成果物は artifact id = step id。 */
   artifacts: Record<string, string>;
   runs: RunRecord[];
@@ -76,16 +85,20 @@ export function latestVersionRecord(runs: readonly RunRecord[], stepId: string, 
   return versionsOf(runs, stepId, candidate)[0];
 }
 
-/** 保存・履歴復元を遡り、この source 版を作った最後の文字起こし provider を返す。 */
+/**
+ * 保存・履歴復元を遡り、この source 版を作った最後の文字起こし provider を返す。版の番号は置き場ごとなので、文字起こしの別案
+ * （#19108）は `artifactId` の版だけを見る（最初の案は SOURCE_STEP_ID）。
+ */
 export function transcriptOriginProvider(
   runs: readonly RunRecord[],
   version: number | null,
+  artifactId: string = SOURCE_STEP_ID,
 ): ProviderId | "this-mac" | "deepgram" | null {
   let current = version;
   const seen = new Set<number>();
   while (current !== null && current > 0 && !seen.has(current)) {
     seen.add(current);
-    const record = runs.find((run) => run.stepId === SOURCE_STEP_ID && run.version === current);
+    const record = runs.find((run) => run.stepId === SOURCE_STEP_ID && (run.artifactId ?? SOURCE_STEP_ID) === artifactId && run.version === current);
     if (!record) return null;
     if (record.kind === "run" && record.provider) return record.provider;
     current = record.restoredFrom ?? current - 1;
@@ -146,8 +159,21 @@ export function buildRecordingView(
     latestBasis[step.id] = latestVersionRecord(loaded.runs, step.id, primaryCandidate)?.basis;
   }
   const sourceName = sourceStepName(recording.source);
-  const source = loaded.transcript ?? "";
-  const transcriptSpeakerNames = latestVersionRecord(loaded.runs, SOURCE_STEP_ID)?.transcriptSpeakerNames;
+  const transcript = loaded.transcript ?? "";
+  // 後工程に使う文字起こし（別の案へ寄せない。決められなければ空にして後工程を止める）
+  let sourceCandidate: ArtifactCandidate | null = null;
+  let sourceProblem: string | null = null;
+  try {
+    sourceCandidate = selectedSourceCandidate(recording);
+  } catch (error) {
+    sourceProblem = error instanceof Error ? error.message : "後工程に使う文字起こしが見つかりません。";
+  }
+  const source = sourceProblem
+    ? ""
+    : !sourceCandidate || sourceCandidate.artifactId === SOURCE_STEP_ID
+      ? transcript
+      : artifacts[sourceCandidate.artifactId] ?? "";
+  const transcriptSpeakerNames = sourceProblem ? undefined : latestVersionRecord(loaded.runs, SOURCE_STEP_ID, sourceCandidate)?.transcriptSpeakerNames;
   const refs = frozenRefs ? [...frozenRefs] : promptRefs(project, recording, refBodies);
   const info = recordingInfo(project, recording);
   const plan = planProject({ flow, sourceName, source, ...(transcriptSpeakerNames ? { transcriptSpeakerNames } : {}), artifacts, refs, info, latestBasis });
@@ -161,6 +187,8 @@ export function buildRecordingView(
     flow,
     sourceName,
     source,
+    transcript,
+    sourceProblem,
     artifacts,
     runs: loaded.runs,
     plan,
@@ -270,7 +298,7 @@ export function hasMaterial(view: Pick<RecordingView, "recording" | "source">): 
 }
 
 export function stepMarkdown(view: RecordingView, stepId: string): string | undefined {
-  if (stepId === SOURCE_STEP_ID) return view.source.trim() ? view.source : undefined;
+  if (stepId === SOURCE_STEP_ID) return view.transcript.trim() ? view.transcript : undefined;
   return view.artifacts[stepId];
 }
 
@@ -279,12 +307,39 @@ export function selectedCandidate(view: RecordingView, stepId: string, candidate
 }
 
 export function stepArtifactId(view: RecordingView, stepId: string, candidateId?: string | null): string {
-  return stepId === SOURCE_STEP_ID ? SOURCE_STEP_ID : artifactIdFor(view.recording, stepId, candidateId);
+  return artifactIdFor(view.recording, stepId, candidateId);
+}
+
+/** その置き場が最初の文字起こし（transcript.md・versions/source/）か。文字起こしの別案は工程 1 でも artifacts/ に置く（#19108）。 */
+export function isTranscriptFile(artifactId: string): boolean {
+  return artifactId === SOURCE_STEP_ID;
+}
+
+/**
+ * 置き場の本文を差し替えた見え方（transcript.md は最初の文字起こし、ほかは artifacts）。後工程に使う文字起こしの置き場なら、
+ * 工程の入力（source・materials.source）も同じ本文にする。
+ */
+export function withArtifactText(view: RecordingView, artifactId: string, markdown: string): RecordingView {
+  let selected: string | null = null;
+  try {
+    selected = selectedSourceCandidate(view.recording)?.artifactId ?? SOURCE_STEP_ID;
+  } catch {
+    selected = null;
+  }
+  const next: RecordingView = isTranscriptFile(artifactId)
+    ? { ...view, transcript: markdown }
+    : {
+        ...view,
+        artifacts: { ...view.artifacts, [artifactId]: markdown },
+        materials: { ...view.materials, artifacts: { ...view.materials.artifacts, [artifactId]: markdown } },
+      };
+  return selected === artifactId ? { ...next, source: markdown, materials: { ...next.materials, source: markdown } } : next;
 }
 
 export function candidateMarkdown(view: RecordingView, stepId: string, candidateId?: string | null): string | undefined {
-  if (stepId === SOURCE_STEP_ID) return stepMarkdown(view, stepId);
-  return view.artifacts[stepArtifactId(view, stepId, candidateId)];
+  const artifactId = stepArtifactId(view, stepId, candidateId);
+  if (isTranscriptFile(artifactId)) return stepMarkdown(view, SOURCE_STEP_ID);
+  return view.artifacts[artifactId];
 }
 
 export function candidateVersions(view: RecordingView, stepId: string, candidateId?: string | null): RunRecord[] {

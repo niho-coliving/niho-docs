@@ -1715,6 +1715,9 @@ impl Store {
     if let Some(candidate_sets) = raw.get("candidateSets") {
       recording["candidateSets"] = candidate_sets.clone();
     }
+    if let Some(selected) = raw.get("sourceCandidateId").filter(|value| value.is_string()) {
+      recording["sourceCandidateId"] = selected.clone();
+    }
     recording
   }
 
@@ -1869,6 +1872,9 @@ impl Store {
           if let Some(candidate_sets) = owner.get("candidateSets") {
             raw["candidateSets"] = candidate_sets.clone();
           }
+          if let Some(selected) = owner.get("sourceCandidateId").filter(|value| value.is_string()) {
+            raw["sourceCandidateId"] = selected.clone();
+          }
           raw
         } else {
           let mut parts = self.page_space_parts(project_id)?;
@@ -1986,7 +1992,7 @@ impl Store {
     if let Value::Object(fields) = &mut owner {
       fields.insert("pages".into(), Self::page_index(&pages));
       if has_root {
-        for key in ["flowSnapshot", "source", "refs", "candidateSets"] {
+        for key in ["flowSnapshot", "source", "refs", "candidateSets", "sourceCandidateId"] {
           fields.remove(key);
         }
         if let Some(Value::Object(info)) = fields.get_mut("info") {
@@ -2293,7 +2299,7 @@ impl Store {
     } else {
       map.remove("candidateSets");
     }
-    for key in ["flowSnapshot", "source", "refs", "candidateSets"] {
+    for key in ["flowSnapshot", "source", "refs", "candidateSets", "sourceCandidateId"] {
       map.remove(key);
     }
     if let Some(Value::Object(info)) = map.get_mut("info") {
@@ -2330,12 +2336,14 @@ impl Store {
       .or_else(|| recording.get("pageId").and_then(Value::as_str).map(str::to_string))
       .ok_or_else(StoreError::no_page)?;
     let mut persisted = Self::canonical_recording(recording, &recording_id, &page_id, Some(&owner));
-    if let Some(candidate_sets) =
-      read_json(&self.under(&base, &["recording.json"])?)?.and_then(|disk| disk.get("candidateSets").cloned())
-    {
-      persisted["candidateSets"] = candidate_sets;
-    } else if let Value::Object(fields) = &mut persisted {
-      fields.remove("candidateSets");
+    // 案の台帳と後工程に使う文字起こしの指定は専用の command だけが変える（古い画面の写しで消したり戻したりしない）
+    let disk = read_json(&self.under(&base, &["recording.json"])?)?;
+    for key in ["candidateSets", "sourceCandidateId"] {
+      if let Some(value) = disk.as_ref().and_then(|disk| disk.get(key)).cloned() {
+        persisted[key] = value;
+      } else if let Value::Object(fields) = &mut persisted {
+        fields.remove(key);
+      }
     }
     self.write_with_audio_at(project_id, &base, "recording.json", &persisted, true)
   }
@@ -2364,15 +2372,28 @@ impl Store {
       .and_then(|flow| flow.get("steps"))
       .and_then(Value::as_array)
       .ok_or_else(|| StoreError::new("store_bad_json", "録音の工程が正しくありません。"))?;
-    let Some(index) = steps
-      .iter()
-      .position(|step| step.get("id").and_then(Value::as_str) == Some(step_id))
-    else {
-      return Err(StoreError::bad_page("案の工程が録音にありません。"));
-    };
-    // 別案を作れるのは最後の工程だけ（どのフローでも常に作れる。工程ごとの出力設定は持たない）。
-    if index + 1 != steps.len() {
-      return Err(StoreError::bad_page("複数案は最後の工程にだけ追加できます。"));
+    if step_id == SOURCE_STEP_ID {
+      // 文字起こし（工程 1）の案は音声のある録音だけ（#19108。文章から作った録音は文字起こしをしない）
+      let has_audio = owner
+        .get("source")
+        .filter(|source| source.get("kind").and_then(Value::as_str) == Some("audio"))
+        .and_then(|source| source.get("audio"))
+        .and_then(Value::as_array)
+        .is_some_and(|audio| !audio.is_empty());
+      if !has_audio {
+        return Err(StoreError::bad_page("音声のある録音だけ、文字起こしを追加できます。"));
+      }
+    } else {
+      let Some(index) = steps
+        .iter()
+        .position(|step| step.get("id").and_then(Value::as_str) == Some(step_id))
+      else {
+        return Err(StoreError::bad_page("案の工程が録音にありません。"));
+      };
+      // 別案を作れるのは最後の工程だけ（どのフローでも常に作れる。工程ごとの出力設定は持たない）。
+      if index + 1 != steps.len() {
+        return Err(StoreError::bad_page("複数案は最後の工程にだけ追加できます。"));
+      }
     }
     if set.get("stepId").and_then(Value::as_str) != Some(step_id) {
       return Err(StoreError::new("store_bad_json", "案の工程が食い違っています。"));
@@ -2442,7 +2463,7 @@ impl Store {
       if !artifacts.insert(artifact_id) {
         return Err(StoreError::new("store_bad_json", "案の保存先が重複しています。"));
       }
-      if artifact_id == SOURCE_STEP_ID || (artifact_id != step_id && flow_artifacts.contains(artifact_id)) {
+      if artifact_id != step_id && (artifact_id == SOURCE_STEP_ID || flow_artifacts.contains(artifact_id)) {
         return Err(StoreError::new(
           "store_bad_json",
           "案の保存先が共有工程と重なっています。",
@@ -2624,6 +2645,41 @@ impl Store {
       .and_then(Value::as_object_mut)
       .ok_or_else(|| StoreError::bad_page("案が見つかりません。"))?;
     candidate.insert("name".into(), json!(name.trim()));
+    write_json(&file, &owner)
+  }
+
+  /// 後工程に使う文字起こしの案を変える（#19108）。`expected` は画面が知っている今の指定（無ければ最初の案）で、ディスクの指定と
+  /// 違えば別の端末や画面が先に変えたので書かない。台帳に無い案は選べない。通常の録音保存からはこの指定を変えない。
+  pub fn set_source_candidate_at(
+    &self,
+    project_id: Option<&str>,
+    recording_id: &str,
+    candidate_id: &str,
+    expected: Option<&str>,
+  ) -> Result<()> {
+    validate_id(candidate_id)?;
+    let _guard = WRITE_LOCK.lock();
+    let (file, mut owner, _) = self.candidate_owner_at(project_id, recording_id)?;
+    let current = owner.get("sourceCandidateId").and_then(Value::as_str);
+    if current != expected {
+      return Err(StoreError::new(
+        "store_conflict",
+        "後工程に使う文字起こしが、ほかの画面で変わりました。開き直してから選んでください。",
+      ));
+    }
+    let exists = owner
+      .get("candidateSets")
+      .and_then(|sets| sets.get(SOURCE_STEP_ID))
+      .and_then(|set| set.get("items"))
+      .and_then(|items| items.get(candidate_id))
+      .is_some();
+    if !exists {
+      return Err(StoreError::bad_page("後工程に使う文字起こしが見つかりません。"));
+    }
+    owner
+      .as_object_mut()
+      .ok_or_else(|| StoreError::new("store_bad_json", "録音の形が正しくありません。"))?
+      .insert("sourceCandidateId".into(), json!(candidate_id));
     write_json(&file, &owner)
   }
 
@@ -3024,7 +3080,7 @@ impl Store {
         pages.remove(index);
         if project_id.is_some() && recording_id == ROOT_RECORDING_ID {
           if let Value::Object(map) = &mut project {
-            for key in ["flowSnapshot", "source", "refs", "candidateSets"] {
+            for key in ["flowSnapshot", "source", "refs", "candidateSets", "sourceCandidateId"] {
               map.remove(key);
             }
           }
@@ -3300,6 +3356,9 @@ impl Store {
       if let Some(candidate_sets) = project.get("candidateSets") {
         recording["candidateSets"] = candidate_sets.clone();
       }
+      if let Some(selected) = project.get("sourceCandidateId").filter(|value| value.is_string()) {
+        recording["sourceCandidateId"] = selected.clone();
+      }
       if let Err(error) = write_json(&target_path.join("recording.json"), &recording) {
         let _ = fs::remove_dir(&target_path);
         return Err(error);
@@ -3360,7 +3419,7 @@ impl Store {
     target_pages.insert(target_index, moved_entry.clone());
     if legacy_root {
       if let Value::Object(fields) = &mut source_owner {
-        for key in ["flowSnapshot", "source", "refs", "candidateSets"] {
+        for key in ["flowSnapshot", "source", "refs", "candidateSets", "sourceCandidateId"] {
           fields.remove(key);
         }
       }
@@ -3826,7 +3885,7 @@ impl Store {
   ) -> Result<PathBuf> {
     validate_id(step_id)?;
     let base = self.recording_parts_at(project_id, recording_id)?;
-    let file = if source {
+    let file = if source && step_id == SOURCE_STEP_ID {
       self.under(&base, &["transcript.md"])?
     } else {
       self.under(&base, &["artifacts", &format!("{step_id}.md")])?
@@ -3936,7 +3995,7 @@ pub use conversations::ArtifactState;
 // 本人 Mac 実行（R6 #18739）の録音の照合・候補の不変の版・原子公開（personal_run.rs が捕捉した Store に対して呼ぶ）
 #[path = "store_personal.rs"]
 mod personal;
-pub(crate) use personal::{CandidateWrite, PersonalPublish, PublishOutcome};
+pub(crate) use personal::{selected_source_artifact, CandidateWrite, PersonalPublish, PublishOutcome};
 
 // 工程（フロー）の保存（P4 #18567。flows/<id>.json・index.json・P4 より前の active.json の移し替え）
 #[path = "store_flows.rs"]

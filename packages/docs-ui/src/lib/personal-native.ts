@@ -664,7 +664,9 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
         refs: [],
       };
       const versionId = newVersionId();
-      const location = { versionId, artifactId: SOURCE_STEP_ID, path: `recordings/${snapshot.recordingId}/versions/${SOURCE_STEP_ID}/${versionId}.md` };
+      const target = snapshot.outputTarget?.stepId === SOURCE_STEP_ID ? snapshot.outputTarget : null;
+      const artifactId = target?.artifactId ?? SOURCE_STEP_ID;
+      const location = { versionId, artifactId, path: `recordings/${snapshot.recordingId}/versions/${artifactId}/${versionId}.md` };
       const geminiModel: ResolvedStepModel | null = gemini
         ? { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT, profileId: "transcription", profileName: "文字起こし", connection }
         : null;
@@ -678,6 +680,7 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
           jobId: newId("speech"),
           engine: model.provider,
           connection,
+          ...(target ? { candidate: { id: target.candidateId, artifactId: target.artifactId } } : {}),
           newId,
           now: () => deps.now(),
           onProgress: (progress) => deps.onProgress?.(SOURCE_STEP_ID, progress),

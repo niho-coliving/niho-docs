@@ -1,7 +1,7 @@
 "use client";
 
 import type { DocsAutoVersionReason } from "@niho/docs-core";
-import { effortLabel, providerLabel, redirectedNote, remoteRunAcceptedLabel, shortModelLabel, snapshotModelLabel, SOURCE_STEP_ID, type PromptRef, type RunStartAction } from "@niho/docs-core";
+import { candidateFor, effortLabel, providerLabel, redirectedNote, remoteRunAcceptedLabel, selectedSourceCandidate, shortModelLabel, snapshotModelLabel, SOURCE_CANDIDATE_CLOUD_REASON, SOURCE_STEP_ID, type ArtifactCandidate, type PromptRef, type RunStartAction } from "@niho/docs-core";
 import { useCallback, useEffect } from "react";
 import { type Failure, type FailureAction } from "../components/FailureBand";
 import type { ProjectEntry } from "../host/DocsHost";
@@ -52,6 +52,15 @@ type Context = {
   documentScopeId: string | null;
   accountExecutionProblem: string | null;
 };
+
+/** 後工程に使う文字起こしの案（台帳が無い・指定が壊れているときは null。壊れた指定は実行の前に止める）。 */
+function selectedSourceOrNull(view: RecordingView): ArtifactCandidate | null {
+  try {
+    return selectedSourceCandidate(view.recording);
+  } catch {
+    return null;
+  }
+}
 
 /** 録音の工程実行・停止と NIHO に任せた続きの受付確認。 */
 export function useExecutionActions(context: Context) {
@@ -145,9 +154,14 @@ export function useExecutionActions(context: Context) {
       cloudContextRef.current.scopeId === capturedContext.scopeId;
     const rec = recordingRef(captured);
     const stepIds = route.kind === "local_transcription_only" ? [] : queue.filter((stepIdToRun) => stepIdToRun !== SOURCE_STEP_ID);
-    const engine = route.kind === "generation_only" ? null : effectiveEngine(settingsRef.current);
+    const sourceTarget = fixedTarget?.stepId === SOURCE_STEP_ID ? candidateFor(captured.recording, SOURCE_STEP_ID, fixedTarget.candidateId) : null;
+    const preferred = effectiveEngine(settingsRef.current);
+    const engine = route.kind === "generation_only" ? null : sourceTarget?.engine === "gemini"
+      ? sourceTarget.engineConnection === "apiKey" ? "gemini-api" : "gemini-subscription"
+      : sourceTarget?.engine ?? preferred;
     const engineName = engine ? engineIdLabel(settingsRef.current, engine) : "";
     const targetIndex = fixedTarget ? captured.flow.steps.findIndex((step) => step.id === fixedTarget.stepId) : -1;
+    const sourceForInputs = selectedSourceOrNull(captured);
     const request: NativePersonalRequest = {
       runId: newPersonalId("run"),
       intentId: newPersonalId("intent"),
@@ -169,10 +183,12 @@ export function useExecutionActions(context: Context) {
               candidateId: fixedTarget.candidateId,
               artifactId: fixedTarget.artifactId,
               ...(fixedTarget.instruction ? { instruction: fixedTarget.instruction } : {}),
-              inputVersions: Object.fromEntries([
-                [SOURCE_STEP_ID, latestVersionRecord(captured.runs, SOURCE_STEP_ID)?.version ?? 0],
-                ...captured.flow.steps.slice(0, Math.max(0, targetIndex)).map((step) => [step.id, latestVersionRecord(captured.runs, step.id)?.version ?? 0] as const),
-              ]),
+              inputVersions: fixedTarget.stepId === SOURCE_STEP_ID
+                ? {}
+                : Object.fromEntries([
+                    [SOURCE_STEP_ID, latestVersionRecord(captured.runs, SOURCE_STEP_ID, sourceForInputs)?.version ?? 0],
+                    ...captured.flow.steps.slice(0, Math.max(0, targetIndex)).map((step) => [step.id, latestVersionRecord(captured.runs, step.id)?.version ?? 0] as const),
+                  ]),
             },
           }
         : {}),
@@ -202,10 +218,13 @@ export function useExecutionActions(context: Context) {
           if (runAbortRef.current !== controller || !runRef.current || !sameCapturedScope()) return;
           const isSource = progressStepId === SOURCE_STEP_ID;
           const model = isSource ? null : captured.flow.models[progressStepId];
+          const onTarget = fixedTarget?.stepId === progressStepId ? fixedTarget : null;
           runRef.current = {
             ...runRef.current,
             stepId: progressStepId,
-            stepName: fixedTarget?.stepId === progressStepId ? fixedTarget.name : stepName(captured, progressStepId),
+            candidateId: onTarget?.candidateId ?? null,
+            artifactId: onTarget?.artifactId ?? null,
+            stepName: onTarget ? onTarget.name : stepName(captured, progressStepId),
             modelLabel: isSource ? engineName : model ? `${providerLabel(model.provider)} ${snapshotModelLabel(model)}` : "",
             note: isSource
               ? engineName
@@ -348,6 +367,19 @@ export function useExecutionActions(context: Context) {
       : route.kind === "generation_only" ? queue.filter((id) => id !== SOURCE_STEP_ID) : queue;
     if (runQueue.length === 0) return false;
     if (fixedTarget && !runQueue.includes(fixedTarget.stepId)) fixedTarget = null;
+    // 文字起こしをし直す実行は、後工程に使う文字起こしの案を作り直す（#19108。続く後工程もその案から作る）
+    if (!fixedTarget && runQueue.includes(SOURCE_STEP_ID)) {
+      let selected: ArtifactCandidate | null;
+      try {
+        selected = selectedSourceCandidate(current.recording);
+      } catch (error) {
+        showFailure(errorMessage(error, "後工程に使う文字起こしが見つかりません。"));
+        return false;
+      }
+      if (selected && selected.artifactId !== SOURCE_STEP_ID) {
+        fixedTarget = { stepId: SOURCE_STEP_ID, candidateId: selected.id, artifactId: selected.artifactId, name: selected.name };
+      }
+    }
     // 帯と入力欄のメニューが先に止めるので、ここに来るのは画面が古いときだけ（同じ文で知らせる）
     const candidateReason = candidateChoiceReason({ recording: current.recording, flow: current.flow, queue: runQueue, fixedStepId: fixedTarget?.stepId ?? null });
     if (candidateReason) {
@@ -357,7 +389,12 @@ export function useExecutionActions(context: Context) {
     if (route.kind === "generation_only" && route.executor === "niho_api") {
       const selectedSteps = runQueue;
       const fullFlow = selectedSteps.length === captured.flow.steps.length && captured.flow.steps.every((step, index) => selectedSteps[index] === step.id);
-      if (!latestVersionRecord(captured.runs, SOURCE_STEP_ID)) {
+      const selectedSource = selectedSourceOrNull(captured);
+      if (selectedSource && selectedSource.artifactId !== SOURCE_STEP_ID) {
+        showFailure(SOURCE_CANDIDATE_CLOUD_REASON);
+        return false;
+      }
+      if (!latestVersionRecord(captured.runs, SOURCE_STEP_ID, selectedSource)) {
         showFailure("クラウドで続きを作るには、このMacで確定した原文が必要です。先に文字起こしを完了してください。");
         return false;
       }

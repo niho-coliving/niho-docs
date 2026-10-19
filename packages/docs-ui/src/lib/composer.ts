@@ -5,6 +5,7 @@ import {
   PAGE_SNAPSHOT_MAX_BYTES,
   SOURCE_STEP_ID,
   candidatesFor,
+  selectedSourceArtifactId,
   composerChangedNote,
   composerEmptiedNote,
   composerFileNames as sharedComposerFileNames,
@@ -93,7 +94,16 @@ export async function loadComposerPlace(
       currentName = title;
       continue;
     }
-    if (view.source.trim()) references.push({ pageId: page.id, artifactId: SOURCE_STEP_ID, name: `${title} / ${view.sourceName}`, body: view.source });
+    // 文字起こしは後工程に使う案（#19108。Native はこの置き場の本文を読み直す。最初の案は transcript.md）
+    if (view.source.trim()) {
+      let sourceArtifactId: string = SOURCE_STEP_ID;
+      try {
+        sourceArtifactId = selectedSourceArtifactId(view.recording);
+      } catch {
+        sourceArtifactId = SOURCE_STEP_ID;
+      }
+      references.push({ pageId: page.id, artifactId: sourceArtifactId, name: `${title} / ${view.sourceName}`, body: view.source });
+    }
     for (const step of view.flow.steps) {
       const candidates = candidatesFor(view.recording, step.id);
       const choices = candidates.length

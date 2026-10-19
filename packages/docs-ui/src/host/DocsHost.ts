@@ -537,6 +537,11 @@ export interface Bridge {
   /** 最新の録音台帳へ案を追加し、複製なら本文・初版・記録も同じ操作で確定する。 */
   createCandidate(rec: RecordingRef, stepId: string, candidateSet: CandidateSet, newArtifactId: string, duplicateMarkdown: string | null, record: RunRecord | null): Promise<void>;
   renameCandidate(rec: RecordingRef, stepId: string, candidateId: string, name: string): Promise<void>;
+  /**
+   * 後工程に使う文字起こしの案を変える（#19108）。`expected` は画面が知っている今の指定（無ければ null＝最初の案）。ディスクの指定と
+   * 違えば書かずに store_conflict。通常の録音保存はこの指定を変えない。
+   */
+  setSourceCandidate(rec: RecordingRef, candidateId: string, expected: string | null): Promise<void>;
   /** 素材の無い録音（root 以外）に文章を貼る（工程 1 の版 1・source を文章に）。 */
   setRecordingText(rec: RecordingRef, text: string, record: RunRecord): Promise<void>;
   /** ページを足す（pages が無ければ root を先頭に初期化する）。足した 1 行を返す。 */

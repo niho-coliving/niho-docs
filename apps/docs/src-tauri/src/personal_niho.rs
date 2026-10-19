@@ -111,6 +111,15 @@ fn source_not_current() -> CommandError {
   )
 }
 
+/// 最初の文字起こし以外を後工程に使う録音（#19108）。クラウドの API は原文を `versions/source/` の版だけで受け付けるので、
+/// 選んだ案と違う本文で作らないよう送る前に断る。
+fn source_candidate_not_supported() -> CommandError {
+  failure(
+    "personal_niho_source_candidate",
+    "最初の文字起こし以外を後工程に使う録音は、クラウドでは続きを作れません。設定の「残りの工程」を「この Mac」にすると作れます。",
+  )
+}
+
 fn partial_saved() -> CommandError {
   failure(
     "personal_niho_partial_saved",
@@ -882,6 +891,9 @@ fn prepare(op: &PersonalOperation, head: &Map<String, Value>) -> CommandResult<C
     None | Some(Value::Null) => return Err(legacy_recording()),
     Some(Value::String(page)) if *page == op.recording_page_id => {}
     Some(_) => return Err(input_changed()),
+  }
+  if crate::store::selected_source_artifact(&recording).map_err(|_| input_changed())? != crate::store::SOURCE_STEP_ID {
+    return Err(source_candidate_not_supported());
   }
   let flow = recording
     .get("flowSnapshot")

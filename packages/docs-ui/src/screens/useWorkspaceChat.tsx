@@ -1,6 +1,6 @@
 "use client";
 
-import { candidateFor, candidatesFor, type About, type PromptRef } from "@niho/docs-core";
+import { candidateFor, candidatesFor, SOURCE_STEP_ID, type About, type PromptRef } from "@niho/docs-core";
 import { useEffect, useRef } from "react";
 import { type FailureAction } from "../components/FailureBand";
 import { type ChatToggleState } from "../components/PageTop";
@@ -90,7 +90,10 @@ export function useWorkspaceChat(context: Context) {
   // 複数案のある録音では、共有素材の会話も開いている工程だけを直す。台帳の無い録音は従来の会話範囲を保つ。
   const chatWritableArtifactId = selectedTarget?.artifactId ?? (hasCandidates ? selectedStepId : null);
   // 別案のある工程の名前（工程設計で付けた名前。「記事本文」に固定しない）
-  const candidateStepName = view ? view.flow.steps.find((step) => candidatesFor(view.recording, step.id).length > 0)?.name : undefined;
+  const candidateStepName = view
+    ? view.flow.steps.find((step) => candidatesFor(view.recording, step.id).length > 0)?.name
+      ?? (candidatesFor(view.recording, SOURCE_STEP_ID).length > 0 ? view.sourceName : undefined)
+    : undefined;
   // 案を開いていなければ、会話では録音の文書を読むだけにする（文書ページを直す・新しい文書を作るのはできる。composer #18722）
   const sharedChatReadOnly = !selectedStepId && hasCandidates
     ? `${candidateStepName || "別案のある工程"}を直すときは、左の案を開いてください。`

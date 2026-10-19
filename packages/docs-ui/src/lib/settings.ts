@@ -13,6 +13,7 @@ import {
   type Profile,
   type ProfileModel,
   type ProviderId,
+  TRANSCRIPTION_ENGINE_LABELS,
   type TranscriptionEngine,
 } from "@niho/docs-core";
 
@@ -463,6 +464,19 @@ const ENGINE_LABELS: Record<TranscriptionEngine, string> = { gemini: "Gemini", "
 /** 提供元の名前（実行の記録の provider）。 */
 export function engineLabel(engine: TranscriptionEngine): string {
   return ENGINE_LABELS[engine];
+}
+
+/** 文字起こしを追加するときの、登録済み・端末対応済みエンジン一覧。 */
+export function transcriptionEngineChoices(settings: AppSettings, unsupported: SpeechUnsupported | null = speechUnsupported):
+  Array<{ engine: TranscriptionEngineId; label: string; reason: string | null }> {
+  const registered = transcriptionEngines(settings);
+  return TRANSCRIPTION_ENGINE_IDS.map((engine) => ({
+    engine,
+    label: engine === "gemini-subscription" ? "Gemini（サブスクリプション）" : engine === "gemini-api" ? "Gemini（API キー）" : engineLabel(engineProvider(engine)),
+    reason: !registered.includes(engine)
+      ? engine === "deepgram" || engine === "gemini-api" ? "API キーで登録すると使えます" : engine === "gemini-subscription" ? "サブスクリプションで登録すると使えます" : "設定で登録すると使えます"
+      : !engineRunsHere(engine, unsupported) ? "この Mac では使えません" : null,
+  }));
 }
 
 /** エンジンの名前。Gemini は両方の方式を登録しているときだけ方式を添える（「Gemini（API キー）」）。 */

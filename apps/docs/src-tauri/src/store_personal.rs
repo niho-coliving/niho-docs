@@ -287,17 +287,24 @@ impl Store {
       .collect()
   }
 
-  /// 工程の現在本文のファイル（工程 1 は transcript.md、ほかは artifacts/<stepId>.md）。
+  /// 工程の現在本文のファイル（工程 1 の最初の案は transcript.md、ほかは artifacts/<artifactId>.md）。文字起こしの別案（#19108）は
+  /// `source` のまま artifactId の置き場を使う（台帳に属するかは公開のときに確かめる）。
   pub(crate) fn personal_current_file(&self, rec: &PersonalRecording, step_id: &str, source: bool) -> Result<PathBuf> {
     validate_id(step_id)?;
-    if source != (step_id == SOURCE_STEP_ID) {
-      return Err(bad_path());
-    }
-    if source {
+    if step_id == SOURCE_STEP_ID {
+      if !source {
+        return Err(bad_path());
+      }
       self.under(&rec.base, &["transcript.md"])
     } else {
       self.under(&rec.base, &["artifacts", &format!("{step_id}.md")])
     }
+  }
+
+  /// 後工程に使う文字起こしの置き場（`sourceCandidateId` が指す案の artifactId。台帳が無ければ SOURCE_STEP_ID）。指定が台帳に
+  /// 無いときは別の案へ寄せずに断る（docs-core の selectedSourceCandidate と同じ）。
+  pub(crate) fn personal_selected_source_artifact(&self, rec: &PersonalRecording) -> Result<String> {
+    selected_source_artifact(&rec.recording)
   }
 
   /// 工程のいちばん新しい版（versionPath があり、その録音の版を指す行だけ。移行前の頭の無い path も含む。旧形式の連番の版は扱わない）。
@@ -477,6 +484,26 @@ impl Store {
         "このページは削除されたため、結果を反映できません。",
       ));
     }
+    if input.source && input.artifact_id != SOURCE_STEP_ID {
+      // 文字起こしの別案: 台帳から消えた案へ遅い結果を書いて戻さない
+      let recording = read_json(&self.under(&rec.base, &["recording.json"])?)?.ok_or_else(StoreError::no_recording)?;
+      let candidate_exists = recording
+        .get("candidateSets")
+        .and_then(|sets| sets.get(SOURCE_STEP_ID))
+        .and_then(|set| set.get("items"))
+        .and_then(Value::as_object)
+        .is_some_and(|items| {
+          items
+            .values()
+            .any(|item| item.get("artifactId").and_then(Value::as_str) == Some(input.artifact_id))
+        });
+      if !candidate_exists {
+        return Err(StoreError::new(
+          "personal_target_deleted",
+          "この文字起こしは削除されたため、結果を反映できません。",
+        ));
+      }
+    }
     if !input.source {
       let recording = read_json(&self.under(&rec.base, &["recording.json"])?)?.ok_or_else(StoreError::no_recording)?;
       let step_exists = recording
@@ -624,5 +651,72 @@ impl Store {
     fs::create_dir_all(&dir).map_err(StoreError::io)?;
     let file = self.under(&rec.base, &[PERSONAL_RUNS_DIR, &format!("{run_id}.json")])?;
     Ok(SinkWrite::Put(file, json_bytes(aggregate)?))
+  }
+}
+
+/// 録音の `sourceCandidateId` が指す文字起こしの案の artifactId（台帳が無ければ SOURCE_STEP_ID）。
+pub(crate) fn selected_source_artifact(recording: &Value) -> Result<String> {
+  let not_found = || {
+    StoreError::new(
+      "source_candidate_missing",
+      "後工程に使う文字起こしが見つかりません。録音のページで選び直してください。",
+    )
+  };
+  let selected = recording.get("sourceCandidateId").and_then(Value::as_str);
+  let Some(set) = recording.get("candidateSets").and_then(|sets| sets.get(SOURCE_STEP_ID)) else {
+    return match selected {
+      Some(_) => Err(not_found()),
+      None => Ok(SOURCE_STEP_ID.to_string()),
+    };
+  };
+  let id = match selected {
+    Some(id) => id.to_string(),
+    None => set
+      .get("order")
+      .and_then(Value::as_array)
+      .and_then(|order| order.first())
+      .and_then(Value::as_str)
+      .ok_or_else(not_found)?
+      .to_string(),
+  };
+  let artifact = set
+    .get("items")
+    .and_then(|items| items.get(&id))
+    .and_then(|item| item.get("artifactId"))
+    .and_then(Value::as_str)
+    .ok_or_else(not_found)?;
+  validate_id(artifact)?;
+  Ok(artifact.to_string())
+}
+
+#[cfg(test)]
+mod selected_source_tests {
+  use super::selected_source_artifact;
+  use serde_json::json;
+
+  #[test]
+  fn the_selected_transcript_never_falls_back_to_another_candidate() {
+    assert_eq!(selected_source_artifact(&json!({})).unwrap(), "source");
+    let set = json!({
+      "source": {
+        "stepId": "source",
+        "order": ["tx1", "tx2"],
+        "items": {
+          "tx1": { "id": "tx1", "artifactId": "source" },
+          "tx2": { "id": "tx2", "artifactId": "artifact-tx2" }
+        }
+      }
+    });
+    assert_eq!(
+      selected_source_artifact(&json!({ "candidateSets": set })).unwrap(),
+      "source"
+    );
+    assert_eq!(
+      selected_source_artifact(&json!({ "candidateSets": set, "sourceCandidateId": "tx2" })).unwrap(),
+      "artifact-tx2"
+    );
+    let missing = selected_source_artifact(&json!({ "candidateSets": set, "sourceCandidateId": "gone" })).unwrap_err();
+    assert_eq!(missing.code, "source_candidate_missing");
+    assert!(selected_source_artifact(&json!({ "sourceCandidateId": "tx2" })).is_err());
   }
 }

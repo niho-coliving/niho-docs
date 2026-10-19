@@ -105,6 +105,17 @@ describe("修正の会話の固定の決まり", () => {
     expect(buildEditSystemPrompt({ ...flow, guide: "" }, "文章")).not.toContain("## 文書ガイド");
   });
 
+  it("文字起こしの案（#19108）を開いているときは、その案の置き場を書き換える文書として示す", () => {
+    const candidate = buildEditSystemPrompt(flow, "文字起こし", undefined, { stepId: "source", artifactId: "artifact-tx2", name: "この Mac 2" });
+    expect(candidate).toContain("- この Mac 2: artifacts/artifact-tx2.md（この依頼で書き換えられる文書）");
+    expect(candidate).toContain("- 文字起こし: artifacts/source.md（読むだけ）");
+    for (const step of flow.steps) expect(candidate).toContain(`- ${step.name}: artifacts/${step.id}.md`);
+    // 最初の案を開いているときは、今までどおり artifacts/source.md を書き換える
+    const primary = buildEditSystemPrompt(flow, "文字起こし", undefined, { stepId: "source", artifactId: "source", name: "Gemini" });
+    expect(primary).toContain("- Gemini: artifacts/source.md（この依頼で書き換えられる文書）");
+    expect(primary).not.toContain("（読むだけ）");
+  });
+
   it("「あなたについて」は 決まりの後・文書ガイドの前。空なら節ごと入れない", () => {
     const withGuide = { ...flow, guide: "# 文書の目的と読者\n\n来訪者に向けて書く。" };
     const system = buildEditSystemPrompt(withGuide, "文字起こし", { name: "佐藤", text: "ライフコーチをしています。" });

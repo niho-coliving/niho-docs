@@ -135,6 +135,21 @@ export type WorkViewProps = {
   onCandidateNameChange?: (name: string) => void;
   onCandidateNameCommit?: (name: string) => void;
   onCompare?: () => void;
+  /**
+   * 文字起こしの案のページ（#19108）: 後工程に使う文字起こしの状態と切替。文字起こしの案が 2 つ以上のときだけ渡す。開くだけでは
+   * 変えず、本文の上の 1 行の「この文字起こしを後工程に使う」だけで変える。
+   */
+  sourceUse?: {
+    /** このページの文字起こしを後工程に使っている。 */
+    selected: boolean;
+    /** 今、後工程に使っている文字起こしの名前（決められなければ null）。 */
+    selectedName: string | null;
+    /** 変えた直後の 1 行（「元に戻す」があれば onUndo）。 */
+    notice: { text: string; onUndo?: () => void } | null;
+    /** 押せない（実行中・保存中）。 */
+    disabled: boolean;
+    onChoose: () => void;
+  };
   showTimestamps: boolean;
   onShowTimestampsChange: (show: boolean) => void;
   /** 検索・書式の入口（タイトルバーの ⋯ と ⌘F。App が持つ）。 */
@@ -466,7 +481,7 @@ export function WorkView(props: WorkViewProps) {
   const speakerCandidates = isSource
     ? [...new Set([...view.project.info.terms.map((entry) => entry.term.trim()), ...Object.values(speakerNames)].filter(Boolean))]
     : [];
-  const sourceOrigin = isSource ? transcriptOriginProvider(view.runs, displayedRecord?.version ?? null) : null;
+  const sourceOrigin = isSource ? transcriptOriginProvider(view.runs, displayedRecord?.version ?? null, props.target?.artifactId ?? SOURCE_STEP_ID) : null;
   const multipleAudioWithoutParts =
     isSource &&
     view.recording.source.kind === "audio" &&
@@ -520,6 +535,22 @@ export function WorkView(props: WorkViewProps) {
   const overwrittenNotice = overwritten && props.onUndoOverwritten
     ? <CloudPageNotice text={AI_OVERWROTE_EDIT_NOTICE} action="元に戻す" disabled={props.saving || runningHere} onAction={() => props.onUndoOverwritten?.(overwritten.created, overwritten.previous)} />
     : null;
+  // 後工程に使う文字起こし（#19108）: 変えた直後は結果の 1 行、それ以外は使っていない案のページだけに切替の 1 行
+  const sourceUse = props.sourceUse;
+  const sourceUseNotice = !sourceUse || viewing
+    ? null
+    : sourceUse.notice
+      ? sourceUse.notice.onUndo
+        ? <CloudPageNotice text={sourceUse.notice.text} action="元に戻す" disabled={sourceUse.disabled} onAction={sourceUse.notice.onUndo} />
+        : <div className="cloud-banner" role="status"><span>{sourceUse.notice.text}</span></div>
+      : !sourceUse.selected && saved !== undefined
+        ? <CloudPageNotice
+            text={sourceUse.selectedName ? `後工程には「${sourceUse.selectedName}」を使っています。` : "後工程に使う文字起こしが見つかりません。"}
+            action="この文字起こしを後工程に使う"
+            disabled={sourceUse.disabled}
+            onAction={sourceUse.onChoose}
+          />
+        : null;
   const author = shown ? versionAuthor(shown) : null;
   const status: Array<ReactNode | null> = runningHere
     ? [<span className="pill warn">作成中</span>]
@@ -552,6 +583,7 @@ export function WorkView(props: WorkViewProps) {
                 {joined([<span>{props.recordingTitle} から</span>, ...status])}
                 {saved !== undefined && !runningHere && props.saveStatus !== undefined && <SaveStatusText status={props.saveStatus} />}
                 {(props.target ? candidateStale : progress?.stale) && !runningHere && <span className="pill warn">{STALE_LABELS.stale}</span>}
+                {props.sourceUse?.selected && <span className="pill used-later">後工程に使用</span>}
                 <span className="sp" />
                 {props.onCompare && <button type="button" className="btn ghost sm" onClick={props.onCompare}>比較</button>}
                 {rerunnable && !runningHere && (
@@ -601,7 +633,7 @@ export function WorkView(props: WorkViewProps) {
               onStateChange={changePlayback}
             />
           )}
-          {!runningHere && (props.banner ?? overwrittenNotice ?? staleNotice)}
+          {!runningHere && (props.banner ?? overwrittenNotice ?? staleNotice ?? sourceUseNotice)}
           {runningHere && activeRun ? (
             <div className="pbody">
               <div className="progress-line">

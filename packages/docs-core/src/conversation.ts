@@ -297,9 +297,16 @@ export function buildEditSystemPrompt(
   if (flow.guide.trim()) parts.push(`## 文書ガイド\n\n${flow.guide.trim()}`);
   const recording = composer?.recording ?? true;
   const readOnly = composer?.recordingReadOnly ?? null;
+  // 文字起こしの案（#19108）を開いているときは、その案の置き場が書き換える文書（最初の案は artifacts/source.md のまま）
+  const sourceTarget = !readOnly && target?.stepId === SOURCE_STEP_ID ? target : null;
   const files = recording
     ? [
-        `- ${sourceName}: ${artifactFile(SOURCE_STEP_ID)}${readOnly ? "（読むだけ）" : "（頼まれたときだけ直す）"}`,
+        ...(sourceTarget && sourceTarget.artifactId !== SOURCE_STEP_ID
+          ? [`- ${sourceName}: ${artifactFile(SOURCE_STEP_ID)}（読むだけ）`]
+          : []),
+        sourceTarget
+          ? `- ${sourceTarget.name}: ${artifactFile(sourceTarget.artifactId)}（この依頼で書き換えられる文書）`
+          : `- ${sourceName}: ${artifactFile(SOURCE_STEP_ID)}${readOnly ? "（読むだけ）" : "（頼まれたときだけ直す）"}`,
         ...flow.steps.map((step) =>
           readOnly
             ? `- ${step.name}: ${artifactFile(step.id)}（読むだけ）`

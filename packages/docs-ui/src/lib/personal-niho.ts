@@ -41,6 +41,7 @@ export const PERSONAL_NIHO_NOT_SENT_CODES: ReadonlySet<string> = new Set([
   "personal_niho_legacy_recording",
   "personal_niho_not_synced",
   "personal_niho_source_not_current",
+  "personal_niho_source_candidate",
   "personal_niho_partial_saved",
   "personal_niho_steps_mismatch",
   "personal_niho_input_changed",

@@ -1864,9 +1864,10 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
       !state.dirty.contains_key(path) && state.base_file(path).is_some_and(|file| file.sha256 == sha)
     })
   };
-  // 出どころの分からない版は固定入力に使わない（fail closed）
+  // 出どころの分からない版は固定入力に使わない（fail closed）。原文は後工程に使う文字起こしの案（#19108。指定が台帳に無ければ断る）
+  let source_artifact = store.personal_selected_source_artifact(&rec)?;
   let latest_source = store
-    .personal_latest_version(&rec, store::SOURCE_STEP_ID)?
+    .personal_latest_version(&rec, &source_artifact)?
     .filter(|version| origin_of(&version.row).is_some());
   let source_version = match latest_source {
     Some(version) => {
@@ -1941,7 +1942,16 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
   }
   // 文字起こしをする経路は、今の文字起こし（transcript.md。版になっていない手直しも含む。無ければ null）を原文の公開の照合値にする
   if op.route.local() {
-    let file = store.personal_current_file(&rec, store::SOURCE_STEP_ID, true)?;
+    // 文字起こしの別案を作る実行は、その案の今の本文を照合値にする
+    let source_target = op
+      .output_target
+      .as_ref()
+      .and_then(Value::as_object)
+      .filter(|target| target.get("stepId").and_then(Value::as_str) == Some(store::SOURCE_STEP_ID))
+      .and_then(|target| target.get("artifactId"))
+      .and_then(Value::as_str)
+      .unwrap_or(store::SOURCE_STEP_ID);
+    let file = store.personal_current_file(&rec, source_target, true)?;
     let sha = fs::symlink_metadata(&file)
       .ok()
       .filter(|meta| meta.is_file())
@@ -1972,6 +1982,7 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
     "audio": audio_refs,
     "transcriptionModel": op.transcription.map(Transcription::model_json).unwrap_or(Value::Null),
     "sourceVersion": source_version,
+    "sourceArtifactId": source_artifact,
     "referencePages": reference_pages,
     "priorSteps": prior_steps,
     "expectedCurrentArtifactShaByStep": expected,
@@ -2168,12 +2179,22 @@ fn fixed_model(op: &PersonalOperation, kind: CandidateKind, step_id: &str) -> Op
 }
 
 fn fixed_artifact_id(op: &PersonalOperation, kind: CandidateKind, step_id: &str) -> Option<String> {
+  let state = op.st();
+  let head = state.head.as_ref();
+  let target = head
+    .and_then(|head| head.get("outputTarget"))
+    .and_then(Value::as_object);
   if kind == CandidateKind::Source {
+    // 文字起こしの別案（#19108）は受付で固定した案の置き場。無ければ最初の案（transcript.md）
+    if target.and_then(|value| value.get("stepId")).and_then(Value::as_str) == Some(store::SOURCE_STEP_ID) {
+      return target
+        .and_then(|value| value.get("artifactId"))
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    }
     return Some(store::SOURCE_STEP_ID.to_string());
   }
-  let state = op.st();
-  let head = state.head.as_ref()?;
-  let target = head.get("outputTarget").and_then(Value::as_object);
+  head?;
   if target.and_then(|value| value.get("stepId")).and_then(Value::as_str) == Some(step_id) {
     return target
       .and_then(|value| value.get("artifactId"))
@@ -2232,7 +2253,6 @@ pub(crate) fn persist_candidate(state: &AppState, handle: &str, input: Candidate
     return Err(path_not_allowed());
   }
   if (kind == CandidateKind::Source) != (input.step_id == store::SOURCE_STEP_ID)
-    || (kind == CandidateKind::Source && input.artifact_id != store::SOURCE_STEP_ID)
     || !step_selectable(&op, &input.step_id)
   {
     return Err(candidate_mismatch());

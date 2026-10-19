@@ -203,6 +203,11 @@ export type Recording = {
   moveGeneration?: number;
   /** 複数案対応工程の候補台帳。本文は artifactId が指す既存 artifacts/versions の正本にだけ置く。 */
   candidateSets?: Record<string, CandidateSet>;
+  /**
+   * 後工程に使う文字起こしの案（`candidateSets.source` の id。#19108）。無ければ最初の案（`transcript.md`）。台帳に無い id は
+   * 別の案へ寄せず、後工程を止める（candidates.ts の selectedSourceCandidate）。
+   */
+  sourceCandidateId?: string;
 };
 
 /** 同じ成果物工程に属する対等な案。candidateId と工程ID・案名・本文H1は別物。 */
@@ -214,6 +219,10 @@ export type ArtifactCandidate = {
   createdAt: string;
   /** 共通素材から生成するときだけ足す案固有の指示。工程の指示文は変更しない。 */
   instruction?: string;
+  /** 文字起こしの案（工程 1）だけ: 作ったエンジン（その実行だけに使い、設定の既定は変えない。#19108）。 */
+  engine?: TranscriptionEngine;
+  /** Gemini の案を作った接続方式。無い既存案はサブスクリプションとして扱う。 */
+  engineConnection?: Connection;
 };
 
 export type CandidateSet = {
@@ -249,6 +258,8 @@ export type Project = {
   refs?: string[];
   /** root の録音の複数案台帳。本文は録音と同じ artifacts/versions に置く。 */
   candidateSets?: Record<string, CandidateSet>;
+  /** root の録音の後工程に使う文字起こしの案（Recording.sourceCandidateId と同じ）。 */
+  sourceCandidateId?: string;
   /** ページの一覧。無い（今の案件）なら root の録音 1 枚と読む（pages.ts の projectPages）。 */
   /** P6 以降は PageIndex。配列は P1〜P5 からの互換入力。 */
   pages?: PageIndex | PageEntry[];
