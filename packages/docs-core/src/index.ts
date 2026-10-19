@@ -33,6 +33,7 @@ export * from "./templates.js";
 export * from "./flow-edit.js";
 export * from "./flow-choices.js";
 export * from "./run-words.js";
+export * from "./next-steps.js";
 export * from "./recording-fields.js";
 export * from "./guide-extraction.js";
 export * from "./pages.js";
