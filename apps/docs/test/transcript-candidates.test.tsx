@@ -43,11 +43,20 @@ function newRecording(flow: Flow): Recording {
 }
 
 /** 文字起こしと続きの工程まで作った録音（最初の文字起こしは この Mac）。 */
-async function transcribedRecording() {
+async function transcribedRecording(withApiGemini = false) {
   const bridge = new FakeBridge();
   const flow = createFlowFromTemplate(FLOW_TEMPLATES[1]!, "flow-1");
   bridge.flow = flow;
-  bridge.settings = { ...defaultSettings(), personalExecution: { continuation: "this_pc" } };
+  const base = defaultSettings();
+  bridge.settings = {
+    ...base,
+    connections: withApiGemini
+      ? { ...base.connections, apiKey: { ...base.connections.apiKey, providers: ["gemini"] } }
+      : base.connections,
+    transcription: { ...base.transcription, engine: "this-mac" },
+    personalExecution: { continuation: "this_pc" },
+  };
+  if (withApiGemini) bridge.keychain.set("gemini", "test-key");
   const project: Project = { version: 1, id: "", name: "朝市の取材", createdAt: "2026-10-19T00:00:00.000Z", info: { terms: [], background: "" }, pages: [] };
   const created = await bridge.createProject(project, null, null, []);
   const entry = await bridge.createPage(created.id, { kind: "rec", title: "朝市", createdAt: "2026-10-19T01:00:00.000Z", recording: newRecording(flow) });
@@ -82,6 +91,24 @@ function openedRequests(bridge: FakeBridge): PersonalOpenRequest[] {
 }
 
 describe("文字起こしの別案（#19108）", () => {
+  it("Gemini API の別案はモデルの方式に関係なく API キーに固定する", async () => {
+    const setup = await transcribedRecording(true);
+    screen = setup.rendered;
+    const { container } = screen;
+    const { bridge, stored } = setup;
+    await click(addButton(container));
+    expect(engineItems(container)[1]?.disabled).toBe(false);
+    await click(engineItems(container)[1]!);
+    await until(() => Object.keys(stored.recording.candidateSets?.[SOURCE_STEP_ID]?.items ?? {}).length === 2);
+    const set = stored.recording.candidateSets![SOURCE_STEP_ID]!;
+    const candidate = set.items[set.order[1]!]!;
+    expect(candidate).toMatchObject({ engine: "gemini", engineConnection: "apiKey" });
+    await until(() => openedRequests(bridge).some((request) => request.outputTarget?.candidateId === candidate.id));
+    const request = openedRequests(bridge).find((item) => item.outputTarget?.candidateId === candidate.id)!;
+    expect(request.transcriptionProvider).toBe("gemini");
+    expect(request.transcriptionConnection).toBe("apiKey");
+  });
+
   it("＋ からエンジンを選ぶと、その案のページを開いて文字起こしだけを作り、最初の文字起こしと後工程に使う指定は変えない", async () => {
     const setup = await transcribedRecording();
     screen = setup.rendered;
