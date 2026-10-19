@@ -1,0 +1,32 @@
+/*
+ * NIHO docs の面の token（今は Mac アプリが読む。Web/PWA の docs の画面も U3 で同じものを読む。#18873）。
+ *
+ * NIHO の semantic token（--niho-*）と App Sans の「NIHO Sans」は niho-ui/styles/tokens.css（web の apps/web/app/globals.css の写し。
+ * apps/web/lib/shared-tokens-copy.test.ts が照らす）を先に読み込む。ここには NIHO docs の面の別名（--docs-*）と、niho-ui の写しに
+ * 無いものだけを置く。色値は増やさない（別名は niho-ui の token を指すか、web の画面で既に使っている値だけを使う）。
+ */
+
+:where([data-docs-app-root]) {
+  color-scheme: light;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* カード・面の白。web の apps/web/design-tokens/tokens.json の color.surface.card と同じ白（web の globals.css と niho-ui の
+   * 写しには CSS 変数として無いので、ここで持つ） */
+  --niho-card: #ffffff;
+
+  /* ── NIHO docs の面の別名 ──
+   * 画面の地・レールは Claude のアプリの地と同じ --niho-docs-surface（#FCFCFB。owner 2026-10-18「真っ白すぎて青く見える」）。
+   * カード・ダイアログ・入力欄は白（--niho-card）。
+   * 読み取り専用の欄・コード・ホバーだけを無彩色の淡いグレーにする（肌色の --niho-surface 系は使わない）。 */
+  --docs-line: var(--niho-border); /* 区切りのヘアライン */
+  --docs-line-firm: #e6e6e0; /* 中立の枠（color-style-guide の非選択チップの border・web の border-[#E6E6E0]） */
+  --docs-ctl-line: #d7d9d1; /* 入力欄・副ボタンの枠（web の border-[#D7D9D1]） */
+  --docs-canvas: var(--niho-docs-surface); /* 画面の地。Tauri の window.backgroundColor も同じ値にする */
+  --docs-inset: #f5f5f5; /* 読み取り専用の欄・コード・固定の工程（web の bg-neutral-100） */
+  --docs-rail: var(--docs-canvas);
+  --docs-rail-on: var(--docs-line-firm);
+  --docs-hover: var(--docs-inset); /* ホバーは状態ではないので緑にしない */
+  --docs-rail-hover: #ecece7; /* レールの行のホバー・切り替えの溝（web の border-[#ECECE7]） */
+  --docs-warn-bg: #fff8e7; /* web の注意の面（bg-[#FFF8E7] text-[#7D5E17]） */
+  --docs-warn-ink: #7d5e17;
+}

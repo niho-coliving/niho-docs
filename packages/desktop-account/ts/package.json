@@ -1,0 +1,36 @@
+{
+  "name": "niho-desktop-account",
+  "private": true,
+  "version": "0.1.0",
+  "description": "NIHO アカウントでログイン（Mac アプリの画面側）。Tauri の plugin niho-desktop-account の commands と event を useNihoAccount() で包み、状態ごとの文言（ja / en）を持つ。NIHO camera・NIHO docs が同じコードを使う。specs/initiatives/niho-account-desktop-login.md",
+  "exports": {
+    "./*": "./src/*.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@tauri-apps/api": "^2.12.0",
+    "react": "^18.3.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/api": "^2.12.0",
+    "@types/node": "^24",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

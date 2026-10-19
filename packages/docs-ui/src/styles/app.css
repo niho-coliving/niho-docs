@@ -1,0 +1,3131 @@
+/*
+ * NIHO docs の画面（idea/mock/niho-docs-v8.html の CSS を semantic token に置き換えたもの）。
+ * クラス名はモックのまま。色は tokens.css の token だけを使う。
+ */
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) * {
+  box-sizing: border-box;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) {
+  margin: 0;
+  height: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) {
+  font-family: var(--font-family-sans);
+  background: var(--docs-canvas);
+  color: var(--niho-text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) button,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) textarea,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) input,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) select {
+  font-family: inherit;
+  color: inherit;
+  font-size: inherit;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) button {
+  cursor: pointer;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) button:disabled {
+  cursor: default;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) [hidden] {
+  display: none !important;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) svg {
+  display: block;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) h1,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) h2,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) h3,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) h4,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) p {
+  margin: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) input,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) select,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) textarea {
+  outline: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) :focus-visible {
+  outline: 2px solid var(--niho-dark);
+  outline-offset: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) details > summary::-webkit-details-marker {
+  display: none;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .app {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 276px minmax(0, 1fr);
+  background: var(--docs-canvas);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .app.solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]).desktop-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .desktop-shell > .docs-app-content > .app, :where([data-docs-app-root]):where([data-docs-shared-ui]).desktop-shell > .docs-app-content > .app {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+/*
+ * タイトルバー: 左は標準のウィンドウボタン（tauri.conf.json の trafficLightPosition で縦中央）とアプリ名、右端は開いているページの操作
+ * （PageTop が portal で描く）。高さは操作の 30px に上下 5px（owner 2026-10-18「高さを増やしすぎない」）。
+ */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 10px 0 89px;
+  border-bottom: 1px solid var(--docs-line-firm);
+  background: var(--docs-canvas);
+  color: var(--niho-text-sub);
+  font-size: 12px;
+  font-weight: 700;
+  user-select: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar img {
+  width: 17px;
+  height: 17px;
+  pointer-events: none;
+}
+/* 左の塊はレールの幅（.app の 276px）にそろえ、右端に新規作成の ＋ を置く（ウィンドウボタンの分の 89px を引く。#18929） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .lead {
+  flex: none;
+  width: calc(276px - 89px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 10px;
+}
+/* アプリ名＝ホームへ戻るボタン（レールに「ホーム」の行は置かない。#18929） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .tb-home {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  margin-left: -6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .tb-home:hover { background: var(--docs-rail-hover); color: var(--niho-text); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .rail-acts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .acts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .acts .ibtn {
+  width: 30px;
+  height: 30px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .acts .ibtn svg {
+  width: 16px;
+  height: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .acts .btn.sm {
+  height: 30px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-titlebar .acts .ibtn[aria-pressed="true"] {
+  background: var(--docs-rail-on);
+  color: var(--niho-text);
+}
+/* 閉じている「AIと作る」の作業中・新しい返事の印（右上の小さな緑の点。地の色の輪で縁取る。owner 2026-10-18・#18941） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-toggle {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-toggle .chat-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--niho-dark);
+  box-shadow: 0 0 0 2px var(--docs-canvas);
+  pointer-events: none;
+}
+
+/* ===== レール ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--docs-line-firm);
+  background: var(--docs-rail);
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .rscroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 10px 8px;
+}
+/* 新規作成の ＋（アイコンだけの緑の丸。タイトルバーのアプリ名の行のレールの右端。スマホの Web の右下の ＋ と同じ記号と色。#18929） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .new-menu { position: relative; flex: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tb-new {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--niho-primary-ink);
+  background: var(--niho-primary-bg);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tb-new:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tb-new[aria-expanded="true"] { background: var(--niho-primary-bg-hover); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tb-new > svg { width: 16px; height: 16px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .new-menu .pop { right: 0; top: 32px; min-width: 224px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .new-menu kbd { margin-left: auto; color: var(--niho-text-muted); font-family: inherit; font-size: 12px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-menu { position: relative; flex: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-menu .pop { right: 0; top: 30px; min-width: 150px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail-tail { min-height: 34px; }
+/* フォルダとフォルダの外のページの区切り線（見出しの代わり。フォルダの外の先頭への落とし先を兼ねるので、線の上下に高さを取る。#18867） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail-divider { height: 17px; margin: 0 2px; display: flex; align-items: center; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail-divider.line::before { content: ""; flex: 1; border-top: 1px solid var(--docs-line); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.dragging,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .case.dragging > .trow { opacity: 0.4; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.drag-before,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rec-outputs.drag-before,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .case.drag-before { border-top: 2px solid var(--niho-dark); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.drag-after,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rec-outputs.drag-after,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .case.drag-after { border-bottom: 2px solid var(--niho-dark); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .case.drag-into,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.drag-into,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail-divider.drag-into,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail-tail.drag-into { background: var(--niho-accent-soft); outline: 1px solid var(--niho-dark); outline-offset: -1px; border-radius: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .rfoot {
+  flex: none;
+  padding: 8px 10px 12px;
+  border-top: 1px solid var(--docs-line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .it {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--niho-text-sub);
+  text-align: left;
+  width: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .it svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .it.on {
+  background: var(--docs-rail-on);
+  color: var(--niho-text);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .it:hover:not(.on) {
+  background: var(--docs-rail-hover);
+}
+/* レールのツリー（案件 › 案件情報 › ページ › 成果物の子ページ。idea/mock/niho-docs-pages-v2.html の .ti・.tw・.rsec） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rail .case + .case {
+  margin-top: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.d1 {
+  padding-left: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.d2 {
+  padding-left: 32px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow.d3 { padding-left: 48px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .candidate-add { flex: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.candidate .n svg { width: 14px; height: 14px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tw {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--niho-text-muted);
+  border-radius: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tw svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tw.open svg {
+  transform: rotate(90deg);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) button.tw:hover {
+  background: var(--docs-rail-hover);
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tw.none {
+  visibility: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 8px 0 6px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti:hover:not(:disabled):not(.on) {
+  background: var(--docs-rail-hover);
+}
+/* 背景情報は文字だけ。アイコンと間隔の分を空け、ページ名の書き出しをそろえる。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.background-info {
+  padding-left: 31px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti:disabled {
+  opacity: 0.5;
+}
+/* 選んだ行は地の濃淡と太字だけ（下端の .rail .it.on と同じ。影・白い札・縦線は付けない。owner 2026-10-16・#18587） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.on {
+  background: var(--docs-rail-on);
+  color: var(--niho-text);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.on .ic {
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .ic {
+  width: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .ic svg {
+  width: 15px;
+  height: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .t {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .t.untitled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .st {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--niho-text-muted);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* 案の行の行頭（文書の印）。工程の子ページの行は文書と同じ .ic（#18915）。実行中はこの位置がスピナー */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .n {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.on .n {
+  color: var(--niho-text);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.case {
+  font-weight: 700;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti.case.dim {
+  font-weight: 400;
+  color: var(--niho-text-sub);
+}
+/* フォルダの行の ＋（そのフォルダに ページ／音声。#18867） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow .addpage {
+  position: relative;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow .addpage .ibtn svg {
+  width: 15px;
+  height: 15px;
+}
+/* レールの中で開く（右端の ＋ から左へ。レールの外へはみ出して切れないように） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow .addpage .pop {
+  right: 0;
+  top: 30px;
+  min-width: 180px;
+  font-weight: 400;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi svg {
+  width: 16px;
+  height: 16px;
+  color: var(--niho-text-sub);
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .spin {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--niho-accent-soft);
+  border-top-color: var(--niho-dark);
+  animation: docs-ui-spin 1s linear infinite;
+  flex: none;
+  display: inline-block;
+}
+@keyframes docs-ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .spin,
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .op.running::before,
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .cursor,
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .tw svg {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ===== 部品 ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop {
+  position: absolute;
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+  z-index: 30;
+  min-width: 200px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi {
+  width: 100%;
+  text-align: left;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi:disabled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi.danger {
+  color: var(--niho-danger);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi.on {
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi-label { padding: 5px 12px 3px; font-size: 11.5px; color: var(--niho-text-muted); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .submenu-trigger span { margin-left: auto; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pagemenu .submenu { position: absolute; right: calc(100% - 4px); top: 6px; min-width: 190px; padding: 6px; border: 1px solid var(--docs-line-firm); border-radius: 14px; background: var(--niho-card); box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fld {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fld label,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fld .label {
+  font-size: 12.5px;
+  color: var(--niho-text-sub);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fld .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fld2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn svg {
+  width: 14px;
+  height: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.primary {
+  color: var(--niho-primary-ink);
+  background: var(--niho-primary-bg);
+  box-shadow: 0 4px 14px rgba(99, 161, 9, 0.22);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.primary:hover:not(:disabled) {
+  background: var(--niho-primary-bg-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.primary:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.outline {
+  border: 1px solid var(--docs-ctl-line);
+  background: var(--niho-card);
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.outline:disabled {
+  opacity: 0.45;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.ghost {
+  color: var(--niho-accent-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.ghost:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.ghost:disabled {
+  opacity: 0.45;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.stop {
+  border: 1px solid var(--docs-ctl-line);
+  background: var(--niho-card);
+  color: var(--niho-danger);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .btn.sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ibtn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--niho-text-sub);
+  border-radius: 999px;
+  font-size: 17px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ibtn svg {
+  width: 17px;
+  height: 17px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ibtn:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ibtn.sm {
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--niho-accent-ink);
+  background: var(--niho-accent-soft);
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pill.mute {
+  color: var(--niho-text-sub);
+  background: var(--docs-rail-on);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pill.warn {
+  color: var(--docs-warn-ink);
+  background: var(--docs-warn-bg);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .seg {
+  display: inline-flex;
+  background: var(--docs-rail-hover);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .seg button {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .seg button[aria-pressed="true"] {
+  background: var(--niho-card);
+  color: var(--niho-text);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .seg button:disabled {
+  opacity: 0.4;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .seg.sm button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sel {
+  height: 34px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 10px;
+  background: var(--niho-card)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14' fill='none' stroke='%238A8A82' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 9px center;
+  font-size: 13.5px;
+  appearance: none;
+  -webkit-appearance: none;
+  max-width: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sel.sm {
+  height: 30px;
+  font-size: 13px;
+  padding: 0 26px 0 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sel:focus {
+  border-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inp {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 10px;
+  background: var(--niho-card);
+  font-size: 14px;
+  width: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inp:focus {
+  border-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inp[readonly] {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ta {
+  padding: 10px 12px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 12px;
+  background: var(--niho-card);
+  font-size: 13.5px;
+  line-height: 1.6;
+  width: 100%;
+  resize: vertical;
+  min-height: 96px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ta:focus {
+  border-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ta[readonly] {
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .link {
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+  font-size: 12.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .link:hover {
+  text-decoration: underline;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .help {
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .err {
+  font-size: 12.5px;
+  color: var(--niho-danger);
+  line-height: 1.6;
+}
+
+/* ===== 中央の面 ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 32px 40px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .page .narrow {
+  max-width: 860px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .phead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  margin-bottom: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .phead h1 {
+  font-size: 22px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .phead .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card + .card {
+  margin-top: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .ch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .ch h2 {
+  font-size: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .ch .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .cb {
+  padding: 4px 18px 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .cb.flush {
+  padding: 0 6px 6px;
+}
+/* 「あなたについて」（設定の先頭。呼び名とパーソナライズ。項目の間は、ラベルと入力の間（.fld の 8px）より広く空ける） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .card .cb.about {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .about .inp.name {
+  max-width: 300px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .about-save-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .about-save-error .err {
+  margin: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .about-save-status {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .about-save-status > span {
+  color: var(--niho-text-muted);
+  font-size: 12.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .veil {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 28, 26, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  background: var(--niho-card);
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+  padding: 24px 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg h2 {
+  font-size: 18px;
+}
+/* 入力の並び（案件情報。案件のロック中にまとめて無効にする fieldset）。項目の間は、ラベルと入力の間（.fld の 8px）より広く空ける */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg .fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .drop {
+  width: 100%;
+  border: 1.5px dashed var(--docs-ctl-line);
+  border-radius: 14px;
+  height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--niho-text-muted);
+  font-size: 13px;
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .drop.over {
+  border-color: var(--niho-dark);
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .drop b {
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afiles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+  font-size: 13.5px;
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile .ic {
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile .nm {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile .d {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  font-family: var(--font-family-mono);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile .pop {
+  right: 4px;
+  top: 38px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg .acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .candidate-modes { display: flex; flex-direction: column; gap: 10px; border: 0; padding: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .candidate-modes label { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .candidate-compare { width: min(1120px, calc(100vw - 48px)); height: min(760px, calc(100vh - 48px)); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0; flex: 1; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid section { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid select { align-self: flex-start; min-width: 0; max-width: 100%; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-col-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-document { flex: 1; overflow: auto; border: 1px solid var(--docs-line-firm); border-radius: 14px; padding: 24px; background: var(--docs-inset); }
+
+/* ===== 工程を選ぶ（フローがまだ無いとき。「新しい案件」のダイアログと工程設計の画面） ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pick {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pick .acts {
+  display: flex;
+  justify-content: flex-end;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tgrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard {
+  text-align: left;
+  background: var(--niho-card);
+  border: 1.5px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 132px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard:hover {
+  border-color: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard[aria-pressed="true"] {
+  border-color: var(--niho-dark);
+  box-shadow: 0 0 0 3px var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard b {
+  font-size: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard .flowline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard .flowline i {
+  font-style: normal;
+  color: var(--niho-text-muted);
+}
+
+/* ===== ページ（上の帯・文書・録音。idea/mock/niho-docs-pages-v2.html） ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pagemenu {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pagemenu .pop {
+  right: 0;
+  top: 40px;
+  min-width: 160px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi.danger:disabled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sheet {
+  min-height: 0;
+  overflow: auto;
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 22px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg {
+  /* 左右の余白（右に「AIと作る」があるときは詰める。行の ＋ ⋮⋮ の 52px は下回らない） */
+  --pg-x: 60px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 48px var(--pg-x) 96px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work:not(.noai) .pg {
+  --pg-x: clamp(52px, 5vw, 60px);
+}
+/* タイトルは折り返す（1 行から書いた分だけ伸びる。改行は入れない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ptitle {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+  background: transparent;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ptitle::placeholder {
+  color: var(--niho-text-muted);
+  opacity: 0.6;
+}
+/* 見出しとして打つ欄（本文のエディタと同じく枠を出さない。打つ位置はカーソルで分かる） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ptitle:focus-visible {
+  outline: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pmeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 28px;
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pmeta svg {
+  width: 14px;
+  height: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pmeta .dotsep {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pmeta .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pmeta .seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-home {
+  padding-bottom: 72px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .home-sheet { overflow: auto; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .home-page { max-width: 860px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent { margin-top: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent h2 { font-size: 15px; margin-bottom: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-row { width: 100%; min-height: 54px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 10px; text-align: left; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-row:hover { background: var(--docs-hover); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-icon { color: var(--niho-text-muted); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-icon svg { width: 17px; height: 17px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-main small,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recent-progress { color: var(--niho-text-muted); font-size: 11.5px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-drop { position: fixed; inset: 8px; z-index: 100; border: 2px solid var(--niho-dark); border-radius: 16px; background: var(--niho-accent-soft); display: grid; place-items: center; pointer-events: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .window-drop span { padding: 12px 20px; border-radius: 999px; background: var(--niho-card); color: var(--niho-accent-ink); font-weight: 800; }
+
+@media (max-width: 760px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .create-cards { grid-template-columns: 1fr; }
+}
+/* 背景情報のページ（#18914）: 背景情報・登場人物・固有名詞の欄と「保存」、その下に「音声」 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-save {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-save .sp { flex: 1; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-save .help,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-save .err { margin: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-audio { margin-top: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .mi-label { margin: 4px 10px; color: var(--niho-text-muted); font-size: 12px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .menu-separator { height: 1px; margin: 5px 8px; background: var(--docs-line); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work-meta {
+  align-items: flex-start;
+  gap: 8px 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work-meta-info {
+  display: flex;
+  flex: 1 1 260px;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work-meta-info .seg {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work-meta-actions {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .timestamp-control {
+  display: inline-flex;
+  flex-shrink: 0;
+  min-height: 24px;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .timestamp-control > div {
+  display: inline-flex;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .timestamp-label {
+  padding: 4px 0;
+  color: var(--niho-text-sub);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+/* 録音・時刻付き成果物の通し再生。狭い幅では時間・シーク・速度を自然に折り返す。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback {
+  margin: 14px 0 18px;
+  padding: 9px 10px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 10px;
+  background: var(--niho-card);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 8px;
+  background: var(--niho-card);
+  color: var(--niho-text);
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-toggle:hover { background: var(--docs-hover); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-toggle:disabled { opacity: .45; cursor: default; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-toggle svg { width: 16px; height: 16px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-time {
+  flex: none;
+  color: var(--niho-text-sub);
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-seek {
+  flex: 1 1 180px;
+  min-width: 100px;
+  height: 24px;
+  accent-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-speed,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-follow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  gap: 5px;
+  color: var(--niho-text-sub);
+  font-size: 12px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-speed select {
+  height: 28px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 7px;
+  background: var(--niho-card);
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-follow input { width: 16px; height: 16px; accent-color: var(--niho-dark); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-note,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-error {
+  margin: 6px 0 0 38px;
+  font-size: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-note { color: var(--niho-text-sub); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-error { color: var(--niho-danger); }
+
+@media (max-width: 360px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback { padding: 8px; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-seek { order: 4; flex-basis: calc(100% - 38px); margin-left: 38px; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-note, :where([data-docs-app-root]):where([data-docs-shared-ui]) .audio-playback-error { margin-left: 0; }
+}
+/* FeatureToggleSwitch の形（absolute・丸み・押せないときの薄さ）は Tailwind の utilities で付くが、この画面の Tailwind は
+   .docs-account の中だけに閉じている（postcss.config.cjs）。外の面では効かないので、形もここで宣言する */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 36px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch .niho-feature-toggle-switch__track {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  display: block;
+  box-sizing: border-box;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--docs-line-firm);
+  background: var(--docs-ctl-line);
+  box-shadow: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch[aria-checked="true"] .niho-feature-toggle-switch__track {
+  border-color: var(--niho-dark);
+  background: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch__thumb {
+  position: absolute;
+  display: block;
+  z-index: 1;
+  top: 4px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--niho-card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transform: translateX(0);
+  transition: transform 0.15s ease;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch[aria-checked="true"] .docs-feature-toggle-switch__thumb {
+  transform: translateX(14px);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch .niho-feature-toggle-switch__track,
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-feature-toggle-switch__thumb {
+    transition: none;
+  }
+}
+/* 成果物の子ページのタイトル（工程の名前。打てない見出し） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) h1.ptitle {
+  overflow-wrap: anywhere;
+}
+/* 録音のページの props の表（話者人数・言語・参考・工程。モック .props） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 14px;
+  row-gap: 4px;
+  margin: 24px 0 0;
+  font-size: 13.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .k {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .k svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .v {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  min-height: 38px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .v .help {
+  font-size: 12.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--docs-inset);
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 10px;
+  border-radius: 9px 0 0 9px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .go span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .go:hover {
+  color: var(--niho-accent-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .x {
+  /* 押せる範囲は 24px 以上（design-guide §8）。右の余白を 2px 縮めて、チップの幅は変えない */
+  width: 24px;
+  height: 24px;
+  margin-right: 2px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--niho-text-muted);
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .x:hover:not(:disabled) {
+  background: var(--docs-rail-on);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .x:disabled {
+  opacity: 0.45;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chip .x svg {
+  width: 12px;
+  height: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addchip {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: var(--niho-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addchip svg {
+  width: 14px;
+  height: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addchip:hover:not(:disabled) {
+  background: var(--docs-inset);
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addchip:disabled {
+  opacity: 0.45;
+}
+/* 「＋ ページ」のメニュー: 参考の欄の下に、欄の右端にそろえて出す（左は項目名の列まで。長い名前は省いて出す） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .v.refs {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .v.refs .pop {
+  right: 0;
+  top: calc(100% + 2px);
+  width: max-content;
+  max-width: min(300px, calc(100% + 126px));
+  max-height: 280px;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .props .v.refs .pop .mi span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pbody .doc {
+  max-width: none;
+  padding: 0 0 80px;
+  min-height: 240px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg > .empty {
+  height: auto;
+  padding: 48px 24px;
+}
+/* 行の ＋ ⋮⋮ の余白（editor.css の 52px）はページの左の余白に出し、本文の文字をタイトルとそろえる */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pbody .be {
+  margin-left: -52px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .loaderr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg .drop {
+  height: 128px;
+  gap: 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .drop .row,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .empty .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg .afiles.over {
+  outline: 2px dashed var(--niho-dark);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addaudio {
+  margin: 8px 2px 0;
+  min-height: 24px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg .sec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 34px 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 14px;
+  background: var(--niho-card);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow:hover:not(:disabled) {
+  background: var(--docs-canvas);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .n {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--niho-accent-soft);
+  color: var(--niho-accent-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .body {
+  flex: 1;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .t {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .d {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .go {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow .go svg {
+  width: 16px;
+  height: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow:disabled {
+  border-style: dashed;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow:disabled .n {
+  background: var(--docs-inset);
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow:disabled .t {
+  color: var(--niho-text-muted);
+  font-weight: 400;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .orow.running {
+  border-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pg .flownote {
+  margin: 16px 0 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  min-height: 36px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--niho-text-muted);
+}
+/* 準備の不足（AI の CLI・音声モデル）は、理由の文に続けて設定への導線を置く（狭い幅では文の中で折り返す） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .note.setup {
+  display: block;
+  min-width: 0;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .note.setup .link {
+  display: inline-block;
+  min-height: 24px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .btn {
+  flex: none;
+}
+/* 場所の 1 行の「設定で変更」（#18947） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .note > .link {
+  min-height: 24px;
+  white-space: nowrap;
+}
+/* 文字起こしの前の「文字起こしだけ」: 主ボタン「文書作成を開始」の左の控えめな文字ボタン（#18947。全工程より目立たせない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runbar .runalt {
+  flex: none;
+  min-height: 24px;
+  color: var(--niho-text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .model-swap-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .runnotice {
+  margin-top: 8px;
+  text-align: right;
+}
+/* 履歴で開いた古い版（読むだけ。#18912）: 本文の上の 1 行「版 N を表示中」・「この版に戻す」・「現在版に戻る」 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .version-view {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0 0 16px;
+  padding: 6px 8px 6px 12px;
+  min-height: 36px;
+  border-radius: 10px;
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .version-view .note {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .version-view .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .version-view .btn {
+  flex: none;
+}
+
+/* ===== 制作 ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) var(--docs-composer-width, clamp(300px, 30vw, 356px));
+  gap: 14px;
+  /* 中央の上の帯は無いので、タイトルバーの下に余白を置く */
+  padding: 14px 18px 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .work.noai {
+  grid-template-columns: minmax(0, 1fr);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-work-resize-handle {
+  position: absolute;
+  top: 14px;
+  bottom: 16px;
+  right: calc(var(--docs-composer-width, 356px) + 15px);
+  z-index: 2;
+  display: flex;
+  width: 20px;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-work-resize-handle:focus-visible {
+  outline: 2px solid var(--niho-dark);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-composer-rail-grip {
+  width: 4px;
+  height: 48px;
+  border-radius: 999px;
+  background: var(--docs-line-firm);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard {
+  background: var(--niho-card);
+  border-radius: 22px;
+  border: 1px solid var(--docs-line-firm);
+  padding: 14px 14px 12px;
+  position: relative;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard.grow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard .ch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+  min-height: 32px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard .ch h3 {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 10px;
+  padding: 5px 7px 10px;
+  border-bottom: 1px solid var(--docs-line);
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-part {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-part-label,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pending,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-unavailable {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-unavailable {
+  margin: 2px 7px 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill-wrap {
+  display: inline-flex;
+  position: relative;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill {
+  height: 32px;
+  max-width: 220px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px 0 5px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 999px;
+  color: var(--niho-text-sub);
+  background: var(--niho-card);
+  font-size: 12.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill.named {
+  border-color: transparent;
+  color: var(--niho-accent-ink);
+  background: var(--niho-accent-soft);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill:hover:not(:disabled),
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill[aria-expanded="true"] {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill.named:hover:not(:disabled),
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill.named[aria-expanded="true"] {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill:disabled {
+  opacity: 0.5;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-number {
+  height: 22px;
+  min-width: 22px;
+  padding: 0 4px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--docs-inset);
+  font-size: 11px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pill.named .speaker-number {
+  background: var(--niho-card);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-caret {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-menu {
+  left: 0;
+  top: 38px;
+  width: 244px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-menu .mi {
+  height: auto;
+  min-height: 36px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-separator {
+  height: 1px;
+  margin: 4px 7px;
+  background: var(--docs-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-input-row .inp {
+  min-width: 0;
+  height: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-input-row .btn {
+  flex: none;
+  height: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .speaker-pending .spin {
+  width: 13px;
+  height: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 18px 28px 40px;
+  font-size: 15.2px;
+  line-height: 1.8;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc:focus {
+  outline: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc h1 {
+  font-size: 24px;
+  line-height: 1.4;
+  margin: 6px 0 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc h2 {
+  font-size: 18px;
+  margin: 22px 0 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc h3 {
+  font-size: 15.5px;
+  margin: 14px 0 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc p {
+  margin: 0 0 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ol {
+  padding-left: 22px;
+  margin: 0 0 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc li {
+  margin: 2px 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc li p {
+  margin: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc blockquote {
+  margin: 0 0 12px;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--niho-soft);
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc pre {
+  background: var(--docs-inset);
+  border: 1px solid var(--docs-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc code {
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc table {
+  border-collapse: collapse;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .ProseMirror {
+  outline: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--niho-dark);
+  vertical-align: -2px;
+  margin-left: 2px;
+  animation: docs-ui-blink 1s steps(2) infinite;
+}
+@keyframes docs-ui-blink {
+  50% {
+    opacity: 0;
+  }
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--niho-text-muted);
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .progress-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--niho-accent-ink);
+  padding: 0 0 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .progress-line .btn {
+  flex: none;
+  margin-left: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop.hist {
+  right: 0;
+  top: 40px;
+  width: 440px;
+  padding: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  width: 100%;
+  text-align: left;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow.on {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow b {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow .d {
+  color: var(--niho-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow .m {
+  grid-column: 2 / span 2;
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .hrow .t {
+  font-family: var(--font-family-mono);
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+  white-space: nowrap;
+}
+
+/* ===== AIと作る ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 4px 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dayline {
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+  text-align: center;
+  padding: 2px 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-move-notice {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 10px;
+  background: var(--docs-inset);
+  color: var(--niho-text-muted);
+  font-size: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .step-msg {
+  align-self: flex-end;
+  max-width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--niho-accent-ink);
+  background: var(--niho-card);
+  border: 1px solid var(--niho-soft);
+  border-radius: 18px;
+  padding: 6px 12px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .step-msg small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .turn {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .think {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .think.live .txt {
+  color: var(--niho-text-muted);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-left: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op::before {
+  content: "✓";
+  color: var(--niho-dark);
+  font-weight: 700;
+  width: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.running::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--niho-accent-soft);
+  border-top-color: var(--niho-dark);
+  border-radius: 50%;
+  animation: docs-ui-spin 0.8s linear infinite;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.fail {
+  color: var(--niho-danger);
+  align-items: flex-start;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.fail::before {
+  content: "!";
+  color: var(--niho-danger);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.stopped::before {
+  content: "■";
+  color: var(--niho-text-muted);
+  font-size: 9px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op b {
+  font-weight: 400;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .worklog > summary {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .worklog > summary::before {
+  content: "›";
+  display: inline-block;
+  transition: transform 0.15s;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .worklog[open] > summary::before {
+  transform: rotate(90deg);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .worklog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 2px 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .partial-doc {
+  max-width: none;
+  margin: 0;
+  padding: 6px 2px;
+  font-size: 13px;
+  line-height: 1.7;
+  max-height: 320px;
+  overflow: auto;
+  border-left: 3px solid var(--docs-line-firm);
+  padding-left: 10px;
+}
+/* 途中までの「コピー」「続きを頼む」（#18788） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .partial-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  margin-left: -8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .partial-note {
+  margin: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result {
+  align-self: stretch;
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 14px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result .grow {
+  flex: 1;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result .grow small {
+  display: block;
+  font-size: 11px;
+  color: var(--niho-text-muted);
+}
+
+/* ===== 工程設計 ===== */
+/* フローの一覧（P4 #18567）: 行＝名前・未保存・工程の数・⋯（開いているフローは aria-current）と「＋ 追加」 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flist {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 6px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 12px;
+  padding-right: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow:hover:not(.on) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow.on {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow .fgo {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 12px;
+  text-align: left;
+  font-size: 13.5px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow.on .fgo {
+  color: var(--niho-text);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow .fgo svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow .nm {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow .pill {
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .frow .cnt {
+  margin-left: auto;
+  flex: none;
+  padding-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fmore {
+  position: relative;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fmore .pop {
+  right: 0;
+  top: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flist .facts {
+  display: flex;
+  align-items: center;
+  padding: 2px 10px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fadd {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fadd .link {
+  padding: 6px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .fadd .pop {
+  left: 0;
+  top: 32px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flowname {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flowname .inp {
+  max-width: 320px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flowname .cnt {
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 12px 16px 14px;
+  margin-bottom: 12px;
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .num {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--docs-rail-on);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--niho-text-sub);
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .top .inp {
+  max-width: 300px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .body {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: start;
+  padding: 12px 0 0 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .body .label {
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+  padding-top: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .body .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard.fixed {
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .instr-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+/* ガイドと指示文: その場で書け、書いた分だけ伸びる（高さは useFitHeight。欄の中ではスクロールさせない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ta.grow {
+  resize: none;
+  overflow: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ta.grow::placeholder {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .modeltag {
+  font-size: 13.5px;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .gh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .gh h2 {
+  font-size: 15px;
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .grow {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: start;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .grow .label {
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+  padding-top: 8px;
+}
+
+/* 工程設計の編集（S3）: 検証の結果・つまみ・お手本の文書・ガイドの字数（メニューの右の小さな添え書きは「＋ 追加」のテンプレートの工程の数） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi .sub {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .save-err {
+  margin: -6px 0 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .issues {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .issues li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--docs-warn-ink);
+  background: var(--docs-warn-bg);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flowname + .issues {
+  margin: -6px 0 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard > .issues {
+  margin: 10px 0 0 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard.issue {
+  border-color: var(--docs-warn-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard.dragging {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+  z-index: 2;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .hd {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--niho-text-muted);
+  font-size: 16px;
+  letter-spacing: -2px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .hd:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .hd:focus-visible {
+  outline: 2px solid var(--niho-dark);
+  outline-offset: 1px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard.dragging .hd {
+  cursor: grabbing;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard.fixed .hd {
+  visibility: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .top .sp {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .pop.more {
+  right: 10px;
+  top: 46px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gempty {
+  font-size: 13px;
+  color: var(--niho-text-muted);
+  padding: 8px 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .steps-empty {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addstep {
+  width: 100%;
+  height: 44px;
+  border: 1.5px dashed var(--docs-ctl-line);
+  border-radius: 14px;
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+  font-size: 13.5px;
+  background: transparent;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addstep:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .files {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .files.over {
+  outline: 1.5px dashed var(--niho-dark);
+  outline-offset: 4px;
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .afile {
+  height: 36px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .acts {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .acts .link {
+  padding: 4px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .dropnote {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--niho-accent-ink);
+  padding: 6px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .ferr {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .gerr {
+  margin: -2px 0 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .gerr .link {
+  padding: 4px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcard .busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gfoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcount {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  font-family: var(--font-family-mono);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gcount.over {
+  color: var(--docs-warn-ink);
+  background: var(--docs-warn-bg);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .link:disabled {
+  opacity: 0.45;
+  cursor: default;
+  text-decoration: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .tcard.blank {
+  border-style: dashed;
+  justify-content: center;
+  align-items: center;
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+  font-size: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flownote {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--docs-warn-bg);
+  color: var(--docs-warn-ink);
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .flownote .link {
+  min-height: 24px;
+  font-size: 12px;
+  text-align: left;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg.wide {
+  width: 720px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg.narrow {
+  width: 480px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg .msg {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .difflist {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13.5px;
+  line-height: 1.8;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .guide-preview {
+  white-space: pre-wrap;
+  max-height: 50vh;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glh,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.4fr 1fr 30px;
+  gap: 8px;
+  align-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glh {
+  font-size: 11px;
+  color: var(--niho-text-muted);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0 8px 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr {
+  padding: 0 2px;
+  border-radius: 8px;
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr input {
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  width: 100%;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr input:focus {
+  border-color: var(--niho-dark);
+  background: var(--niho-card);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr input::placeholder {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr .ibtn {
+  justify-self: end;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .glr .pop {
+  right: 0;
+  top: 32px;
+  min-width: 140px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .gl .link {
+  align-self: flex-start;
+  padding: 6px 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rules {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--niho-text-sub);
+  background: var(--docs-inset);
+  border: 1px solid var(--docs-line);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+/* ===== 設定 ===== */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow + .prow {
+  border-top: 1px solid var(--docs-line);
+  border-radius: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow b {
+  font-size: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .st {
+  font-size: 13px;
+  color: var(--niho-text-sub);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .stc {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .st i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--niho-dark);
+  display: block;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .st i.off {
+  background: var(--niho-orange);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .st i.none {
+  background: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .acts {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow > .seg,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow > .sel {
+  justify-self: start;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr {
+  display: grid;
+  grid-template-columns: 112px repeat(var(--n, 1), minmax(0, 1fr)) 30px;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 2px 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .pname {
+  display: grid;
+  gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .pname .inp {
+  height: 30px;
+  font-size: 13px;
+  padding: 0 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .more,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .acts {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .pop.more,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .pop.more {
+  right: 0;
+  top: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .menu-note {
+  padding: 4px 12px 6px;
+  max-width: 240px;
+  white-space: normal;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addrow {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+  font-size: 13.5px;
+  border-radius: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .addrow:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .cmd code {
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+  color: var(--niho-text);
+  background: var(--docs-inset);
+  border: 1px solid var(--docs-line);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard {
+  text-align: left;
+  background: var(--niho-card);
+  border: 1.5px solid var(--docs-line-firm);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 96px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard:hover {
+  border-color: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard[aria-pressed="true"] {
+  border-color: var(--niho-dark);
+  box-shadow: 0 0 0 3px var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard b {
+  font-size: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard span {
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+}
+/* Deepgram（文字起こしだけ。API キー方式の「＋ 追加」に横長で出す。モック v8） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard.dg {
+  grid-column: 1 / -1;
+  min-height: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+/* API キーの入力欄（鍵は画面に残さない。保存できたら空にする） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .inp.key {
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  max-width: 320px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .urow .uname {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .scard .body .redirected {
+  padding-top: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr.hd {
+  min-height: 28px;
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr b {
+  font-size: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr .cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pr + .pr:not(.hd) {
+  border-top: 1px solid var(--docs-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .urow {
+  display: grid;
+  grid-template-columns: 160px 1fr 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 2px 12px;
+  font-size: 13.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .urow.hd {
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  min-height: 28px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .urow + .urow:not(.hd) {
+  border-top: 1px solid var(--docs-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .urow .num {
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .path {
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  color: var(--niho-text-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--niho-text);
+  color: var(--niho-card);
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  z-index: 50;
+}
+/* トーストの操作（「作り直しました」の「元に戻す」だけ。#18915）。暗い地の上なので地の文字色のまま太字と下線で示す */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .toast.with-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 2px 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .toast-action {
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .toast-action:hover {
+  opacity: 0.8;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .toast-action:focus-visible {
+  outline: 2px solid var(--niho-card);
+  outline-offset: 1px;
+}
+
+/* 失敗の帯（components/FailureBand.tsx・#18788）。見た目は注意の帯（.cloud-banner）にそろえ、印だけ danger の色。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 6px 6px 12px;
+  border-radius: 10px;
+  background: var(--docs-warn-bg);
+  color: var(--docs-warn-ink);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-icon {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  color: var(--niho-danger);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-icon svg {
+  width: 16px;
+  height: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+  min-width: 0;
+  min-height: 24px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-act {
+  min-height: 24px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-close {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: var(--docs-warn-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-close:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-band .fb-close svg {
+  width: 13px;
+  height: 13px;
+}
+/* ページの帯（中央の面の上端。録音の帯の下） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .failure-slot {
+  flex: none;
+  padding: 10px 20px 0;
+  min-width: 0;
+}
+
+/* 本人の Google ドキュメント接続。既存の設定カードとダイアログの面・ボタンをそのまま使う。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-docs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-docs-row > div:first-child {
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-docs-row h3 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-docs-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-docs-error {
+  margin-top: 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-dialog {
+  width: 520px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-account {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 12px 14px;
+  border: 1px solid var(--docs-line);
+  border-radius: 12px;
+  background: var(--docs-inset);
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-account span {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-account b {
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-status,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-success {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--docs-inset);
+  color: var(--niho-text-sub);
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .google-export-success {
+  background: var(--niho-accent-soft);
+  color: var(--niho-accent-ink);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg .google-export-actions {
+  flex-wrap: wrap;
+}
+/* フォルダの書き出し（#18838）: 木はダイアログの中で送り、目安・理由・ボタンの行は下に残す（1024px の窓でも欠けない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-dialog {
+  overflow: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0 -28px;
+  padding: 2px 28px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-tree {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-tree legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-tree ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row:hover {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row.child {
+  padding-left: 34px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row .t {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-row .n {
+  flex: none;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-toggle label {
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--docs-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-budget {
+  font-size: 12px;
+  color: var(--niho-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-reason {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--niho-text-sub);
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-export-failed {
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+/* 工程設計: 公開記事からのお手本と、保存した本文の確認 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-source {
+  margin: 0 0 6px 28px;
+  font-size: 12px;
+  color: var(--niho-text-sub);
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-preview pre {
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.7;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-url { margin-top: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-url label { display: block; margin-bottom: 4px; font-size: 13px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-url-input { display: flex; flex-wrap: wrap; gap: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-url-input .inp { flex: 1 1 180px; min-width: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .sample-url-input .btn { flex-shrink: 0; }
+/* 録音は画面の切替先でも上端に残す（本文のスクロール領域の外）。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recording-global:empty { display: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recording-global {
+  flex: none;
+  display: grid;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--docs-line-firm);
+  background: var(--docs-canvas);
+  max-height: 32vh;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .recording-global .rec { flex: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]).docs-app-content { display: contents; }
+
+/* 同じ窓の骨格。ブラウザにはmacOSの標準ボタンの余白を取らない。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]).browser-shell { height: 100dvh; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .browser-shell .window-titlebar, :where([data-docs-app-root]):where([data-docs-shared-ui]).browser-shell .window-titlebar { padding-left: 12px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .browser-shell .window-titlebar .lead, :where([data-docs-app-root]):where([data-docs-shared-ui]).browser-shell .window-titlebar .lead { width: 254px; }
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) [data-docs-workspace] > .app { grid-template-columns: 280px minmax(0, 1fr); }
+@media (max-width: 1023px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) [data-docs-workspace] > .app { grid-template-columns: minmax(0, 1fr); }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) [data-docs-workspace] > .workspace-page > .rail { display: none; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) [data-docs-workspace] > .workspace-home > .main { display: none; }
+}
+
+/* 背景情報の比較は項目ごとに折り返し、狭い幅では上下に読む。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .metadata-comparison { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .metadata-comparison :is(p, dt, dd) { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .metadata-comparison dt { font-weight: 600; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .metadata-comparison dd { margin: 4px 0 12px; }
+@media (max-width: 640px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .metadata-comparison { grid-template-columns: minmax(0, 1fr); }
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-creation-row { padding: 8px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .folder-creation-row .inp { width: 100%; min-width: 0; }

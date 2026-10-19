@@ -1,0 +1,66 @@
+# NIHO docs の窓（local の画面）から呼べるコマンド。lib.rs の generate_handler! と一致させる（acl_tests.rs が確かめる）。
+
+[[permission]]
+identifier = "allow-docs-store"
+description = "Allows the NIHO docs window to read and write app settings, the about-you note, flows, ordered project folders, and pages inside or outside project folders (by project, page, recording, step and run id only). It can create, rename, delete and move pages without accepting paths from the window; delete empty folders; read and write recordings, article candidates, artifacts, versions, runs and checkpoints; import audio, sample documents and public article URLs; read project images; and hold the run lock for the selected page location."
+commands.allow = ["app_paths", "load_settings", "load_execution", "save_execution", "save_settings", "list_flows", "save_flow", "duplicate_flow", "delete_flow", "set_last_used_flow", "flow_usage", "load_about", "save_about", "import_samples", "fetch_sample_url", "save_sample_url", "read_sample", "prune_samples", "list_projects", "save_project_order", "reorder_project", "load_recent", "touch_recent", "create_project", "delete_empty_folder", "import_audio", "load_project", "load_pages", "save_project", "load_recording", "save_recording", "create_candidate", "rename_candidate", "set_recording_text", "create_page", "rename_page", "delete_page", "read_page", "write_page", "move_page", "read_image_asset", "save_artifact", "append_run", "read_version", "save_checkpoint", "read_checkpoint", "acquire_run_lock", "release_run_lock", "list_all_runs"]
+
+[[permission]]
+identifier = "allow-docs-turns"
+description = "Allows the NIHO docs window to run and stop step turns on the local AI CLI or on the AI provider APIs with the key from the Keychain (tools disabled), to read their status and to read the remaining usage that the CLI reports (Antigravity CLI only)."
+commands.allow = ["run_turn", "stop_turn", "provider_status", "provider_usage"]
+
+[[permission]]
+identifier = "allow-docs-conversations"
+description = "Allows the NIHO docs window to send a correction-chat turn to the local AI CLI that can read only inside a copy of a recording's documents and write only under its artifacts folder (by project and recording id; no paths from the window), read the state and the current text of the recording's step documents, put a document back to its latest version, and read and write the recording's conversations."
+commands.allow = ["run_chat_turn", "artifact_states", "read_artifact", "revert_artifact", "list_conversations", "save_conversation"]
+
+[[permission]]
+identifier = "allow-docs-providers"
+description = "Allows the NIHO docs window to start the official login of a local AI CLI in the browser, install Claude Code with the official installer and update it (fixed arguments only; no commands or paths from the window)."
+commands.allow = ["start_auth", "install_claude", "update_claude"]
+
+[[permission]]
+identifier = "allow-docs-api-keys"
+description = "Allows the NIHO docs window to save an AI provider API key to the macOS Keychain after one light check call, read whether a key is saved (the last four characters only; the key itself is never returned to the window), check a saved key with one light call and delete it (by provider account name only)."
+commands.allow = ["api_key_status", "save_api_key", "check_api_key", "delete_api_key"]
+
+[[permission]]
+identifier = "allow-docs-speech"
+description = "Allows the NIHO docs window to use the bundled speech sidecar to transcribe a recording's audio on this Mac, to cut a recording's audio into parts under the app data and let the Antigravity CLI read (or the Gemini API receive) one part at a time, to send a recording's audio to Deepgram with the key from the Keychain (by project, recording, job and part only; no paths from the window), and to look up the playable copies of a recording's own audio so the window can play them (by project and recording only; each existing copy is added to the asset protocol scope by its exact path)."
+commands.allow = ["speech_status", "speech_download", "transcribe", "prepare_audio", "transcribe_audio_part", "release_audio", "transcribe_deepgram", "stop_transcribe", "audio_info", "audio_file_paths"]
+
+[[permission]]
+identifier = "allow-docs-recording"
+description = "Allows the NIHO docs window to read (and, when not determined yet, ask for) the microphone access, record the default input device with the bundled speech sidecar into the app data's recordings folder (one recording at a time, by recording id only; no paths from the window), stop it and get the recorded audio, discard a recording, list the recordings not yet added to a project, open the microphone page of System Settings (a fixed URL), and stop the recording and close the window after the person confirmed."
+commands.allow = ["mic_status", "start_recording", "stop_recording", "discard_recording", "leftover_recordings", "open_microphone_settings", "close_after_recording"]
+
+[[permission]]
+identifier = "allow-docs-files"
+description = "Allows the NIHO docs window to open the native audio, sample document, image and folder pickers, save a Markdown export, reveal the docs root, a recording's step file or a page's Markdown in Finder and copy text."
+commands.allow = ["pick_audio_files", "pick_sample_files", "pick_image_asset", "pick_docs_root", "save_markdown_as", "reveal_root", "reveal_artifact", "reveal_page", "copy_text"]
+
+[[permission]]
+identifier = "allow-docs-updates"
+description = "Allows the NIHO docs window to read whether the background update check (at launch and hourly) downloaded a newer signed version, and to restart the app into that already downloaded version (only after one was downloaded; while a step, chat turn or transcription is running it reports busy unless the window confirmed). The window cannot check, download or install."
+commands.allow = ["update_status", "restart_to_update"]
+
+[[permission]]
+identifier = "allow-docs-cloud"
+description = "Allows the NIHO docs window to use the NIHO cloud vault for the docs root (by project id, protection id and conflict id only; the ID token never reaches the window): read the sync state and a project's sync snapshot, switch the storage between this Mac only and NIHO cloud (and rebind a root of another account only when nothing is pending), rename this Mac, list the cloud projects and the deleted ones, open a cloud-only project into a new project folder, restore a deleted project or choose what to do with local changes of a project deleted elsewhere, sync now or on window focus, protect the open document's paths from remote changes and release them, read and resolve conflicts, read the cloud usage, start and cancel the first upload of this Mac's projects, and autosave the latest step document or transcript without creating a version."
+commands.allow = ["cloud_state", "cloud_storage_select", "cloud_storage_reopening_preview", "cloud_storage_reopen", "open_page_document", "open_artifact_document", "save_opened_document", "save_opened_artifact", "release_opened_document", "cloud_set_provider", "cloud_set_device_name", "cloud_project_status", "cloud_remote_projects", "cloud_deleted_projects", "cloud_open_project", "cloud_restore_project", "cloud_tombstone_choice", "cloud_sync_now", "cloud_focus", "cloud_protect", "cloud_release", "cloud_conflicts", "cloud_conflict_copy", "cloud_resolve_conflict", "cloud_usage", "cloud_migration_start", "cloud_migration_cancel", "write_artifact_draft", "cloud_page_share_get", "cloud_page_share_set", "cloud_page_share_rotate", "cloud_page_share_open"]
+
+[[permission]]
+identifier = "allow-docs-google-docs"
+description = "Allows the NIHO docs window to check whether the server currently accepts NIHO account connections (an unauthenticated GET that sends no token), read and change the signed-in user's Google Docs connection, create or check an export with a fixed API route, read a folder's export plan and create, check or resume a folder export (by project id, export id and the plan's keys only; the page bodies never leave NIHO), and open only its validated canonical Google Docs URL."
+commands.allow = ["docs_account_available", "docs_drive_connection", "docs_drive_connect", "docs_drive_disconnect", "docs_drive_export", "docs_drive_export_status", "docs_drive_open_document", "docs_drive_folder_export_plan", "docs_drive_folder_export", "docs_drive_folder_export_status", "docs_drive_folder_export_resume"]
+
+[[permission]]
+identifier = "allow-docs-personal-run"
+description = "Allows the NIHO docs window to run a recording on this Mac for the signed-in person (by project, page, recording, intent, run and step id and an opaque operation handle only; no paths, stores or tokens reach the window): open an operation that captures the current docs root and namespace, takes the run lock and the NIHO cloud lease (only on-device transcription may start when NIHO cannot be reached), cancel and close it, check the account, root, lease, cancellation and the accepted fixed input before sending, persisting or publishing, record the intent and the dispatch marker in the person's app data, keep private progress records there, read and verify the recording's fixed inputs (audio is hashed on this Mac and not returned), keep a result as an immutable version, and publish it as the current document with its run record in one save only when the current document is unchanged. For a transcript confirmed on this Mac, it may also hand only the later steps to the NIHO API: read the current NIHO API access (permission, budget, consent version, model) for an open operation, submit one request whose body Rust builds from the synced recording and persists with its idempotency key before the first POST to the fixed /api/me/docs-runs route (no redirects; the ID token never reaches the window), and later look up, explicitly resend the same bytes with the same key, or prove the absence of an unconfirmed request of the signed-in person, and list those requests. During the explicitly consented NIHO API handoff, replace selected models in the recording's flow only if the previously confirmed flow snapshot still matches."
+commands.allow = ["personal_open", "personal_cancel", "personal_close", "personal_guard", "personal_reserve_intent", "personal_mark_dispatch", "personal_mark_intent", "personal_save_private", "personal_read_material", "personal_swap_models", "personal_verify_inputs", "personal_persist_candidate", "personal_publish", "personal_record", "personal_niho_ensure_idle", "personal_niho_access", "personal_niho_submit", "personal_niho_confirm", "personal_niho_pending"]
+
+[[permission]]
+identifier = "allow-docs-pc-runner"
+description = "Allows the NIHO docs window to read whether this Mac takes over the signed-in person's follow-up steps requested from a phone (on or off, waiting, running with the step name, login needed or NIHO unreachable) and to turn it on or off. Turning it on registers this Mac with NIHO using the account's ID token in Rust (the token never reaches the window), keeps the app in the menu bar and starts it at login; turning it off removes both. The window cannot claim, run or submit steps itself."
+commands.allow = ["pc_runner_status", "pc_runner_set_enabled"]

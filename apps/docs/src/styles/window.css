@@ -1,0 +1,3 @@
+/* Mac の窓だけの寸法。共通画面の CSS は docs の root に閉じる。 */
+html, body, #root { margin: 0; height: 100%; }
+body { overflow: hidden; }

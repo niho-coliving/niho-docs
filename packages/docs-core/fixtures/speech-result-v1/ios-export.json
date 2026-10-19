@@ -1,0 +1,45 @@
+{
+  "schema": "niho.speech-result",
+  "version": 1,
+  "language": "ja",
+  "speakerMode": "2",
+  "input": {
+    "sha256": "3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a",
+    "bytes": 4096,
+    "durationSeconds": 12.5
+  },
+  "engine": {
+    "recognizer": "apple-speech-transcriber",
+    "diarizer": {
+      "name": "fluidaudio-offline-diarizer",
+      "version": "0.15.6",
+      "modelRevision": "7eab74f3463c736418d0eb10296261ae581146c9"
+    }
+  },
+  "segments": [
+    {
+      "start": null,
+      "end": null,
+      "text": "（注記）",
+      "speaker": null
+    },
+    {
+      "start": 0.5,
+      "end": 3.25,
+      "text": "今日は庭の手入れの話です。",
+      "speaker": 1
+    },
+    {
+      "start": 3.5,
+      "end": 4,
+      "text": "はい、",
+      "speaker": null
+    },
+    {
+      "start": 4.25,
+      "end": 8,
+      "text": "道具をそろえるところから始めましょう。",
+      "speaker": 2
+    }
+  ]
+}

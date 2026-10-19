@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "react": ["./node_modules/@types/react/index.d.ts"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom/index.d.ts"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"],
+      "@radix-ui/react-dialog": ["./node_modules/@radix-ui/react-dialog/dist/index.d.mts"],
+      "@radix-ui/react-popover": ["./node_modules/@radix-ui/react-popover/dist/index.d.mts"],
+      "clsx": ["./node_modules/clsx/clsx.d.mts"],
+      "lucide-react": ["./node_modules/lucide-react/dist/lucide-react.d.ts"],
+      "niho-ui/*": ["./node_modules/niho-ui/src/*"],
+      "tailwind-merge": ["./node_modules/tailwind-merge/dist/types.d.ts"],
+      "@niho/docs-core": ["./node_modules/@niho/docs-core/src/index.ts"],
+      "@tiptap/extension-bubble-menu": ["./node_modules/@tiptap/extension-bubble-menu/dist/index.d.ts"],
+      "@tiptap/extension-floating-menu": ["./node_modules/@tiptap/extension-floating-menu/dist/index.d.ts"],
+      "@tiptap/core": ["./node_modules/@tiptap/core/dist/index.d.ts"],
+      "@tiptap/extension-list": ["./node_modules/@tiptap/extension-list/dist/index.d.ts"],
+      "@tiptap/pm/*": ["./node_modules/@tiptap/pm/dist/*/index.d.ts"],
+      "@tiptap/starter-kit": ["./node_modules/@tiptap/starter-kit/dist/index.d.ts"],
+      "markdown-it": ["./node_modules/@types/markdown-it/index.d.mts"],
+      "prosemirror-markdown": ["./node_modules/prosemirror-markdown/dist/index.d.ts"],
+      "prosemirror-search": ["./node_modules/prosemirror-search/dist/index.d.ts"],
+      "@tiptap/react": ["./node_modules/@tiptap/react/dist/index.d.ts"],
+      "@tiptap/react/*": ["./node_modules/@tiptap/react/dist/*/index.d.ts"],
+      "@tiptap/suggestion": ["./node_modules/@tiptap/suggestion/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

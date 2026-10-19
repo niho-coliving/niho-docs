@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "scenario": "stopped",
+  "description": "書いている途中で止める（停止は StopReason::Stopped の Done が 1 回。途中までの本文と、分かっている分の使用量を持つ）",
+  "request": {
+    "provider": "ClaudeCode",
+    "model": "claude-sonnet-fixture"
+  },
+  "cli": {
+    "stdout": [
+      "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"tools\":[],\"mcp_servers\":[]}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":100}}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"# 見出し\\n\"}}}"
+    ],
+    "then": "hang"
+  },
+  "control": {
+    "action": "stop",
+    "afterEvents": 1
+  },
+  "events": [
+    {
+      "type": "TextDelta",
+      "text": "# 見出し\n"
+    },
+    {
+      "type": "Done",
+      "text": "# 見出し\n",
+      "stop_reason": "Stopped",
+      "session_id": "00000000-0000-4000-8000-000000000000",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 0,
+        "cost_usd": null,
+        "model_used": "claude-sonnet-fixture",
+        "cost_known": false
+      },
+      "duration_ms": 0,
+      "continuations": 0
+    }
+  ],
+  "ignore": [
+    "session_id",
+    "duration_ms"
+  ]
+}

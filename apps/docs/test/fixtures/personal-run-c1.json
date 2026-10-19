@@ -1,0 +1,1023 @@
+{
+  "cases": {
+    "fresh": {
+      "identity": {
+        "intentId": "intent-g",
+        "nativeDeviceId": "d_test",
+        "ownerAccountId": "3813c747504fd8e887d9e34ac8493435e83a433bc085e66d0e1bc39638a2dea2",
+        "projectId": "proj1",
+        "recordingId": "rec1",
+        "recordingPageId": "pg1",
+        "rootId": "r_GoldenRootAAAAAAAAAAAA",
+        "runId": "run-intent-g"
+      },
+      "inputs": {
+        "aggregates": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "continuationOfRunId": null,
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "originDeviceId": "d_test",
+            "remoteRunId": null,
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "transcription_complete",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            }
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "continuationOfRunId": null,
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "bcf7977f3412f19c157d3a3fc02a91deae6b5f0106d6031dc97a47abada14e0a",
+            "originDeviceId": "d_test",
+            "remoteRunId": null,
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "stepId": "outline",
+            "stepName": "要点",
+            "version": {
+              "bytes": 39,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+              "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+              "versionId": "v_goldenOutlineAAAAAAAAA"
+            }
+          }
+        ],
+        "expectedCurrentSha": {
+          "outline": null,
+          "source": null
+        },
+        "records": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "id": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "kind": "run",
+            "originDeviceId": "d_test",
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": null,
+            "versionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "versionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "connection": "subscription",
+            "continuations": 0,
+            "durationMs": 1234,
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "id": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "bcf7977f3412f19c157d3a3fc02a91deae6b5f0106d6031dc97a47abada14e0a",
+            "inputChars": 321,
+            "inputTokens": 100,
+            "kind": "run",
+            "originDeviceId": "d_test",
+            "outputChars": 17,
+            "outputTokens": 50,
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "outline",
+            "stepName": "要点",
+            "tokensKnown": true,
+            "version": null,
+            "versionPath": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+            "versionSha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d"
+          }
+        ],
+        "snapshotSha256": [
+          "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+          "bcf7977f3412f19c157d3a3fc02a91deae6b5f0106d6031dc97a47abada14e0a"
+        ]
+      },
+      "outputs": {
+        "aggregates": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 1,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 1,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          }
+        ],
+        "files": {
+          "recordings/rec1/artifacts/outline.md": "## 要点\n\n- 朝市に出して3年目\n",
+          "recordings/rec1/transcript.md": "[00:00:01] 朝市に出して三年目です\n",
+          "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md": "## 要点\n\n- 朝市に出して3年目\n",
+          "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md": "[00:00:01] 朝市に出して三年目です\n"
+        },
+        "published": [
+          {
+            "cloudAcked": false,
+            "displayVersion": 1,
+            "localSaved": true,
+            "status": "committed",
+            "version": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            }
+          },
+          {
+            "cloudAcked": false,
+            "displayVersion": 1,
+            "localSaved": true,
+            "status": "committed",
+            "version": {
+              "bytes": 39,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+              "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+              "versionId": "v_goldenOutlineAAAAAAAAA"
+            }
+          }
+        ],
+        "runs": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "id": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "97b6bcdf5a521666ea59df0563d8410e73083eca29c4ff1b3ca05ca4e51d8a73",
+            "kind": "run",
+            "model": "niho-speech",
+            "modelUsed": null,
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "personalRunId": "run-intent-g",
+            "provider": "this-mac",
+            "reportedModel": null,
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": 1,
+            "versionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "versionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "connection": "subscription",
+            "continuations": 0,
+            "durationMs": 1234,
+            "effort": "high",
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "id": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "bcf7977f3412f19c157d3a3fc02a91deae6b5f0106d6031dc97a47abada14e0a",
+            "inputChars": 321,
+            "inputTokens": 100,
+            "kind": "run",
+            "model": "claude-sonnet-5",
+            "modelUsed": "claude-sonnet-5",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "outputChars": 17,
+            "outputTokens": 50,
+            "personalRunId": "run-intent-g",
+            "provider": "claude",
+            "reportedModel": "claude-sonnet-5",
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "outline",
+            "stepName": "要点",
+            "tokensKnown": true,
+            "version": 1,
+            "versionPath": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+            "versionSha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d"
+          }
+        ]
+      },
+      "setup": {
+        "currentBodies": {},
+        "previousSourceVersion": null
+      }
+    },
+    "withExisting": {
+      "identity": {
+        "intentId": "intent-g",
+        "nativeDeviceId": "d_test",
+        "ownerAccountId": "3813c747504fd8e887d9e34ac8493435e83a433bc085e66d0e1bc39638a2dea2",
+        "projectId": "proj1",
+        "recordingId": "rec1",
+        "recordingPageId": "pg1",
+        "rootId": "r_GoldenRootAAAAAAAAAAAA",
+        "runId": "run-intent-g"
+      },
+      "inputs": {
+        "aggregates": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 3,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 3,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 2,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          }
+        ],
+        "events": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "continuationOfRunId": null,
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "originDeviceId": "d_test",
+            "remoteRunId": null,
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "transcription_complete",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            }
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "continuationOfRunId": null,
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "be2e1c0b726309531629bd385c5e65ef9e886edca22dafa421ee660c6458b6ac",
+            "originDeviceId": "d_test",
+            "remoteRunId": null,
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "stepId": "outline",
+            "stepName": "要点",
+            "version": {
+              "bytes": 39,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+              "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+              "versionId": "v_goldenOutlineAAAAAAAAA"
+            }
+          }
+        ],
+        "expectedCurrentSha": {
+          "outline": "af7c377253d60371286c2a725b9338a9e524d9a2145b93cc55ecf7a77a24eb77",
+          "source": "ae9ba612957537b1ad303a5e2f5cf059d2b2204bc7b3cc9c424d8199209ac8ed"
+        },
+        "records": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "id": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "kind": "run",
+            "originDeviceId": "d_test",
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": null,
+            "versionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "versionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "connection": "subscription",
+            "continuations": 0,
+            "durationMs": 1234,
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "id": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "be2e1c0b726309531629bd385c5e65ef9e886edca22dafa421ee660c6458b6ac",
+            "inputChars": 321,
+            "inputTokens": 100,
+            "kind": "run",
+            "originDeviceId": "d_test",
+            "outputChars": 17,
+            "outputTokens": 50,
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "outline",
+            "stepName": "要点",
+            "tokensKnown": true,
+            "version": null,
+            "versionPath": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+            "versionSha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d"
+          }
+        ],
+        "snapshotSha256": [
+          "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+          "be2e1c0b726309531629bd385c5e65ef9e886edca22dafa421ee660c6458b6ac"
+        ]
+      },
+      "outputs": {
+        "aggregates": [
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 3,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "running",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 3,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 2,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "basisSnapshotSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "continuationOfRunId": null,
+            "intentId": "intent-g",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "recordingId": "rec1",
+            "recordingPageId": "pg1",
+            "remoteRunId": null,
+            "remoteState": null,
+            "retainedCandidates": [],
+            "runId": "run-intent-g",
+            "schemaVersion": 1,
+            "sourceVersion": {
+              "bytes": 45,
+              "displayVersion": 3,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            },
+            "state": "completed",
+            "transcriptionExecutions": 1,
+            "versions": [
+              {
+                "bytes": 45,
+                "displayVersion": 3,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+                "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+                "versionId": "v_goldenSourceAAAAAAAAAA"
+              },
+              {
+                "bytes": 39,
+                "displayVersion": 2,
+                "origin": "this_pc",
+                "originRunId": "run-intent-g",
+                "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+                "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+                "versionId": "v_goldenOutlineAAAAAAAAA"
+              }
+            ]
+          }
+        ],
+        "files": {
+          "recordings/rec1/artifacts/outline.md": "## 要点\n\n- 朝市に出して3年目\n",
+          "recordings/rec1/transcript.md": "[00:00:01] 朝市に出して三年目です\n",
+          "recordings/rec1/versions/outline/<auto>.md": "人が書いた要点\n",
+          "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md": "## 要点\n\n- 朝市に出して3年目\n",
+          "recordings/rec1/versions/source/<auto>.md": "[00:00:01] 前の原文に人が手を入れた\n",
+          "recordings/rec1/versions/source/v_goldenOldSourceAAAAAAA.md": "[00:00:01] 前の原文\n",
+          "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md": "[00:00:01] 朝市に出して三年目です\n"
+        },
+        "published": [
+          {
+            "cloudAcked": false,
+            "displayVersion": 3,
+            "localSaved": true,
+            "status": "committed",
+            "version": {
+              "bytes": 45,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+              "sha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+              "versionId": "v_goldenSourceAAAAAAAAAA"
+            }
+          },
+          {
+            "cloudAcked": false,
+            "displayVersion": 2,
+            "localSaved": true,
+            "status": "committed",
+            "version": {
+              "bytes": 39,
+              "origin": "this_pc",
+              "originRunId": "run-intent-g",
+              "path": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+              "sha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d",
+              "versionId": "v_goldenOutlineAAAAAAAAA"
+            }
+          }
+        ],
+        "runs": [
+          {
+            "at": "2026-10-16T00:00:01.000Z",
+            "id": "run-1",
+            "kind": "run",
+            "origin": "LOCAL",
+            "result": "saved",
+            "stepId": "source",
+            "stepName": "",
+            "version": 1,
+            "versionPath": "recordings/rec1/versions/source/v_goldenOldSourceAAAAAAA.md",
+            "versionSha256": "94898d9c76d6fe59f1e880b81729b7d7eb31848653d190b934f487064db0f118"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "auto": true,
+            "id": "save-<auto>",
+            "kind": "save",
+            "originDeviceId": "d_test",
+            "outputChars": 24,
+            "result": "saved",
+            "reasonCode": "overwritten_by_ai",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": 2,
+            "versionPath": "recordings/rec1/versions/source/<auto>.md",
+            "versionSha256": "ae9ba612957537b1ad303a5e2f5cf059d2b2204bc7b3cc9c424d8199209ac8ed"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "eventId": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "id": "r6-2cf1c29214f21e4f0547089efb64a99624bd0e295d8552dade63cb0da3130104",
+            "inputBasisSha256": "663a10d7172907b912c87e1888a957b8cd8f5369b6fe32d4dac1cd7812008f06",
+            "kind": "run",
+            "model": "niho-speech",
+            "modelUsed": null,
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "personalRunId": "run-intent-g",
+            "provider": "this-mac",
+            "reportedModel": null,
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "source",
+            "stepName": "文字起こし",
+            "version": 3,
+            "versionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "versionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "auto": true,
+            "id": "save-<auto>",
+            "kind": "save",
+            "originDeviceId": "d_test",
+            "outputChars": 8,
+            "result": "saved",
+            "reasonCode": "overwritten_by_ai",
+            "stepId": "outline",
+            "stepName": "要点",
+            "version": 1,
+            "versionPath": "recordings/rec1/versions/outline/<auto>.md",
+            "versionSha256": "af7c377253d60371286c2a725b9338a9e524d9a2145b93cc55ecf7a77a24eb77"
+          },
+          {
+            "at": "2026-10-17T01:00:00.000Z",
+            "connection": "subscription",
+            "continuations": 0,
+            "durationMs": 1234,
+            "effort": "high",
+            "eventId": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "id": "r6-af1d50f17a7953331eb6e3bf42788f9c5da1b8fd9954e5c4e4cfd587673e4b96",
+            "inputBasisSha256": "be2e1c0b726309531629bd385c5e65ef9e886edca22dafa421ee660c6458b6ac",
+            "inputChars": 321,
+            "inputTokens": 100,
+            "kind": "run",
+            "model": "claude-sonnet-5",
+            "modelUsed": "claude-sonnet-5",
+            "origin": "this_pc",
+            "originDeviceId": "d_test",
+            "outputChars": 17,
+            "outputTokens": 50,
+            "personalRunId": "run-intent-g",
+            "provider": "claude",
+            "reportedModel": "claude-sonnet-5",
+            "result": "saved",
+            "sourceVersionId": "v_goldenSourceAAAAAAAAAA",
+            "sourceVersionPath": "recordings/rec1/versions/source/v_goldenSourceAAAAAAAAAA.md",
+            "sourceVersionSha256": "2a4bbc744d48b5364699fcda550e0425cbbfa5d33e6e066d17c423c711f10a50",
+            "stepId": "outline",
+            "stepName": "要点",
+            "tokensKnown": true,
+            "version": 2,
+            "versionPath": "recordings/rec1/versions/outline/v_goldenOutlineAAAAAAAAA.md",
+            "versionSha256": "0bdf08458a964d1867748b29e59cdc27db445a05f2e3fb0f95f598afa8179f5d"
+          }
+        ]
+      },
+      "setup": {
+        "currentBodies": {
+          "outline": "人が書いた要点\n",
+          "source": "[00:00:01] 前の原文に人が手を入れた\n"
+        },
+        "previousSourceVersion": "[00:00:01] 前の原文\n"
+      }
+    }
+  },
+  "description": "本人 Mac 実行（R6 #18739）の Native writer（store_personal.rs / personal_run.rs の personal_publish・personal_record）が実際に書いたファイル。fresh は何も無い録音、withExisting は前の原文の版・人の手直しの現在本文がある録音（自動の「保存」の版と 2 以上の採番）。自動の「保存」の版の乱数の名前と行の id は <auto> に置き換えている。personal_run_tests.rs の golden test が生成・照合し、TS は test/personal-run-fixture.test.ts で読む。"
+}

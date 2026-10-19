@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "scenario": "invalid-stream",
+  "description": "壊れた JSONL のまま result が来ずに終わる（途中の本文のあと Error の TransientFailure が 1 回。crate は読めない行を飛ばし、result が無いことで失敗にする）",
+  "request": {
+    "provider": "ClaudeCode",
+    "model": "claude-sonnet-fixture"
+  },
+  "cli": {
+    "stdout": [
+      "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"tools\":[],\"mcp_servers\":[]}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"# 見出し\\n\"}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_blo"
+    ],
+    "then": "exit"
+  },
+  "control": null,
+  "events": [
+    {
+      "type": "TextDelta",
+      "text": "# 見出し\n"
+    },
+    {
+      "type": "Error",
+      "reason_code": "TransientFailure",
+      "message": "Claude Code の実行に失敗しました。"
+    }
+  ],
+  "ignore": []
+}

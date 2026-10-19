@@ -1,0 +1,207 @@
+#!/bin/sh
+# 偽の claude（Claude Code の `claude -p --output-format stream-json` と、状態の確認・ログイン・更新の最小の形）。
+# 本物の Claude Code を使わずに、開発ビルドの NIHO docs で CLI 実行基盤（crate niho-local-ai）を通して工程の実行を試すためのもの。
+#   npm -C apps/docs run dev:fake   … この偽物と偽の niho-speech で起動する（NIHO_DOCS_CLAUDE_CLI_PATH）
+# crate が確かめる形に合わせる: 最初に tools・mcp_servers が空の init、本文は stream_event、最後に result（stop_reason つき）。
+# 入力（標準入力）に次の印があると、その振る舞いをする（背景情報のダイアログの「背景情報」の欄に書けばよい）:
+#   [fake:max_tokens]    1 回目は上限で止まり（result の stop_reason が max_tokens）、アプリが --resume で頼む続きで書き終える
+#   [fake:auto_continue] 同じ実行の中で上限に達し、Claude Code が自分で続きを 1 回頼んで書き終える（Done.continuations = 1）
+#   [fake:login]         未ログインの失敗
+#   [fake:limit]         利用上限の失敗
+#   [fake:model]         設定のモデルが使えない失敗
+#   [fake:slow]          ゆっくり書く（停止・時間切れを試す）
+#   [fake:broken]        壊れた JSONL のまま result を出さずに終わる
+# 「AIと作る」の修正の会話（--allowedTools 付きの起動。cwd は案件フォルダ）では、artifacts/ の最初の文書を読み、末尾に
+# 1 行足して（Read → Edit の tool_use / tool_result を流して）短く返す。
+set -u
+
+case "${1:-}" in
+  --version)
+    echo "fake (Claude Code)"
+    exit 0
+    ;;
+  --help)
+    # crate（niho-local-ai）の status.rs が確かめる必須のフラグ
+    echo "Usage: claude [options] [command] [prompt]"
+    echo "  -p, --print"
+    echo "  --output-format <format>"
+    echo "  --verbose"
+    echo "  --include-partial-messages"
+    echo "  --setting-sources <sources>"
+    echo "  --strict-mcp-config"
+    echo "  --restricted"
+    echo "  --tools <tools...>"
+    echo "  --disable-slash-commands"
+    echo "  --permission-mode <mode>"
+    echo "  --model <model>"
+    echo "  --effort <level>"
+    echo "  --session-id <uuid>"
+    echo "  -r, --resume [value]"
+    echo "  --max-budget-usd <amount>"
+    exit 0
+    ;;
+  auth)
+    if [ "${2:-}" = "status" ]; then
+      echo "Login method: 偽物（開発用）"
+    fi
+    # auth login はすぐに終わる（ブラウザは開かない）
+    exit 0
+    ;;
+  update)
+    echo "fake (Claude Code) is up to date"
+    exit 0
+    ;;
+esac
+
+resume=""
+session=""
+chat=0
+prev=""
+for arg in "$@"; do
+  case "$prev" in
+    --resume) resume="$arg" ;;
+    --session-id) session="$arg" ;;
+  esac
+  [ "$arg" = "--allowedTools" ] && chat=1
+  prev="$arg"
+done
+[ -n "$resume" ] && session="$resume"
+
+input="$(cat)"
+chars=$(printf '%s' "$input" | wc -m | tr -d ' ')
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/ /g'
+}
+
+emit_text() {
+  printf '{"type":"stream_event","event":{"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"%s\\n"}}}\n' "$(json_escape "$1")"
+}
+
+message_start() {
+  printf '%s\n' '{"type":"stream_event","event":{"type":"message_start","message":{"model":"claude-fake","usage":{"input_tokens":1}}}}'
+}
+
+message_end() {
+  # $1: stop_reason
+  printf '{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"%s"},"usage":{"output_tokens":320}}}\n' "$1"
+}
+
+result() {
+  # $1: stop_reason
+  printf '{"type":"result","subtype":"success","is_error":false,"result":"","stop_reason":"%s","duration_ms":1500,"session_id":"%s","total_cost_usd":0,"usage":{"input_tokens":%s,"output_tokens":320}}\n' "$1" "$session" "$((chars / 2))"
+}
+
+failure() {
+  # $1: result の本文
+  printf '{"type":"result","subtype":"success","is_error":true,"result":"%s","duration_ms":10,"session_id":"%s"}\n' "$(json_escape "$1")" "$session"
+}
+
+printf '{"type":"system","subtype":"init","session_id":"%s","tools":[],"mcp_servers":[],"model":"claude-fake"}\n' "$session"
+message_start
+printf '%s\n' '{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"資料を読んで、構成を考えています。"}}}'
+
+tool_use() {
+  # $1: id  $2: ツール名  $3: file_path
+  printf '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"%s","name":"%s","input":{"file_path":"%s"}}]},"parent_tool_use_id":null}\n' "$1" "$2" "$(json_escape "$3")"
+}
+
+tool_result() {
+  printf '{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"%s","content":"ok","is_error":false}]},"parent_tool_use_id":null}\n' "$1"
+}
+
+if [ "$chat" = 1 ] && [ -z "$(printf '%s' "$input" | grep -e '\[fake:')" ]; then
+  target="$(ls artifacts/*.md 2>/dev/null | head -n 1)"
+  emit_text "文書を確かめます。"
+  if [ -n "$target" ]; then
+    tool_use toolu_fake_read Read "$PWD/$target"
+    tool_result toolu_fake_read
+    message_start
+    tool_use toolu_fake_edit Edit "$PWD/$target"
+    printf '\n（偽の修正 %s）\n' "$(date +%H:%M:%S)" >> "$target"
+    tool_result toolu_fake_edit
+  fi
+  message_start
+  emit_text "偽の claude が文書の末尾に 1 行足しました。"
+  message_end end_turn
+  result end_turn
+  exit 0
+fi
+
+case "$input" in
+  *"[fake:login]"*)
+    failure "Not logged in · Please run /login"
+    exit 0
+    ;;
+  *"[fake:limit]"*)
+    printf '%s\n' '{"type":"rate_limit_event","rate_limit_info":{"status":"rejected"}}'
+    failure "You've hit your limit · resets 3pm"
+    exit 0
+    ;;
+  *"[fake:model]"*)
+    failure "There's an issue with the selected model (claude-fake). It may not exist or you may not have access to it."
+    exit 0
+    ;;
+  *"[fake:broken]"*)
+    emit_text "途中まで"
+    printf '%s\n' '{"type":"stream_event","event":{"type":"content_blo'
+    exit 0
+    ;;
+esac
+
+if [ -n "$resume" ]; then
+  emit_text "## 続き"
+  emit_text ""
+  emit_text "上限で止まったところの直後から書き終えました（偽の出力）。"
+  message_end end_turn
+  result end_turn
+  exit 0
+fi
+
+emit_text "# 偽の出力"
+emit_text ""
+emit_text "これは偽の claude の出力です。送られた量は ${chars} 字でした。"
+emit_text ""
+emit_text "## 受け取った資料"
+emit_text ""
+printf '%s\n' "$input" | grep '^## ' | sed 's/^## //' | while IFS= read -r heading; do
+  emit_text "- ${heading}"
+done
+emit_text ""
+
+case "$input" in
+  *"[fake:slow]"*)
+    i=1
+    while [ "$i" -le 40 ]; do
+      emit_text "ゆっくり書いています（${i} / 40）。"
+      sleep 0.5
+      i=$((i + 1))
+    done
+    message_end end_turn
+    result end_turn
+    ;;
+  *"[fake:max_tokens]"*)
+    emit_text "ここで出力の上限に達したことにします。"
+    message_end max_tokens
+    result max_tokens
+    ;;
+  *"[fake:auto_continue]"*)
+    emit_text "## 自動の続き"
+    emit_text ""
+    emit_text "ここで Claude Code が自分で続きを頼むところです。"
+    message_end max_tokens
+    # Claude Code が同じ実行の中で頼んだ続き（前の末尾と重なって始まる。crate が重なりを除いてつなぐ）
+    message_start
+    emit_text "続きを頼むところです。"
+    emit_text "同じ実行の中で書き終えました（偽の出力）。"
+    message_end end_turn
+    result end_turn
+    ;;
+  *)
+    emit_text "## まとめ"
+    emit_text ""
+    emit_text "本物の Claude Code を使うと、ここに工程の成果物が入ります。"
+    message_end end_turn
+    result end_turn
+    ;;
+esac

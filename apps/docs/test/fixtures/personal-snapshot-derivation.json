@@ -1,0 +1,406 @@
+{
+  "description": "personal-execution.ts の canonical・generationSnapshot・nextStepSnapshot と、Native（src-tauri/src/personal_run.rs）の同じ変換が一致することを両方のテストで確かめる共有 fixture。値は TS の実装で作った。",
+  "transcriptionModels": {
+    "this-mac": {
+      "provider": "this-mac",
+      "model": "niho-speech"
+    },
+    "gemini": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low"
+    }
+  },
+  "canonicalSamples": [
+    {
+      "value": {
+        "b": 1,
+        "a": [
+          true,
+          false,
+          null
+        ],
+        "😀": "emoji",
+        "ｚ": "fullwidth",
+        "é": "accent",
+        "B": "upper",
+        "": "empty"
+      },
+      "canonical": "{\"\":\"empty\",\"B\":\"upper\",\"a\":[true,false,null],\"b\":1,\"é\":\"accent\",\"😀\":\"emoji\",\"ｚ\":\"fullwidth\"}"
+    },
+    {
+      "value": [
+        0,
+        1,
+        -1,
+        9007199254740991,
+        -9007199254740991,
+        5.7,
+        0.1,
+        1e+21,
+        1.5e-7,
+        0.000001,
+        1e-7,
+        123456789.123,
+        5.712562358276644,
+        1e+300,
+        -2.5e-12,
+        100,
+        1234567890123456
+      ],
+      "canonical": "[0,1,-1,9007199254740991,-9007199254740991,5.7,0.1,1e+21,1.5e-7,0.000001,1e-7,123456789.123,5.712562358276644,1e+300,-2.5e-12,100,1234567890123456]"
+    },
+    {
+      "value": "改行\nタブ\t引用\"バックスラッシュ\\制御\u0001\u001f削除行区切り ",
+      "canonical": "\"改行\\nタブ\\t引用\\\"バックスラッシュ\\\\制御\\u0001\\u001f削除行区切り \""
+    },
+    {
+      "value": {
+        "nested": {
+          "z": {
+            "y": [
+              {
+                "x": 1.25
+              }
+            ]
+          },
+          "a": ""
+        }
+      },
+      "canonical": "{\"nested\":{\"a\":\"\",\"z\":{\"y\":[{\"x\":1.25}]}}}"
+    }
+  ],
+  "original": {
+    "schemaVersion": 1,
+    "ownerAccountId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "rootId": "r_AAAAAAAAAAAAAAAAAAAAAA",
+    "containerRef": {
+      "kind": "folder",
+      "projectId": "proj1"
+    },
+    "recordingPageId": "page1",
+    "recordingId": "rec1",
+    "baseManifestRevision": 12,
+    "route": {
+      "kind": "local_full"
+    },
+    "continuationOfRunId": null,
+    "consentVersion": "consent-v1",
+    "transcriptionModel": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low"
+    },
+    "selectedStepIds": [
+      "outline",
+      "minutes"
+    ],
+    "stepNames": {
+      "outline": "要点",
+      "minutes": "議事録"
+    },
+    "input": {
+      "audio": [
+        {
+          "path": "recordings/rec1/inputs/a1.m4a",
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "bytes": 187882,
+          "durationSec": 5.712562358276644,
+          "verification": "native_sha256"
+        }
+      ],
+      "sourceVersion": null,
+      "referencePages": [
+        {
+          "pageId": "ref1",
+          "path": "pages/ref1.md",
+          "versionId": "p_ref1",
+          "sha256": "79b5b9d63c02317b0ae2884401fadb83069e15faa74691a3267a361717369005",
+          "bytes": 15
+        }
+      ],
+      "priorSteps": [],
+      "expectedCurrentArtifactShaByStep": {
+        "outline": null,
+        "minutes": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "recordingMetadataSha256": "a5aa964077106dd5b1bc1181a326105401d7bf163663f5972f4d9a760c4aa13b"
+    },
+    "flowSnapshotSha256": "91ed29581599a81c4ce5b7ec5847c9d54095d18058e3c817220577d1f23f7baa",
+    "fixedModels": {
+      "outline": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      },
+      "minutes": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      }
+    },
+    "snapshotSha256": "f69cbe8307e2a39aef77b8799f59f6491e2e168d9787f2b42fe567ee521f14fe"
+  },
+  "sourceVersion": {
+    "versionId": "v_source1",
+    "path": "recordings/rec1/versions/source/v_source1.md",
+    "sha256": "b2c91f95f38dc08220a4908f026f38c9244ce91b87d13bbb9767c63888683dc4",
+    "bytes": 18,
+    "originRunId": "run-1",
+    "origin": "this_pc"
+  },
+  "generation": {
+    "schemaVersion": 1,
+    "ownerAccountId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "rootId": "r_AAAAAAAAAAAAAAAAAAAAAA",
+    "containerRef": {
+      "kind": "folder",
+      "projectId": "proj1"
+    },
+    "recordingPageId": "page1",
+    "recordingId": "rec1",
+    "baseManifestRevision": 12,
+    "route": {
+      "kind": "generation_only",
+      "executor": "this_pc"
+    },
+    "continuationOfRunId": null,
+    "consentVersion": "consent-v1",
+    "transcriptionModel": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low"
+    },
+    "selectedStepIds": [
+      "outline",
+      "minutes"
+    ],
+    "stepNames": {
+      "outline": "要点",
+      "minutes": "議事録"
+    },
+    "input": {
+      "audio": [],
+      "sourceVersion": {
+        "versionId": "v_source1",
+        "path": "recordings/rec1/versions/source/v_source1.md",
+        "sha256": "b2c91f95f38dc08220a4908f026f38c9244ce91b87d13bbb9767c63888683dc4",
+        "bytes": 18,
+        "originRunId": "run-1",
+        "origin": "this_pc"
+      },
+      "referencePages": [
+        {
+          "pageId": "ref1",
+          "path": "pages/ref1.md",
+          "versionId": "p_ref1",
+          "sha256": "79b5b9d63c02317b0ae2884401fadb83069e15faa74691a3267a361717369005",
+          "bytes": 15
+        }
+      ],
+      "priorSteps": [],
+      "expectedCurrentArtifactShaByStep": {
+        "outline": null,
+        "minutes": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "recordingMetadataSha256": "a5aa964077106dd5b1bc1181a326105401d7bf163663f5972f4d9a760c4aa13b"
+    },
+    "flowSnapshotSha256": "91ed29581599a81c4ce5b7ec5847c9d54095d18058e3c817220577d1f23f7baa",
+    "fixedModels": {
+      "outline": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      },
+      "minutes": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      }
+    },
+    "snapshotSha256": "ce66ccfee6da02842f6cb6329bdeb9cd55f3a547962beadc3c735a3750a656ec"
+  },
+  "stepId": "outline",
+  "stepVersion": {
+    "versionId": "v_outline1",
+    "path": "recordings/rec1/versions/outline/v_outline1.md",
+    "sha256": "4a7c177aa5dfea9bc7fb145ac677ca264f16e6722057ae37002cf88dc8dab7d8",
+    "bytes": 15,
+    "originRunId": "run-1",
+    "origin": "this_pc"
+  },
+  "nextStep": {
+    "schemaVersion": 1,
+    "ownerAccountId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "rootId": "r_AAAAAAAAAAAAAAAAAAAAAA",
+    "containerRef": {
+      "kind": "folder",
+      "projectId": "proj1"
+    },
+    "recordingPageId": "page1",
+    "recordingId": "rec1",
+    "baseManifestRevision": 12,
+    "route": {
+      "kind": "generation_only",
+      "executor": "this_pc"
+    },
+    "continuationOfRunId": null,
+    "consentVersion": "consent-v1",
+    "transcriptionModel": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low"
+    },
+    "selectedStepIds": [
+      "outline",
+      "minutes"
+    ],
+    "stepNames": {
+      "outline": "要点",
+      "minutes": "議事録"
+    },
+    "input": {
+      "audio": [],
+      "sourceVersion": {
+        "versionId": "v_source1",
+        "path": "recordings/rec1/versions/source/v_source1.md",
+        "sha256": "b2c91f95f38dc08220a4908f026f38c9244ce91b87d13bbb9767c63888683dc4",
+        "bytes": 18,
+        "originRunId": "run-1",
+        "origin": "this_pc"
+      },
+      "referencePages": [
+        {
+          "pageId": "ref1",
+          "path": "pages/ref1.md",
+          "versionId": "p_ref1",
+          "sha256": "79b5b9d63c02317b0ae2884401fadb83069e15faa74691a3267a361717369005",
+          "bytes": 15
+        }
+      ],
+      "priorSteps": [
+        {
+          "stepId": "outline",
+          "versionId": "v_outline1",
+          "path": "recordings/rec1/versions/outline/v_outline1.md",
+          "sha256": "4a7c177aa5dfea9bc7fb145ac677ca264f16e6722057ae37002cf88dc8dab7d8",
+          "bytes": 15
+        }
+      ],
+      "expectedCurrentArtifactShaByStep": {
+        "outline": null,
+        "minutes": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "recordingMetadataSha256": "a5aa964077106dd5b1bc1181a326105401d7bf163663f5972f4d9a760c4aa13b"
+    },
+    "flowSnapshotSha256": "91ed29581599a81c4ce5b7ec5847c9d54095d18058e3c817220577d1f23f7baa",
+    "fixedModels": {
+      "outline": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      },
+      "minutes": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      }
+    },
+    "snapshotSha256": "d45d68fc1a7f26a43ba090290a9f760c1c50b6517a090d68787751a5dba8c77d"
+  },
+  "tampered": {
+    "schemaVersion": 1,
+    "ownerAccountId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "rootId": "r_AAAAAAAAAAAAAAAAAAAAAA",
+    "containerRef": {
+      "kind": "folder",
+      "projectId": "proj1"
+    },
+    "recordingPageId": "page1",
+    "recordingId": "rec1",
+    "baseManifestRevision": 12,
+    "route": {
+      "kind": "generation_only",
+      "executor": "this_pc"
+    },
+    "continuationOfRunId": null,
+    "consentVersion": "consent-v1",
+    "transcriptionModel": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low"
+    },
+    "selectedStepIds": [
+      "outline",
+      "minutes"
+    ],
+    "stepNames": {
+      "outline": "要点",
+      "minutes": "議事録"
+    },
+    "input": {
+      "audio": [],
+      "sourceVersion": {
+        "versionId": "v_source1",
+        "path": "recordings/rec1/versions/source/v_source1.md",
+        "sha256": "b2c91f95f38dc08220a4908f026f38c9244ce91b87d13bbb9767c63888683dc4",
+        "bytes": 18,
+        "originRunId": "run-1",
+        "origin": "this_pc"
+      },
+      "referencePages": [
+        {
+          "pageId": "ref1",
+          "path": "pages/ref1.md",
+          "versionId": "p_ref1",
+          "sha256": "79b5b9d63c02317b0ae2884401fadb83069e15faa74691a3267a361717369005",
+          "bytes": 15
+        }
+      ],
+      "priorSteps": [],
+      "expectedCurrentArtifactShaByStep": {
+        "outline": null,
+        "minutes": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "recordingMetadataSha256": "a5aa964077106dd5b1bc1181a326105401d7bf163663f5972f4d9a760c4aa13b"
+    },
+    "flowSnapshotSha256": "91ed29581599a81c4ce5b7ec5847c9d54095d18058e3c817220577d1f23f7baa",
+    "fixedModels": {
+      "outline": {
+        "provider": "claude",
+        "model": "claude-sonnet-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      },
+      "minutes": {
+        "provider": "claude",
+        "model": "claude-opus-5",
+        "effort": "high",
+        "profileId": "standard",
+        "profileName": "標準",
+        "connection": "subscription"
+      }
+    },
+    "snapshotSha256": "80f23c03d957eef272a9ba2f24e861f143f9a472c28c58c6981eb5ba3d8bdae8"
+  }
+}

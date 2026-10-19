@@ -1,0 +1,10 @@
+{
+  "name": "@niho/docs-remote-runner",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "start": "node cli.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
+  }
+}

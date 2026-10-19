@@ -1,0 +1,99 @@
+{
+  "schema": "niho.speech-result",
+  "version": 1,
+  "language": "ja",
+  "speakerMode": "2",
+  "input": {
+    "sha256": "44773c117ca37b7f262ff702c7dfc1c4211aab2e9f30d2c7cd8acc83cd0f44bd",
+    "bytes": 241685,
+    "durationSeconds": 60.81
+  },
+  "engine": {
+    "recognizer": "apple-speech-transcriber",
+    "diarizer": {
+      "name": "fluidaudio-offline-diarizer",
+      "version": "0.15.6",
+      "modelRevision": "7eab74f3463c736418d0eb10296261ae581146c9"
+    }
+  },
+  "segments": [
+    {
+      "start": 0,
+      "end": 7.5,
+      "text": "この前話した夜の静かな時間のことです。道具をそろえるところから始めるとよさそうです。",
+      "speaker": 1
+    },
+    {
+      "start": 7.5,
+      "end": 13.68,
+      "text": "来月の見学の受け入れについては、掲示板に書。書いておけば忘れずに済みますね。",
+      "speaker": 2
+    },
+    {
+      "start": 14.28,
+      "end": 15.42,
+      "text": "うんうん、",
+      "speaker": null
+    },
+    {
+      "start": 15.42,
+      "end": 19.2,
+      "text": "去年の写真を探してみんなに見せますね。",
+      "speaker": 1
+    },
+    {
+      "start": 19.2,
+      "end": 20.7,
+      "text": "なるほど、",
+      "speaker": null
+    },
+    {
+      "start": 20.7,
+      "end": 28.62,
+      "text": "この前話した新しく入る人の歓迎会のことです。もう少し決まりをゆるくしてもいいと思います。",
+      "speaker": 2
+    },
+    {
+      "start": 29.16,
+      "end": 36.6,
+      "text": "教養キッチンの使い方については、近所の方にも声をかかけてみるのはどうでしょうか。",
+      "speaker": 1
+    },
+    {
+      "start": 36.6,
+      "end": 42.6,
+      "text": "畑で取れた野菜については、道具を揃えるところから始めると良さそうです。",
+      "speaker": 2
+    },
+    {
+      "start": 42.6,
+      "end": 43.68,
+      "text": "はい、",
+      "speaker": null
+    },
+    {
+      "start": 43.68,
+      "end": 51.18,
+      "text": "この前話した週末の持ちよりご飯のことです。掲示板に書いておけば忘れずに済みますね。",
+      "speaker": 1
+    },
+    {
+      "start": 51.48,
+      "end": 52.62,
+      "text": "なるほど、",
+      "speaker": null
+    },
+    {
+      "start": 52.62,
+      "end": 58.8,
+      "text": "洗濯機の順番については、まずは試しにやってみて合わなきゃれば飲みましょ",
+      "speaker": 2
+    },
+    {
+      "start": 58.8,
+      "end": 60.6,
+      "text": "う。そうですね。",
+      "speaker": null
+    }
+  ]
+}

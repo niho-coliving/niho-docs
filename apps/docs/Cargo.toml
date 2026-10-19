@@ -1,0 +1,12 @@
+# NIHO docs の Cargo workspace。S1-B（#18402）の CLI 実行基盤 crate は crates/local-ai、S2b（#18383）の API キー方式の
+# 実行基盤 crate は crates/api-ai として members に足す。
+[workspace]
+members = ["src-tauri", "crates/local-ai", "crates/api-ai"]
+resolver = "2"
+
+# 開発ビルドの debug 情報を絞る（依存は持たない・このアプリは行番号だけ）。target の大きさとビルド時間を抑える。
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

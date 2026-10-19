@@ -1,0 +1,388 @@
+/*
+ * 「AIと作る」の会話と入力欄（S5 #18386・モック v8 の turn・worklog・op・bubble・result・composer）。
+ * 色は tokens.css の token だけを使う。会話の基本の部品（.chat・.turn・.op・.worklog・.result）は app.css にある。
+ */
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chatcard .ch .ib {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chatcard .ch .ib:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chatcard .ch .ib[aria-pressed="true"] {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chatmenu-wrap {
+  position: relative;
+}
+/* 見出しの横の ⓘ と説明の吹き出し（吹き出しは見出しの行の幅いっぱい。owner 2026-10-18・#18941） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard.chatcard .ch {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rcard.chatcard .ch h3 {
+  flex: 0 1 auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-info-wrap {
+  margin-right: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-info {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-info svg {
+  width: 16px;
+  height: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-info:hover {
+  background: var(--docs-hover);
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-info[aria-expanded="true"] {
+  background: var(--niho-accent-soft);
+  color: var(--niho-accent-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop.chat-info-pop {
+  left: 0;
+  right: 0;
+  top: 36px;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop.chatmenu {
+  right: 0;
+  top: 36px;
+  width: 300px;
+  max-height: 420px;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .pop-label {
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+  padding: 10px 12px 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .pop-empty {
+  padding: 4px 12px 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  text-align: left;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow.on {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow:disabled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow .d {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .crow .t {
+  flex: none;
+  font-family: var(--font-family-mono);
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .bubble {
+  max-width: 88%;
+  font-size: 13px;
+  line-height: 1.7;
+  padding: 10px 12px;
+  border-radius: 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .bubble.me {
+  align-self: flex-end;
+  background: var(--niho-accent-soft);
+  color: var(--niho-text);
+  border-bottom-right-radius: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .bubble.ai {
+  align-self: flex-start;
+  background: var(--docs-inset);
+  color: var(--niho-text);
+  border-bottom-left-radius: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .narr {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--niho-text-sub);
+  padding-left: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* 資料の名前は次の行に（長い並びで行が崩れないように） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.pack {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.pack b {
+  flex-basis: 100%;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.note {
+  color: var(--docs-warn-ink);
+  align-items: flex-start;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .op.note::before {
+  content: "!";
+  color: var(--docs-warn-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result-wrap {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result-wrap .result {
+  padding: 8px 6px 8px 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .linkbtn {
+  color: var(--niho-accent-ink);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 8px;
+  height: 32px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .linkbtn:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .linkbtn:disabled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  font-size: 12px;
+  color: var(--docs-warn-ink);
+  background: var(--docs-warn-bg);
+  border-radius: 12px;
+  padding: 6px 6px 6px 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .result-confirm span {
+  flex: 1;
+  min-width: 160px;
+  line-height: 1.6;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .composer {
+  flex: none;
+  padding: 8px 2px 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputbox {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 18px;
+  padding: 8px 10px 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputbox:focus-within {
+  border-color: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputbox.off {
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputbox textarea {
+  width: 100%;
+  border: 0;
+  outline: none;
+  resize: none;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 24px;
+  max-height: 168px;
+  overflow-y: auto;
+  background: transparent;
+  padding: 2px 4px;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputbox textarea:disabled {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputrow .spacer {
+  flex: 1;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .stepmenu-wrap {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputrow .plus {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  color: var(--niho-text-muted);
+  border-radius: 999px;
+  user-select: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputrow .plus:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .inputrow .plus[aria-pressed="true"] {
+  background: var(--docs-hover);
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop.stepmenu {
+  left: 0;
+  bottom: 38px;
+  width: 260px;
+  max-height: 320px;
+  overflow: auto;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pop.stepmenu .mi {
+  white-space: normal;
+  height: auto;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+/* 送信は塗りの丸を付けず ⏎ の記号だけ。空のうちは薄い灰、書くとブランドの濃い緑（Web と同じ。owner 2026-10-18・#18941） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--niho-accent-ink);
+  display: grid;
+  place-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send:hover:not(:disabled) {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send:disabled {
+  color: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send svg {
+  width: 18px;
+  height: 18px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send.stop {
+  background: var(--niho-card);
+  border: 1px solid var(--docs-ctl-line);
+  color: var(--niho-danger);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .send.stop:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .composer-note {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--niho-text-muted);
+  padding: 6px 6px 0;
+}
+/* 入力欄の下の失敗の帯（components/FailureBand.tsx・#18788） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .composer-failure {
+  margin-top: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .chat-failure {
+  margin: 8px 12px;
+}
+
+/* 変更を見る */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diffdlg {
+  width: 720px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diffdlg h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diffdlg h2 small {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff {
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: calc(100vh - 260px);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl {
+  display: flex;
+  gap: 8px;
+  padding: 1px 10px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl .mk {
+  flex: none;
+  width: 12px;
+  color: var(--niho-text-muted);
+  font-family: var(--font-family-mono);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl .tx {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.added {
+  background: var(--niho-accent-soft);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.added .mk {
+  color: var(--niho-accent-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.removed {
+  background: var(--niho-orange-pale);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.removed .tx {
+  text-decoration: line-through;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.removed .mk {
+  color: var(--niho-orange);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .diff .dl.skip {
+  color: var(--niho-text-muted);
+  font-size: 11.5px;
+  background: var(--docs-inset);
+}
+
+/* 行は coarse pointer で 44px に広げる（spec §7）。丸いボタンは見た目の大きさのまま（design-guide §8） */
+@media (pointer: coarse) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .crow {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .chatcard .op.running::before {
+    animation: none;
+  }
+}

@@ -1,0 +1,151 @@
+name: Client packages CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/docs-core-ci.yml"
+      - "packages/docs-core/**"
+      - "packages/docs-ui/**"
+      - "packages/ui/**"
+      - "packages/desktop-account/**"
+      - "packages/desktop-vault/**"
+      - "apps/docs/fixtures/flow-shape/**"
+      - "apps/docs/fixtures/turn-events/**"
+      - "apps/docs/**"
+      - "packages/apple-speech/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/docs-core-ci.yml"
+      - "packages/docs-core/**"
+      - "packages/docs-ui/**"
+      - "packages/ui/**"
+      - "packages/desktop-account/**"
+      - "packages/desktop-vault/**"
+      - "apps/docs/fixtures/flow-shape/**"
+      - "apps/docs/fixtures/turn-events/**"
+      - "apps/docs/**"
+      - "packages/apple-speech/**"
+
+permissions:
+  contents: read
+
+jobs:
+  docs-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/docs-core/package-lock.json
+      - run: npm -C packages/docs-core ci
+      - run: npm -C packages/docs-core run check
+
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/ui/package-lock.json
+      - run: npm -C packages/ui ci
+      - run: npm -C packages/ui run typecheck
+      - run: npm -C packages/ui run lint
+      - run: npm -C packages/ui test
+
+  docs-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/docs-ui/package-lock.json
+      - run: npm -C packages/docs-ui ci
+      - run: npm -C packages/docs-ui run typecheck
+      - run: npm -C packages/docs-ui run lint
+      - run: npm -C packages/docs-ui test
+
+  desktop-account:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path packages/desktop-account/Cargo.toml --check
+      - run: cargo test --manifest-path packages/desktop-account/Cargo.toml --locked
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/desktop-account/ts/package-lock.json
+      - run: npm -C packages/desktop-account/ts ci
+      - run: npm -C packages/desktop-account/ts run typecheck
+      - run: npm -C packages/desktop-account/ts run lint
+      - run: npm -C packages/desktop-account/ts test
+
+  desktop-vault:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path packages/desktop-vault/Cargo.toml --check
+      - run: cargo test --manifest-path packages/desktop-vault/Cargo.toml --locked
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: packages/docs-core/package-lock.json
+      - run: npm -C packages/docs-core ci
+      - run: packages/docs-core/node_modules/.bin/tsc -p packages/desktop-vault/tsconfig.json
+
+  docs-mac-frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/docs/package-lock.json
+      - run: npm -C apps/docs ci --no-audit --no-fund
+      - run: npm -C apps/docs run typecheck
+      - run: npm -C apps/docs test
+      - run: npm -C apps/docs run build
+
+  docs-mac-native:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      NIHO_ACCOUNT_ENV: prod
+      NIHO_FIREBASE_API_KEY: ci-not-for-login
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path apps/docs/Cargo.toml --all --check
+      - run: cargo check --manifest-path apps/docs/Cargo.toml --locked --workspace --all-targets
+      - run: cargo test --manifest-path apps/docs/Cargo.toml --locked --workspace
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm -C apps/docs/remote-runner test
+      - run: swift build -c release --package-path apps/docs/sidecar/niho-speech
+      - run: node apps/docs/scripts/sidecar-lock.mjs check-binary --binary apps/docs/sidecar/niho-speech/.build/release/niho-speech
+      - run: swift test --package-path apps/docs/sidecar/niho-speech
+      - run: swift test --package-path packages/apple-speech

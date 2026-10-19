@@ -1,0 +1,61 @@
+[package]
+name = "niho_docs"
+version = "0.1.51"
+description = "NIHO docs (Mac)"
+authors = ["NIHO"]
+license = "UNLICENSED"
+repository = "https://github.com/niho-coliving/niho-app"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "niho_docs_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+# NIHO アカウント（L5 #18557）。認証・deep link・Keychain は共通 crate に任せる
+niho_desktop_account = { package = "niho-desktop-account", path = "../../../packages/desktop-account", features = ["tauri"] }
+# NIHO クラウドの保管庫（C3 #18595）。ローカル保存の journal・同期 engine・競合・lease は共通 crate に任せる
+niho_desktop_vault = { package = "niho-desktop-vault", path = "../../../packages/desktop-vault" }
+# 保管庫の FlightOptions を実装する（lock に既にある版）
+async-trait = "0.1"
+# 版の記録の時刻（ISO 8601。保管庫の crate と同じ版）
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+tauri = { version = "2.11.2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-opener = "2"
+# 自動更新（S4 #18385。NIHO Desktop と同じ plugin。https://niho.life/docs/updater/latest.json を見て、署名を確かめて差し替える）
+tauri-plugin-updater = "2"
+serde = { version = "1.0", features = ["derive"] }
+# float_roundtrip: 本人 Mac 実行の固定入力の hash（personal_run.rs の canonical）を JS と同じ数値表記で作るため、JSON の小数を正確に読む
+serde_json = { version = "1.0", features = ["float_roundtrip"] }
+url = "2.5"
+libc = "0.2"
+# ファイルの選択・保存のダイアログ（NIHO Desktop と同じ版）
+rfd = "0.15"
+# 音声の写しのハッシュ（NIHO Desktop と同じ版）
+sha2 = "0.10"
+# CLI 実行基盤（S1-B #18402。Claude Code・Codex CLI をツール無しで動かす）
+niho-local-ai = { path = "../crates/local-ai" }
+# API キー方式の実行基盤（S2b #18383。Anthropic・OpenAI・Gemini・Deepgram を HTTP で呼ぶ）
+niho-api-ai = { path = "../crates/api-ai" }
+# API キーを macOS Keychain の generic password に置く（lock に既にある版。rustls-native-certs と同じ）
+security-framework = "3.7"
+# お手本の文書（.docx）の中身を読むだけ（書き込み・暗号・deflate 以外の圧縮は使わないので既定の機能を切る）
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# zip の deflate の展開の backend（純 Rust の miniz_oxide。flate2 も miniz_oxide も lock に既にある）
+flate2 = { version = "1.1", default-features = false, features = ["rust_backend"] }
+# お手本の文書（.docx）の word/document.xml・styles.xml の流し読み（lock に既にある版）
+quick-xml = "0.39"
+# 公開記事の URL 取り込み（API サーバーに依存せず Mac で取得・抽出）
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# URL 取り込みの非同期・保管庫の engine の event と待ち（lock に既にある版）
+tokio = { version = "1", features = ["rt", "sync", "time", "net"] }
+
+[dev-dependencies]
+# cloud_tests の初回ログイン（本物の AccountService を偽の HttpClient・メモリの SecretStore で動かす。通信しない）
+niho_desktop_account = { package = "niho-desktop-account", path = "../../../packages/desktop-account", features = ["tauri", "test-support"] }

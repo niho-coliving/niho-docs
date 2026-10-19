@@ -1,0 +1,39 @@
+[package]
+name = "niho-desktop-vault"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+publish = false
+license = "UNLICENSED"
+description = "NIHO docs のローカル写しと NIHO クラウド保管庫を同期する Tauri 非依存 crate"
+
+[lib]
+name = "niho_desktop_vault"
+path = "src/lib.rs"
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+filetime = "0.2"
+icu_normalizer = { version = "2.2.0", default-features = false, features = ["compiled_data", "utf8_iter"] }
+icu_casemap = { version = "=2.2.0", default-features = false, features = ["compiled_data"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider", "stream"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "1.0"
+tokio = { version = "1", features = ["fs", "net", "rt", "sync", "time"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["test-util"] }
+
+# standalone の検証も apps/docs と同じく debug 情報を絞る。
+[profile.dev]
+debug = "line-tables-only"
+incremental = false
+
+[profile.dev.package."*"]
+debug = false

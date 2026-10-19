@@ -1,0 +1,16 @@
+{
+  "name": "@niho/desktop-vault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NIHO docs cloud vault の Rust/TypeScript 公開契約",
+  "exports": {
+    ".": {
+      "types": "./ts/index.ts",
+      "default": "./ts/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  NIHO docs の .app の Info.plist に足す項目。Tauri 2 は tauri.conf.json と同じフォルダの Info.plist を、tauri build では
+  生成した .app の Info.plist に merge し、tauri dev では実行ファイルに埋め込む（tauri-utils の bundle.macOS.infoPlist の説明）。
+  NSMicrophoneUsageDescription: 録音（#18590）。sidecar（niho-speech record）のマイクの許可は .app に付き、この文が出る。
+  ad-hoc 署名のままなので、版を上げるたびに macOS が許可を聞き直す（apps/docs/README.md「録音」の既知の制限）。
+-->
+<plist version="1.0">
+<dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>会議や取材を録音して、案件の音声にするために使います。</string>
+</dict>
+</plist>

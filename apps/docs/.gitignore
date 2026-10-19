@@ -1,0 +1,13 @@
+# Vite の出力
+/dist/
+# Cargo の出力（apps/docs の workspace。S1-B の crates/local-ai も同じ target を使う）
+/target/
+# Tauri が生成する ACL の schema
+/src-tauri/gen/schemas
+# npm run sidecar:build が置く niho-speech（Tauri の externalBin。バイナリは commit しない。同梱は S4）
+/src-tauri/binaries/
+# scripts/build-dmg.sh の出力（配布の dmg・.sha256・updater の .app.tar.gz と .sig。publish-dmg.sh が GitHub Release に上げる）
+/release/
+/sidecar/fake/.agy-logged-out
+/sidecar/fake/.mic-denied
+/sidecar/fake/.mic-none

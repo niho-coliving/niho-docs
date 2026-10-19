@@ -1,0 +1,57 @@
+#!/bin/sh
+# 偽の codex（Codex CLI。GPT のサブスクリプション）。状態の確認（--version・exec --help・login status・debug models）と
+# ログイン（login）の最小の形。本物の Codex CLI を使わずに、開発ビルドの NIHO docs で設定の行（未ログイン → ログイン →
+# ログイン済み）と GPT のモデルの選択肢を試すためのもの。工程の実行（exec --json）には対応しない（失敗で返す）。
+#   npm -C apps/docs run dev:fake   … この偽物で起動する（NIHO_DOCS_CODEX_CLI_PATH）
+# ログインの状態は CODEX_HOME（NIHO docs は app data の下の codex-home。crate が渡す）に印のファイルで持つ。
+set -u
+home="${CODEX_HOME:-}"
+marker=""
+[ -n "$home" ] && marker="$home/fake-logged-in"
+
+case "${1:-}" in
+  --version)
+    echo "codex-cli 0.154.0 (fake)"
+    exit 0
+    ;;
+  exec)
+    if [ "${2:-}" = "--help" ]; then
+      # crate の status.rs が確かめる必須のフラグ
+      echo "Options:"
+      echo "  -c, --config <key=value>"
+      echo "  --enable <FEATURE>"
+      echo "  --disable <FEATURE>"
+      echo "  -s, --sandbox <SANDBOX_MODE>"
+      echo "  --skip-git-repo-check"
+      echo "  --ignore-user-config"
+      echo "  --ignore-rules"
+      echo "  --json"
+      exit 0
+    fi
+    ;;
+  login)
+    if [ "${2:-}" = "status" ]; then
+      if [ -n "$marker" ] && [ -f "$marker" ]; then
+        echo "Logged in using ChatGPT"
+        exit 0
+      fi
+      echo "Not logged in"
+      exit 1
+    fi
+    # ブラウザは開かず、すぐにログインしたことにする
+    if [ -n "$home" ]; then
+      mkdir -p "$home" && : > "$marker"
+    fi
+    exit 0
+    ;;
+  debug)
+    if [ "${2:-}" = "models" ]; then
+      printf '%s\n' '{"models":[{"slug":"gpt-5.6-terra","visibility":"list"},{"slug":"gpt-5.6-luna","visibility":"list"},{"slug":"codex-auto-review","visibility":"hide"}]}'
+      exit 0
+    fi
+    ;;
+esac
+
+cat > /dev/null
+echo "偽の codex は工程の実行に対応していません（設定の行の確認用）。" >&2
+exit 1

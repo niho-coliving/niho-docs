@@ -1,0 +1,34 @@
+/* 自動更新の案内（components/UpdateNotice.tsx）。レールの下端（工程設計・設定の上）に小さなカードで出す（中央の面の見出しに重ねない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .update-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 10px 6px 10px 12px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+  background: var(--niho-card);
+  color: var(--niho-text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .update-notice .un-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .update-notice .un-head span {
+  padding-top: 5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .update-notice .un-head b {
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .update-notice .btn {
+  align-self: flex-start;
+}
+/* 起動の失敗の画面（App.tsx の phase === "error"）では、中央の案内の下に置く */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .empty .update-notice {
+  width: 280px;
+  text-align: left;
+}

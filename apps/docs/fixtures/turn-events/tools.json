@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "scenario": "tools",
+  "description": "修正の会話（ToolPolicy::ProjectFolder）: 実況 → Read → Edit → 返答。ツールはファイル名と成否だけが流れ、Done.text は返答（最後のツールの後の文）",
+  "request": {
+    "provider": "ClaudeCode",
+    "model": "claude-sonnet-fixture",
+    "toolPolicy": "projectFolder"
+  },
+  "cli": {
+    "stdout": [
+      "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"tools\":[\"Edit\",\"Glob\",\"Grep\",\"Read\",\"Write\"],\"mcp_servers\":[]}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":100}}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"見出しを確かめます。\"}}}",
+      "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_read\",\"name\":\"Read\",\"input\":{\"file_path\":\"/Users/someone/Documents/NIHO docs/projects/p1/artifacts/k7m2q9xa.md\"}}]},\"parent_tool_use_id\":null}",
+      "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_read\",\"content\":\"1\\t# とても長い見出し\\n2\\t\\n3\\t本文。\",\"is_error\":false}]},\"parent_tool_use_id\":null}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":120}}}}",
+      "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"toolu_edit\",\"name\":\"Edit\",\"input\":{\"file_path\":\"/Users/someone/Documents/NIHO docs/projects/p1/artifacts/k7m2q9xa.md\",\"old_string\":\"# とても長い見出し\",\"new_string\":\"# 短い見出し\"}}]},\"parent_tool_use_id\":null}",
+      "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":\"toolu_edit\",\"content\":\"The file has been updated successfully.\",\"is_error\":false}]},\"parent_tool_use_id\":null}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":140}}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"見出しを短くしました。\"}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}}",
+      "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"見出しを短くしました。\",\"duration_ms\":9,\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"total_cost_usd\":0.02,\"usage\":{\"input_tokens\":140,\"cache_read_input_tokens\":20,\"output_tokens\":40}}"
+    ],
+    "then": "exit"
+  },
+  "control": null,
+  "events": [
+    {
+      "type": "TextDelta",
+      "text": "見出しを確かめます。"
+    },
+    {
+      "type": "ToolUse",
+      "id": "toolu_read",
+      "name": "Read",
+      "summary": "k7m2q9xa.md"
+    },
+    {
+      "type": "ToolResult",
+      "id": "toolu_read",
+      "name": "Read",
+      "ok": true
+    },
+    {
+      "type": "ToolUse",
+      "id": "toolu_edit",
+      "name": "Edit",
+      "summary": "k7m2q9xa.md"
+    },
+    {
+      "type": "ToolResult",
+      "id": "toolu_edit",
+      "name": "Edit",
+      "ok": true
+    },
+    {
+      "type": "TextDelta",
+      "text": "見出しを短くしました。"
+    },
+    {
+      "type": "Done",
+      "text": "見出しを短くしました。",
+      "stop_reason": "EndTurn",
+      "session_id": "00000000-0000-4000-8000-000000000000",
+      "usage": {
+        "input_tokens": 160,
+        "output_tokens": 40,
+        "cost_usd": null,
+        "model_used": "claude-sonnet-fixture",
+        "cost_known": false
+      },
+      "duration_ms": 9,
+      "continuations": 0
+    }
+  ],
+  "ignore": [
+    "session_id"
+  ]
+}

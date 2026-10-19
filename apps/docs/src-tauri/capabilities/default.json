@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "NIHO docs の窓（local の画面だけ）。Tauri の基本と、アプリのコマンド（permissions/docs.toml）。",
+  "windows": ["main"],
+  "platforms": ["macOS"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-destroy",
+    "allow-docs-store",
+    "allow-docs-turns",
+    "allow-docs-conversations",
+    "allow-docs-providers",
+    "allow-docs-api-keys",
+    "allow-docs-speech",
+    "allow-docs-recording",
+    "allow-docs-files",
+    "allow-docs-updates",
+    "allow-docs-cloud",
+    "allow-docs-google-docs",
+    "allow-docs-personal-run",
+    "allow-docs-pc-runner",
+    "niho-desktop-account:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

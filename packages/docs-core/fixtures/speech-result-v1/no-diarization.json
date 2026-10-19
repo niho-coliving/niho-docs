@@ -1,0 +1,23 @@
+{
+  "schema": "niho.speech-result",
+  "version": 1,
+  "language": "en",
+  "speakerMode": "none",
+  "input": {
+    "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "bytes": 1,
+    "durationSeconds": 2
+  },
+  "engine": {
+    "recognizer": "apple-speech-transcriber",
+    "diarizer": null
+  },
+  "segments": [
+    {
+      "start": 0,
+      "end": 1.5,
+      "text": "Hello there.",
+      "speaker": null
+    }
+  ]
+}

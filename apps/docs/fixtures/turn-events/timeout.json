@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "scenario": "timeout",
+  "description": "時間の上限で止める（Error の Timeout が 1 回）",
+  "request": {
+    "provider": "ClaudeCode",
+    "model": "claude-sonnet-fixture"
+  },
+  "cli": {
+    "stdout": [
+      "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"tools\":[],\"mcp_servers\":[]}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":100}}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"# 見出し\\n\"}}}"
+    ],
+    "then": "hang"
+  },
+  "control": {
+    "action": "timeout",
+    "timeoutMs": 1000
+  },
+  "events": [
+    {
+      "type": "TextDelta",
+      "text": "# 見出し\n"
+    },
+    {
+      "type": "Error",
+      "reason_code": "Timeout",
+      "message": "1秒以内に終わらなかったため止めました。"
+    }
+  ],
+  "ignore": []
+}

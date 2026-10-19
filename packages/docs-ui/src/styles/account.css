@@ -1,0 +1,62 @@
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account {
+  --niho-loading-spinner-color: var(--niho);
+  --radius: 0.75rem;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account-row > div {
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account-row h3 {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account .docs-account-popover {
+  max-width: calc(100vw - 32px);
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+}
+/* Tailwind の preflight に頼らず、共通部品の border と画像の寸法を確定する。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account :where(*, ::before, ::after) {
+  border-width: 0;
+  border-style: solid;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account img {
+  display: block;
+  max-width: 100%;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account .niho-primary-surface {
+  background: var(--niho-primary-bg);
+  color: var(--niho-primary-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-account .niho-primary-surface:hover:not(:disabled) {
+  background: var(--niho-primary-bg-hover);
+}
+
+/* 共通の確認（appDialog）を描く先。中身は position: fixed で出るので、場所を取らない。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .docs-dialog-layer {
+  display: contents;
+}
+
+/* ログインするまで案件を開かない画面（#18728）。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .login-required h1 {
+  font-size: 18px;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .login-required .msg {
+  max-width: 440px;
+  line-height: 1.7;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .login-required-account {
+  width: min(288px, 100%);
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 14px;
+  background: var(--niho-card);
+  text-align: left;
+}

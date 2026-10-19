@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  niho-speech の実行ファイルに埋め込む Info.plist（Package.swift の -sectcreate __TEXT __info_plist。S4 #18385）。
+  codesign は署名 ID をここの CFBundleIdentifier から取る。NIHO docs の .app に入れるとき Tauri が ad-hoc で署名し直しても、
+  署名 ID が niho-speech のまま変わらない（無いと niho-speech-<Mach-O の UUID> になり、版ごとに変わる）。
+  SpeechAnalyzer の言語の予約は署名 ID ごとなので、版を上げても変えない（README.md「probe・download」）。
+  swift build の linker の署名（ファイル名 niho-speech）とも同じ ID になる。
+  NSMicrophoneUsageDescription は record（#18590）のため。NIHO docs から起動したときのマイクの許可は .app に付き、
+  .app の Info.plist（src-tauri/Info.plist）の文が出る。ここの文は sidecar を単体で起動したときの控え。
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>niho-speech</string>
+	<key>CFBundleName</key>
+	<string>niho-speech</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSBackgroundOnly</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>会議や取材を録音して、案件の音声にするために使います。</string>
+</dict>
+</plist>

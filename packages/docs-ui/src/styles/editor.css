@@ -1,0 +1,413 @@
+/*
+ * 文書のブロックのエディタ（BlockEditor）。正のモックは idea/mock/niho-docs-pages-v2.html の .blk・.slash・.bubble・.hdl。
+ * 色は tokens.css の token だけを使う。既存の .doc の見出し・リスト・引用・コード（app.css）はそのまま活かす。
+ */
+
+/* 本文の左に、行の ＋ ⋮⋮ を置く余白（右は今のまま。窓の最小幅で本文の列が狭いので広げない） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be .doc {
+  padding-left: 52px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be {
+  position: relative;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--niho-text-sub); cursor: pointer; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-icon:hover, :where([data-docs-app-root]):where([data-docs-shared-ui]) .et-icon[aria-pressed="true"] { background: var(--docs-inset); color: var(--niho-dark); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-icon:disabled { opacity: .4; cursor: default; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-icon svg { width: 16px !important; height: 16px !important; stroke-width: 1.8; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin: -17px 0 18px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--docs-line-firm); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search { max-width: 100%; margin: -10px 0 18px; padding: 7px; border: 1px solid var(--docs-line-firm); border-radius: 10px; background: white; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row > svg { width: 16px; height: 16px; flex: none; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row input { flex: 1 1 160px; min-width: 110px; height: 30px; padding: 0 5px; border: 0; background: transparent; color: var(--niho-text); outline: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row button { min-width: 28px; min-height: 28px; padding: 2px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--niho-text-sub); cursor: pointer; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row button:hover { background: var(--docs-inset); }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row button:disabled { opacity: .4; cursor: default; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-row button svg { width: 15px; height: 15px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-actions { margin-top: 4px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-search-actions input { border: 1px solid var(--docs-line-firm); border-radius: 6px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .et-count { white-space: nowrap; color: var(--niho-text-muted); font-size: 12px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .ProseMirror-search-match { background: #fff0a8; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .ProseMirror-active-search-match { background: #ffcf76; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc img[data-doc-asset] { display: block; max-width: min(100%, 720px); height: auto; margin: 10px 0; border-radius: 8px; }
+/* 文字起こしの正本にある時刻。OFF は DOM からも描画されず、コピー時は plugin が Slice から外す。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off .transcript-timestamp {
+  display: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-on p:has(> .transcript-timestamp) {
+  position: relative;
+  min-height: 1.8em;
+  padding-left: 76px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-on p > .transcript-timestamp {
+  position: absolute;
+  top: 0.18em;
+  left: 0;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  max-width: 68px;
+  overflow: hidden;
+  color: var(--niho-text-sub);
+  font-family: var(--font-family-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 2.2;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-timestamp:focus-visible,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-seek-gutter:focus-visible {
+  outline: 2px solid var(--niho-dark);
+  outline-offset: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off .transcript-timed-paragraph {
+  position: relative;
+  min-height: 1.8em;
+  padding-left: 28px;
+}
+/* 実行中の逐次表示は ProseMirror の decoration を通らないので、非表示の間は時刻の span そのものを頭出しの余白（24px）にする */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off.timestamps-live p:has(> .transcript-timestamp) {
+  position: relative;
+  min-height: 1.8em;
+  padding-left: 28px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off.timestamps-live p > .transcript-timestamp {
+  position: absolute;
+  top: 0.1em;
+  left: 0;
+  display: block;
+  width: 24px;
+  height: 24px;
+  overflow: hidden;
+  border-radius: 6px;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off.timestamps-live p > .transcript-timestamp::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc.timestamps-off.timestamps-live p > .transcript-timestamp:hover::before {
+  background: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-seek-gutter {
+  position: absolute;
+  top: 0.1em;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-seek-gutter::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--docs-ctl-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-seek-gutter:hover::before {
+  background: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .transcript-playback-current {
+  background: var(--niho-pale);
+  border-radius: 6px;
+}
+
+/* ── ブロック ── */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc hr {
+  border: 0;
+  border-top: 1px solid var(--docs-line-firm);
+  margin: 18px 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc hr.ProseMirror-selectednode {
+  border-top-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc :not(pre) > code {
+  background: var(--docs-inset);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-size: 0.86em;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc s {
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* チェックボックス（TipTap の TaskItem の node view: ul[data-type=taskList] > li[data-checked] > label > input ＋ div） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] > li > label {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 1.8em;
+  user-select: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] > li > label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--niho-dark);
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc ul[data-type="taskList"] > li[data-checked="true"] > div {
+  color: var(--niho-text-muted);
+  text-decoration: line-through;
+}
+
+/* エディタに道具の無い Markdown（表・画像）は文字のまま見せる */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .md-raw {
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  color: var(--niho-text-sub);
+  background: var(--docs-inset);
+  border: 1px dashed var(--docs-line-firm);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .doc .md-raw-inline {
+  font-family: var(--font-family-mono);
+  font-size: 0.86em;
+  color: var(--niho-text-sub);
+  background: var(--docs-inset);
+  border-radius: 5px;
+  padding: 1px 4px;
+}
+
+/* 空の行の案内（placeholder.ts: is-empty ＋ data-placeholder。textblock だけに当てる） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be .doc :is(p, h1, h2, h3, pre).is-empty[data-placeholder]::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be .doc pre.is-empty[data-placeholder]::before {
+  font-family: var(--font-family-mono);
+}
+
+/* ── 「/」のメニュー ── */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash {
+  position: fixed;
+  z-index: 40;
+  width: 286px;
+  max-height: 360px;
+  overflow: auto;
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash .h {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--niho-text-muted);
+  letter-spacing: 0.06em;
+  padding: 8px 10px 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash [role="option"][aria-selected="true"] {
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash .k {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--niho-text-sub);
+  background: var(--niho-card);
+  flex: none;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash .hint {
+  margin-left: auto;
+  font-family: var(--font-family-mono);
+  font-size: 11.5px;
+  color: var(--niho-text-muted);
+}
+/* ページの操作（「録音のページ」）の枠の中のアイコン */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-slash .k svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ── 書式のバー（文字を選ぶと出る。位置は BubbleMenu が absolute で付ける） ── */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar {
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--niho-card);
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 10px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
+  padding: 3px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar > button,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn > .be-turn-btn {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 7px;
+  font-size: 13.5px;
+  color: var(--niho-text-sub);
+  display: grid;
+  place-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar > button:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn > .be-turn-btn:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar > button[aria-pressed="true"] {
+  background: var(--docs-inset);
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar > button svg, :where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn > .be-turn-btn svg:first-child { width: 16px; height: 16px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-bar .sep {
+  width: 1px;
+  height: 18px;
+  background: var(--docs-line-firm);
+  margin: 0 3px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn {
+  position: relative;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn > .be-turn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn > .be-turn-btn svg {
+  width: 12px;
+  height: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn .pop {
+  top: 34px;
+  left: 0;
+  min-width: 180px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-italic {
+  font-family: Georgia, serif;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-mono {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+}
+
+/* 行の種類の一覧の記号（書式のバー） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-turn .pop .k {
+  width: 22px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--niho-text-muted);
+  flex: none;
+}
+
+/* ── 行の ＋ ⋮⋮（本文の左の余白） ── */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl > button {
+  /* 押せる範囲は 24px 以上（design-guide §8）。見た目は 15px のアイコン */
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+  color: var(--niho-text-muted);
+  transition: background-color 0.12s ease;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl > button:hover,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl > button[aria-expanded="true"] {
+  background: var(--docs-rail-hover);
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl > button svg {
+  width: 15px;
+  height: 15px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl .pop {
+  top: 28px;
+  left: 0;
+  min-width: 170px;
+}
+
+/* ── タイトル（文書のページ） ── */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .page-title {
+  display: block;
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--niho-text);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .page-title::placeholder {
+  color: var(--niho-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .be-hdl > button {
+    transition: none;
+  }
+}

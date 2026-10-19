@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "scenario": "normal",
+  "description": "1 回で書き終える（思考・本文の差分のあと Done が 1 回。会話の ID は crate が起動ごとに作るので比べない）",
+  "request": {
+    "provider": "ClaudeCode",
+    "model": "claude-sonnet-fixture"
+  },
+  "cli": {
+    "stdout": [
+      "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"tools\":[],\"mcp_servers\":[]}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-fixture\",\"usage\":{\"input_tokens\":100}}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"構成を考える\"}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"# 見出し\\n\"}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"本文です。\"}}}",
+      "{\"type\":\"stream_event\",\"event\":{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}}",
+      "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"# 見出し\\n本文です。\",\"duration_ms\":7,\"session_id\":\"11111111-2222-4333-8444-555555555555\",\"total_cost_usd\":0.01,\"usage\":{\"input_tokens\":100,\"cache_read_input_tokens\":20,\"output_tokens\":30}}"
+    ],
+    "then": "exit"
+  },
+  "control": null,
+  "events": [
+    {
+      "type": "ThinkingDelta",
+      "text": "構成を考える"
+    },
+    {
+      "type": "TextDelta",
+      "text": "# 見出し\n"
+    },
+    {
+      "type": "TextDelta",
+      "text": "本文です。"
+    },
+    {
+      "type": "Done",
+      "text": "# 見出し\n本文です。",
+      "stop_reason": "EndTurn",
+      "session_id": "00000000-0000-4000-8000-000000000000",
+      "usage": {
+        "input_tokens": 120,
+        "output_tokens": 30,
+        "cost_usd": null,
+        "model_used": "claude-sonnet-fixture",
+        "cost_known": false
+      },
+      "duration_ms": 7,
+      "continuations": 0
+    }
+  ],
+  "ignore": [
+    "session_id"
+  ]
+}

@@ -1,0 +1,15 @@
+/* Tailwind v4 の utilities と theme だけを読み込み、PostCSS で .docs-account に閉じ込める。
+ * preflight は読み込まない。Portal も AccountPopover.container でこの中に置く。 */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "niho-docs-ui/styles/account.css";
+@source "../../../../packages/ui/src/components/account-button.tsx";
+@source "../../../../packages/ui/src/components/account-popover.tsx";
+@source "../../../../packages/ui/src/components/popover.tsx";
+@source "../../../../packages/ui/src/components/spinner.tsx";
+/* ログアウトの確認（appDialog。L6 #18558）。AccountDialogLayer が .docs-account の中に描く */
+@source "../../../../packages/ui/src/components/app-dialog-host.tsx";
+@source "../../../../packages/ui/src/components/confirm-dialog.tsx";
+@source "../../../../packages/ui/src/components/dialog.tsx";
+@source "../../../../packages/ui/src/components/modal-action-banner.tsx";
+@config "../../tailwind.config.cjs";

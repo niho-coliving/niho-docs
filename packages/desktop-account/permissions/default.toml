@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Allows the bundled NIHO app UI (the app's own frontendDist) to read the NIHO account state (profile without any token), start the browser login (opens the niho.life connect page in the default browser), cancel it, log out (revokes this Mac's connection and clears the saved sign-in file; with `everywhere` it first signs the account out on every device), and open My Page in the default browser. No token, code or verifier is ever returned to the page."
+permissions = [
+  "allow-account-state",
+  "allow-account-begin-login",
+  "allow-account-cancel-login",
+  "allow-account-logout",
+  "allow-account-open-my-page",
+]

@@ -1,0 +1,32 @@
+{
+  "name": "@niho/docs-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "NIHO docs の純粋な中核（型・検証・入力の規則・プロンプトの組み立て・続きの結合・テンプレート）。Tauri・Node・DOM に依存しない。",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    }
+  },
+  "scripts": {
+    "build:server": "tsc -p tsconfig.server.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run build:server && npm run test"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

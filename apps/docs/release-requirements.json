@@ -1,0 +1,16 @@
+{
+  "$comment": "NIHO docs を公開する前に確かめる「main のコードが前提にするサーバーの設定」（#18744）。docs-release.yml の plan（apps/docs/scripts/ci-docs-release.sh）が公開すると決めたときだけ、apps/docs/scripts/release-requirements.mjs check が本番へ認証なしの GET で問い合わせる。enforce: true の項目が満たされない・確かめられないときは公開せず run を赤にする（main のコードは入ったまま、配るのだけ待つ）。enforce: false は警告だけ。アプリを本番の設定に頼る作りにする PR は、ここに項目を足すか enforce を true にする。probe の種類と判定は release-requirements.mjs の先頭。",
+  "requirements": [
+    {
+      "id": "prod-app-connect",
+      "title": "本番で NIHO アカウントのログインを受け付ける",
+      "why": "2026-10-17、ログイン必須の 0.1.44（#18729）を本番でログインが閉じたまま配り、利用者がログイン画面から先へ進めなかった。#18730 以降のアプリはサーバーがログインを閉じている間はログイン画面で塞がないので、今は公開を止めず警告だけにする。ログインの受付を前提に塞ぐ作りに戻すなら enforce を true にする。",
+      "enforce": false,
+      "probe": {
+        "kind": "app-connect-open",
+        "url": "https://niho.life/api/auth/app-connections"
+      },
+      "fix": "L6 #18558 の受入で本番の APP_CONNECT_ENABLED を ON にしてから、docs-release.yml を workflow_dispatch でやり直す（gh workflow run docs-release.yml --ref main）。"
+    }
+  ]
+}

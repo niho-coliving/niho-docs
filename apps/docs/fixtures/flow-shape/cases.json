@@ -1,0 +1,250 @@
+[
+  {
+    "name": "最小の工程設計（用語・お手本が空、provider なし）",
+    "valid": true,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "整える", "instruction": "指示", "profile": "standard" }] }
+  },
+  {
+    "name": "全部の欄がある工程設計（用語・お手本・provider・知らない欄）",
+    "valid": true,
+    "flow": {
+      "version": 1,
+      "id": "flow-2",
+      "name": "記事",
+      "revision": 0,
+      "guide": "# ガイド",
+      "terms": [{ "term": "鎌倉", "reading": "かまくら", "variants": ["鎌倉市", "KAMAKURA"], "note": "地名" }],
+      "samples": [{ "id": "s1", "name": "お手本.md", "chars": 120, "truncatedFrom": 4000, "sourceUrl": "https://example.com/a" }],
+      "steps": [{ "id": "a", "name": "整える", "instruction": "指示", "provider": "gemini", "profile": "standard", "output": { "mode": "candidates" } }],
+      "futureField": true
+    }
+  },
+  {
+    "name": "provider は claude・gpt・gemini のどれでもよい",
+    "valid": true,
+    "flow": {
+      "version": 1,
+      "id": "flow-3",
+      "name": "三つの AI",
+      "revision": 1,
+      "guide": "",
+      "terms": [],
+      "samples": [],
+      "steps": [
+        { "id": "a", "name": "一", "instruction": "x", "provider": "claude", "profile": "standard" },
+        { "id": "b", "name": "二", "instruction": "x", "provider": "gpt", "profile": "advanced" },
+        { "id": "c", "name": "三", "instruction": "x", "provider": "gemini", "profile": "light" }
+      ]
+    }
+  },
+  {
+    "name": "工程が 0 本でも形としては通る（意味の検査は validateFlow）",
+    "valid": true,
+    "flow": { "version": 1, "id": "flow-4", "name": "空", "revision": 1, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "名前・指示文が空でも形としては通る（意味の検査は validateFlow）",
+    "valid": true,
+    "flow": { "version": 1, "id": "flow-5", "name": "", "revision": 1, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "", "instruction": "", "profile": "" }] }
+  },
+  {
+    "name": "version が 2",
+    "valid": false,
+    "flow": { "version": 2, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "version が文字列の \"1\"",
+    "valid": false,
+    "flow": { "version": "1", "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "version が無い",
+    "valid": false,
+    "flow": { "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "id が数値",
+    "valid": false,
+    "flow": { "version": 1, "id": 7, "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "id が無い",
+    "valid": false,
+    "flow": { "version": 1, "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "name が数値",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": 1, "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "guide が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "guide が null",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": null, "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "revision が負",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": -1, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "revision が小数",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 1.5, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "revision が文字列",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": "3", "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "revision が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "terms が配列でなくオブジェクト",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": {}, "samples": [], "steps": [] }
+  },
+  {
+    "name": "terms が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "samples": [], "steps": [] }
+  },
+  {
+    "name": "用語の reading が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [{ "term": "鎌倉", "variants": [], "note": "" }], "samples": [], "steps": [] }
+  },
+  {
+    "name": "用語の variants に数値が混ざる",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [{ "term": "鎌倉", "reading": "かまくら", "variants": ["鎌倉市", 2], "note": "" }], "samples": [], "steps": [] }
+  },
+  {
+    "name": "用語の note が null",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [{ "term": "鎌倉", "reading": "かまくら", "variants": [], "note": null }], "samples": [], "steps": [] }
+  },
+  {
+    "name": "samples が配列でなく文字列",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": "none", "steps": [] }
+  },
+  {
+    "name": "samples が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "steps": [] }
+  },
+  {
+    "name": "お手本の chars が負",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": -1 }], "steps": [] }
+  },
+  {
+    "name": "お手本の chars が文字列",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": "12" }], "steps": [] }
+  },
+  {
+    "name": "お手本の id が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "name": "お手本.md", "chars": 12 }], "steps": [] }
+  },
+  {
+    "name": "お手本の truncatedFrom が null",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": 12, "truncatedFrom": null }], "steps": [] }
+  },
+  {
+    "name": "お手本の truncatedFrom が小数",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": 12, "truncatedFrom": 1.5 }], "steps": [] }
+  },
+  {
+    "name": "steps が配列でなくオブジェクト",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": {} }
+  },
+  {
+    "name": "steps が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [] }
+  },
+  {
+    "name": "steps の要素がオブジェクトでなく文字列",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": ["a"] }
+  },
+  {
+    "name": "工程の instruction が無い",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "整える", "profile": "standard" }] }
+  },
+  {
+    "name": "工程の profile が数値",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "整える", "instruction": "指示", "profile": 1 }] }
+  },
+  {
+    "name": "工程の id が数値",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": 1, "name": "整える", "instruction": "指示", "profile": "standard" }] }
+  },
+  {
+    "name": "工程の name が null",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": null, "instruction": "指示", "profile": "standard" }] }
+  },
+  {
+    "name": "工程の provider が知らない提供元",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "整える", "instruction": "指示", "provider": "openai", "profile": "standard" }] }
+  },
+  {
+    "name": "工程の provider が null",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [], "steps": [{ "id": "a", "name": "整える", "instruction": "指示", "provider": null, "profile": "standard" }] }
+  },
+  {
+    "name": "トップレベルが配列",
+    "valid": false,
+    "flow": []
+  },
+  {
+    "name": "トップレベルが null",
+    "valid": false,
+    "flow": null
+  },
+  {
+    "name": "トップレベルが文字列",
+    "valid": false,
+    "flow": "flow"
+  },
+  {
+    "name": "数値欄はJavaScript safe integerの上限まで通す",
+    "valid": true,
+    "flow": { "version": 1, "id": "flow-safe-count", "name": "上限", "revision": 9007199254740991, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "上限.md", "chars": 9007199254740991, "truncatedFrom": 9007199254740991 }], "steps": [] }
+  },
+  {
+    "name": "revisionがJavaScript safe integerの上限を超える",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 9007199254740992, "guide": "", "terms": [], "samples": [], "steps": [] }
+  },
+  {
+    "name": "お手本のcharsがJavaScript safe integerの上限を超える",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": 9007199254740992 }], "steps": [] }
+  },
+  {
+    "name": "お手本のtruncatedFromがJavaScript safe integerの上限を超える",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": 12, "truncatedFrom": 9007199254740992 }], "steps": [] }
+  }
+]

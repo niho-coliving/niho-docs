@@ -1,0 +1,145 @@
+#!/bin/sh
+# 偽の agy（Antigravity CLI。Gemini のサブスクリプション）。状態の確認（--version・--help・models）・使用量（-p /usage）と、
+# 工程の 1 往復・音声の区切りの文字起こし（niho-docs-transcriber が view_file で区切りの WAV を読む）・「AIと作る」の修正の
+# 会話（niho-docs-editor）の最小の形。
+# 本物の agy を使わずに、開発ビルドの NIHO docs で設定の行・モデルの選択肢・Gemini の文字起こしと会話の流れを試すためのもの。
+#   npm -C apps/docs run dev:fake   … この偽物で起動する（NIHO_DOCS_AGY_CLI_PATH）
+# crate（niho-local-ai の agy.rs）が確かめる形に合わせる: 最初に init（agent は --agent の名前）、user_input の step、
+# 文字起こしは作業フォルダの中の view_file の step、本文は agent_response の text_delta、最後に result（SUCCESS）。
+# 修正の会話（--mode accept-edits --agent niho-docs-editor。cwd は会話の workspace）では、artifacts/ の最初の文書を
+# view_file で読み、replace_file_content で先頭の見出しを短くして（実際に書き換える）短く返す。指示（標準入力）に次の印があると、
+# crate が止めるはずの step を出す（止められなければ、文書は直さずに返答と result まで出す）:
+#   [fake:outside]        作業フォルダの外（/etc/hosts）を view_file で読もうとする
+#   [fake:write_outside]  artifacts/ の外（workspace の transcript.md）に write_to_file で書こうとする（書かない）
+#   [fake:command]        run_command でシェルを使おうとする
+# このファイルの隣に .agy-logged-out を置くと未ログインとして振る舞う（子の環境は allowlist だけなので環境変数は届かない）。
+set -u
+here="$(cd "$(dirname "$0")" && pwd)"
+conversation="00000000-0000-4000-8000-00000000a9e1"
+
+if [ -f "$here/.agy-logged-out" ]; then
+  case "${1:-}" in
+    --version | --help) ;;
+    *)
+      echo "Error: Please sign in to use Antigravity CLI. Launch the CLI without arguments to sign in." >&2
+      exit 1
+      ;;
+  esac
+fi
+
+case "${1:-}" in
+  --version)
+    echo "1.3.5 (fake)"
+    exit 0
+    ;;
+  --help)
+    # crate の status.rs が確かめる必須のフラグ
+    echo "Flags:"
+    echo "      --agent string"
+    echo "      --conversation string"
+    echo "      --disable-slash-commands"
+    echo "      --effort string"
+    echo "      --input-format string"
+    echo "      --model string"
+    echo "      --output-format string"
+    echo "  -p, --print string"
+    echo "      --print-timeout duration"
+    exit 0
+    ;;
+  models)
+    echo "Fetching available models..."
+    printf 'gemini-3.8-flash-high\tGemini 3.8 Flash (High)\n'
+    printf 'gemini-3.8-flash-medium\tGemini 3.8 Flash (Medium)\n'
+    printf 'gemini-3.8-flash-low\tGemini 3.8 Flash (Low)\n'
+    printf 'claude-sonnet-4-6\tClaude Sonnet 4.6\n'
+    exit 0
+    ;;
+  -p)
+    if [ "${2:-}" = "/usage" ]; then
+      printf '%s\n' '{"status":"SUCCESS","command":{"data":{"groups":[{"name":"Gemini Models","buckets":[{"name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":0.59,"reset_time":"2026-10-21T19:12:26Z"}]},{"name":"Claude and GPT Models","buckets":[{"name":"Weekly Limit Remaining","window":"weekly","remaining_fraction":0.9}]}]}}}'
+      exit 0
+    fi
+    ;;
+esac
+
+agent=""
+mode=""
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "--agent" ] && agent="$arg"
+  [ "$prev" = "--mode" ] && mode="$arg"
+  prev="$arg"
+done
+input="$(cat)"
+chars=$(printf '%s' "$input" | wc -m | tr -d ' ')
+
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/	/ /g'
+}
+
+step() {
+  # $1: step_index  $2: state  $3: step_type  $4: 足す JSON（先頭のカンマ込み）
+  printf '{"event":"step_update","step_update":{"conversation_id":"%s","step_index":%s,"state":"%s","step_type":"%s"%s}}\n' "$conversation" "$1" "$2" "$3" "$4"
+}
+
+tool() {
+  # $1: step_index  $2: state  $3: 道具の名前  $4: parameters の JSON
+  step "$1" "$2" tool ",\"tool_name\":\"$3\",\"tool_info\":{\"name\":\"$3\",\"parameters\":$4}"
+}
+
+printf '{"event":"init","init":{"model":"gemini-3.8-flash","cwd":"%s","tools":["manage_task","view_file"],"permission_mode":"request-review","agent":"%s"}}\n' "$(json_escape "$PWD")" "$(json_escape "$agent")"
+step 0 DONE user_input ""
+
+if [ "$agent" = "niho-docs-editor" ] && [ "$mode" = "accept-edits" ]; then
+  root="$(pwd -P)"
+  step 1 DONE agent_response ',"text_delta":"文書を確かめます。"'
+  target="$(ls artifacts/*.md 2>/dev/null | head -n 1)"
+  case "$input" in
+    *"[fake:outside]"*)
+      tool 2 ACTIVE view_file '{"AbsolutePath":"/etc/hosts"}'
+      target=""
+      ;;
+    *"[fake:write_outside]"*)
+      tool 2 ACTIVE write_to_file "{\"TargetFile\":\"$(json_escape "$root/transcript.md")\",\"CodeContent\":\"外への書き込み\",\"Overwrite\":true}"
+      target=""
+      ;;
+    *"[fake:command]"*)
+      tool 2 ACTIVE run_command '{"CommandLine":"ls ~","Cwd":"/"}'
+      target=""
+      ;;
+  esac
+  if [ -n "$target" ]; then
+    file="$(json_escape "$root/$target")"
+    tool 3 ACTIVE view_file "{\"AbsolutePath\":\"$file\"}"
+    tool 3 DONE view_file "{\"AbsolutePath\":\"$file\"}"
+    edit="{\"TargetFile\":\"$file\",\"TargetContent\":\"$(json_escape "$(head -n 1 "$target")")\",\"ReplacementContent\":\"# 短い見出し\",\"StartLine\":1,\"EndLine\":1,\"AllowMultiple\":false}"
+    tool 4 ACTIVE replace_file_content "$edit"
+    # 先頭の見出しを短くする（見出しで始まらなければ先頭に足す）
+    edited="$(awk 'NR == 1 && /^# / { print "# 短い見出し"; next } NR == 1 { print "# 短い見出し"; print "" } { print }' "$target")"
+    printf '%s\n' "$edited" > "$target"
+    tool 4 DONE replace_file_content "$edit"
+  fi
+  reply="偽の agy が先頭の見出しを短くしました。"
+  step 5 DONE agent_response ",\"text_delta\":\"${reply}\",\"usage\":{\"input_tokens\":$((chars / 2)),\"output_tokens\":40,\"thinking_tokens\":0,\"cache_read_tokens\":0,\"total_tokens\":$((chars / 2 + 40))}"
+  printf '{"event":"result","result":{"conversation_id":"%s","status":"SUCCESS","response":"文書を確かめます。%s","duration_seconds":1.5,"num_turns":1}}\n' "$conversation" "$reply"
+  exit 0
+fi
+
+if [ "$agent" = "niho-docs-transcriber" ]; then
+  wav=""
+  for candidate in ./*.wav; do
+    [ -e "$candidate" ] && { wav="${candidate#./}"; break; }
+  done
+  path="$(pwd -P)/$wav"
+  info=",\"tool_name\":\"view_file\",\"tool_info\":{\"name\":\"view_file\",\"parameters\":{\"AbsolutePath\":\"$(json_escape "$path")\"}}"
+  step 1 ACTIVE tool "$info"
+  step 1 DONE tool "$info"
+  # 偽の niho-speech の slice は WAV の代わりに範囲（slice <start> <end>）を書く
+  range="$(head -n 1 "$wav" 2>/dev/null | sed 's/^slice //')"
+  body="[00:01] 話者0: これは偽の agy の文字起こしです（${wav}・${range}）。\\n\\n[00:20] 話者1: 本物の Antigravity CLI を使うと、ここに区切りの書き起こしが入ります。"
+else
+  body="# 偽の出力\\n\\nこれは偽の agy（Gemini）の出力です。送られた量は ${chars} 字でした。"
+fi
+step 2 DONE agent_response ",\"text_delta\":\"${body}\",\"usage\":{\"input_tokens\":$((chars / 2)),\"output_tokens\":120,\"thinking_tokens\":0,\"cache_read_tokens\":0,\"total_tokens\":$((chars / 2 + 120))}"
+printf '{"event":"result","result":{"conversation_id":"%s","status":"SUCCESS","response":"%s","duration_seconds":1.5,"num_turns":1}}\n' "$conversation" "$body"
+exit 0

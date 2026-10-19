@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "$comment": "NIHO docs に同梱する文字起こし sidecar（niho-speech）の固定。ソースを変えたら sidecar-lock.mjs update（lock は出荷対象なので、main に入ると次の版で公開される。apps/docs/README.md「配布」）。",
+  "nihoSpeech": {
+    "version": "0.3.1",
+    "swiftToolsVersion": "6.2",
+    "signingIdentifier": "niho-speech"
+  },
+  "sources": {
+    "fingerprint": "fb18377a3c4bae2b6a0ec2bb432257d1dbde9a5cdf6eb876fc368fff97fe282d",
+    "fileCount": 41
+  }
+}

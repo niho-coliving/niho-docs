@@ -1,0 +1,10 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "externalBin": ["binaries/niho-speech"],
+    "resources": {
+      "binaries/resources/NihoOnDeviceSpeech_NihoOnDeviceSpeech.bundle": "NihoOnDeviceSpeech_NihoOnDeviceSpeech.bundle",
+      "binaries/resources/FluidAudio_FluidAudio.bundle": "FluidAudio_FluidAudio.bundle"
+    }
+  }
+}

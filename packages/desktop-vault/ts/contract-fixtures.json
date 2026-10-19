@@ -1,0 +1,95 @@
+{
+  "events": [
+    { "type": "syncing", "projectId": "p123" },
+    { "type": "localSaved", "projectId": "p123", "generation": 7, "paths": ["pages/p1.md"] },
+    { "type": "committed", "projectId": "p123", "revision": 4, "paths": ["pages/p1.md"] },
+    {
+      "type": "conflict", "projectId": "p123", "conflictId": "c_AAAAAAAAAAAAAAAAAAAAAA",
+      "path": "page.md", "kind": "edit"
+    },
+    { "type": "deferred", "projectId": "p123", "path": "page.md" },
+    { "type": "applied", "projectId": "p123", "paths": ["page.md"] },
+    { "type": "audio", "projectId": "p123", "path": "inputs/a.m4a", "state": "queued" },
+    {
+      "type": "audio", "projectId": "p123", "path": "inputs/a.m4a", "state": "failed",
+      "message": "NIHO に接続できません"
+    },
+    { "type": "quota", "projectId": "p123", "path": "audio.m4a" },
+    { "type": "offline", "projectId": "p123", "message": "offline" },
+    { "type": "expired", "projectId": "p123", "path": "old.m4a" },
+    { "type": "tombstone", "projectId": "p123", "needsChoice": true },
+    { "type": "done", "projectId": "p123", "status": { "status": "synced", "revision": 3 } },
+    { "type": "done", "projectId": "p123", "status": { "status": "pending", "revision": 4, "paths": ["page.md"] } },
+    { "type": "done", "projectId": "p123", "status": { "status": "conflicted", "revision": 5, "paths": ["page.md"] } },
+    {
+      "type": "done", "projectId": "p123",
+      "status": { "status": "failed", "error": { "kind": "mutationMismatch", "message": "送信済みの変更を確認できません" } }
+    },
+    { "type": "done", "projectId": "p123", "status": { "status": "authRequired" } }
+  ],
+  "rootPaths": {
+    "allowed": [
+      "pages.json",
+      "pages/p_1.md",
+      "recordings/r-1/audio.m4a",
+      "recordings/r-1/runs/run.jsonl",
+      "page-chats/p_1/conversations/c_1.json",
+      "page-chats/p_1/runs/t_1.json",
+      "page-chats/p_1/runs.jsonl",
+      "assets/a_1.webp",
+      "assets/a_2.jpeg",
+      "versions/files/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/v_AAAAAAAAAAAAAAAAAAAAAA.jpeg",
+      "versions/files/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/v_AAAAAAAAAAAAAAAAAAAAAA.md",
+      "versions/files/d82acfd083c8736e72b534852675307bc68bc98baf8e34c39ed57a2a191d551b/v_AAAAAAAAAAAAAAAAAAAAAA.json"
+    ],
+    "rejected": [
+      "about.json",
+      "flows/f1.json",
+      "projects/p1/page.md",
+      "settings.json",
+      "private/key.json",
+      "pages.json.bak",
+      "pages/p1.txt",
+      "recordings/r1",
+      "page-chats/runs.jsonl",
+      "page-chats/p1/notes.md",
+      "page-chats/p1/conversations/c1.md",
+      "page-chats/p1/conversations/nested/c1.json",
+      "page-chats/p1/runs/t1.jsonl",
+      "page-chats/not safe/runs.jsonl",
+      "assets/a1.gif",
+      "versions/files/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/v_AAAAAAAAAAAAAAAAAAAAAA.gif",
+      "versions/files/d82acfd083c8736e72b534852675307bc68bc98baf8e34c39ed57a2a191d551b/v_AAAAAAAAAAAAAAAAAAAAAA.md",
+      "versions/files/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/v_AAAAAAAAAAAAAAAAAAAAAA.json"
+    ]
+  },
+  "snapshot": {
+    "projectId": "p123",
+    "revision": 5,
+    "syncing": false,
+    "localGeneration": 9,
+    "acknowledgedGeneration": 7,
+    "dirty": { "inputs/a.m4a": 9, "page.md": 8 },
+    "pendingMutation": true,
+    "conflicts": [
+      {
+        "conflictId": "c_AAAAAAAAAAAAAAAAAAAAAA", "path": "page.md",
+        "kind": "localDeletedRemoteEdited", "status": "open",
+        "remoteDeviceId": "pwa_0123456789abcdef0123456789abcdef", "remoteDeviceKind": "phone"
+      }
+    ],
+    "deferred": ["pages/p2.md", "pages/p3.md"],
+    "remoteWriters": {
+      "pages/p2.md": { "deviceId": "d_AAAAAAAAAAAAAAAAAAAAAA", "deviceKind": "mac" },
+      "pages/p3.md": { "deviceId": "d_BBBBBBBBBBBBBBBBBBBBBB", "deviceKind": null }
+    },
+    "quotaPaths": [],
+    "blocked": [{ "path": "big.bin", "reason": "tooLarge" }],
+    "expiredAudio": ["old.m4a"],
+    "audio": { "inputs/a.m4a": "uploading" },
+    "lastSyncedAt": "2026-10-16T00:00:00.000Z",
+    "lastError": { "kind": "offline", "message": "NIHO に接続できません" },
+    "retryAfter": null,
+    "tombstone": null
+  }
+}

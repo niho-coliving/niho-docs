@@ -1,0 +1,18 @@
+[package]
+name = "niho-local-ai"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "UNLICENSED"
+description = "NIHO docs: このMacの AI の CLI（Claude Code・Codex CLI・Antigravity CLI）を Tauri に依存せず動かす実行基盤"
+
+[lib]
+name = "niho_local_ai"
+path = "src/lib.rs"
+
+# UUID・一時ファイル・プロセスの扱いは自前で組む（Desktop の記事エージェントと同じ）ので、依存はこの 3 つだけ。
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libc = "0.2"

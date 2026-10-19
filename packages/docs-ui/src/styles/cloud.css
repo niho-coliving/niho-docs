@@ -1,0 +1,286 @@
+/*
+ * NIHO クラウド（C3 #18595）: メタ行の保存の状態・別の Mac の更新の知らせ・変更の確認・設定の保存先のクラウド・レールの知らせと
+ * クラウドの案件・録音の音声の添え書き。色は tokens.css の token だけ。色だけで状態を伝えない（文言を必ず添える）。
+ */
+
+/* メタ行の保存の状態（components/SaveStatus.tsx）。「·」は次の項目といっしょに折り返す */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .savest {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .savest.warn {
+  color: var(--docs-warn-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .savest.error {
+  color: var(--niho-danger);
+}
+
+/* 本文の上の知らせ（別の Mac で更新された・両方で変更された） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 20px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--docs-warn-bg);
+  color: var(--docs-warn-ink);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  font-size: 12.5px;
+}
+
+/* 変更の確認（components/ConflictDialog.tsx） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg.cfdlg {
+  width: 760px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cflist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cflist button {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--docs-ctl-line);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--niho-text-sub);
+  background: var(--niho-card);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cflist button[aria-pressed="true"] {
+  border-color: var(--niho-text);
+  color: var(--niho-text);
+  font-weight: 700;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfsides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside h3 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 13.5px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside h3 .t {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside pre,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside .ta {
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-family-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside pre {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--docs-inset);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfside .ta {
+  min-height: 220px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfdlg .diff {
+  max-height: 40vh;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cfacts .sp {
+  flex: 1;
+}
+
+/* 設定の保存先のクラウド（components/CloudSettings.tsx） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .stc > .seg {
+  justify-self: start;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .stc > .inp {
+  max-width: 320px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .st .spin {
+  width: 12px;
+  height: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-usage {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 13px;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-usage .bar {
+  width: 160px;
+  max-width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--docs-rail-hover);
+  overflow: hidden;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-usage .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-usage .bar.full i {
+  background: var(--niho-orange);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .help.warn {
+  color: var(--docs-warn-ink);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+  font-size: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-list li .nm {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-failed {
+  margin: 2px 0 0;
+  padding-left: 1.2em;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--niho-text-sub);
+}
+
+/* レールの下端の知らせ（components/CloudNotice.tsx。UpdateNotice と同じ小さなカード） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+  background: var(--niho-card);
+  color: var(--niho-text);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-notice .cn-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-notice .cn-item + .cn-item {
+  padding-top: 8px;
+  border-top: 1px solid var(--docs-line);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-notice .cn-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-notice .cn-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* レールのクラウドにだけある案件と、別の Mac の実行中 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .ti .st svg {
+  width: 13px;
+  height: 13px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .rlease {
+  margin: 0 0 2px;
+  padding: 0 8px 0 32px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--niho-text-muted);
+  overflow-wrap: anywhere;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice {
+  max-width: 760px;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+  text-align: left;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice-option {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--docs-line-firm);
+  border-radius: 12px;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice-option h2,
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice-option p {
+  margin: 0;
+}
+
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .storage-choice-option .btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+/* 録音のページの音声の添え書き（取得中・期限切れ） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile.noted {
+  height: auto;
+  min-height: 40px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  row-gap: 2px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .afile .anote {
+  order: 10;
+  flex-basis: 100%;
+  padding-left: 22px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--niho-text-muted);
+}
