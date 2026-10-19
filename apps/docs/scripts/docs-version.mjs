@@ -73,6 +73,7 @@ const SHIPPED_FILES = new Set([
   `${DOCS_REL}/tailwind.config.cjs`,
   `${DOCS_REL}/postcss.config.cjs`,
   `${DOCS_UI_REL}/package.json`,
+  "packages/article-style-sample-core/index.ts",
   "packages/ui/package.json",
   "packages/ui/tailwind-theme.cjs",
   "packages/desktop-account/Cargo.toml",
@@ -561,6 +562,7 @@ function selfTest() {
     assert(!isShippedPath(`${DOCS_REL}/src/lib/x.test.ts`), "UI tests are not shipped");
     assert(isShippedPath("packages/desktop-account/src/tauri.rs"), "account Rust is shipped");
     assert(isShippedPath("packages/desktop-account/ts/src/use-niho-account.ts"), "account hook is shipped");
+    assert(isShippedPath("packages/article-style-sample-core/index.ts"), "article sample core is bundled into Docs");
     assert(isShippedPath("packages/ui/src/components/account-popover.tsx"), "account UI is shipped");
     assert(isShippedPath("packages/ui/src/styles/tokens.css"), "shared UI tokens are shipped");
     assert(isShippedPath("packages/ui/src/fonts/nunito-latin-variable.woff2"), "shared UI fonts are shipped");
