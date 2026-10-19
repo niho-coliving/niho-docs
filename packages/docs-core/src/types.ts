@@ -183,7 +183,7 @@ export type RootPages = PageIndex;
 
 /**
  * 録音のページ（`projects/<projectId>/recordings/<recId>/recording.json`）。今の案件の録音（予約 id `root`）は
- * project.json の flowSnapshot・source・info.speakers・info.language・refs から作る（pages.ts の rootRecording）。
+ * project.json の flowSnapshot・source・info.speakers・info.language・legacy refs から作る（pages.ts の rootRecording）。
  */
 export type Recording = {
   version: 1;
@@ -197,7 +197,7 @@ export type Recording = {
   speakers: SpeakerMode;
   /** 言語（文字起こしと工程の案件情報に使う）。 */
   language: Language;
-  /** 参考にする文書のページの id（同じ案件の文書。付けた順）。工程の入力に本文を足す。 */
+  /** 旧版の手動参考ページ id。新しい工程は同じフォルダの独立文書を実行時に自動で固定する。 */
   refs: string[];
   /** 移動のたびに増える。保存済み会話の session を移動先で resume しないための世代。 */
   moveGeneration?: number;
@@ -254,7 +254,7 @@ export type Project = {
   info: ProjectInfo;
   /** root の録音の素材（flowSnapshot と同じく今の案件だけ）。 */
   source?: ProjectSource;
-  /** root の録音の参考（文書のページの id。flowSnapshot と同じく今の案件だけ）。 */
+  /** root 録音の旧版の手動参考ページ id（互換読み取り用。新しい工程の自動参考には使わない）。 */
   refs?: string[];
   /** root の録音の複数案台帳。本文は録音と同じ artifacts/versions に置く。 */
   candidateSets?: Record<string, CandidateSet>;

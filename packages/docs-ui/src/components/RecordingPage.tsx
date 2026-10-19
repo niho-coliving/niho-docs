@@ -5,21 +5,15 @@ import {
   FLOW_CHOICE_LABEL,
   LANGUAGES,
   RECORDING_FIELD_LABELS,
-  RECORDING_REF_WORDS,
   ROOT_RECORDING_ID,
   RUN_PLACE_CHANGE_LABEL,
   RUN_START_LABELS,
   SOURCE_STEP_ID,
   SPEAKER_MODES,
-  addRecordingRef,
   buildFlowChoices,
   countChars,
   languageLabel,
   pageTitle,
-  recordingRefOpenLabel,
-  recordingRefRemoveLabel,
-  recordingRefView,
-  removeRecordingRef,
   runStartActions,
   speakerLabel,
   staleNoticeText,
@@ -45,7 +39,7 @@ import { DocsWorkLayout } from "./DocsComposerRail";
 import { RunGateNote, RunningBand } from "./RunBand";
 import { AudioPlaybackBar } from "./AudioPlaybackBar";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { ChevronIcon, CloseIcon, DocIcon, FlowIcon, LanguageIcon, LinkIcon, MicIcon, PeopleIcon, PlusIcon } from "./icons";
+import { ChevronIcon, FlowIcon, LanguageIcon, MicIcon, PeopleIcon } from "./icons";
 import { PageTitle, type TitleCommit } from "./PageTitle";
 import { usePopover } from "./usePopover";
 
@@ -57,49 +51,6 @@ import { usePopover } from "./usePopover";
 /** 録音の素材を書き換えて保存する（読み直した値に当てる。project-view の saveRecordingChange）。 */
 export function saveRecordingSource(bridge: Bridge, rec: RecordingRef, change: (source: ProjectSource) => ProjectSource): Promise<void> {
   return saveRecordingChange(bridge, rec, (recording) => ({ ...recording, source: change(recording.source) }));
-}
-
-/** 参考に選べる文書のページ（同じ案件。名前は画面の名前）。 */
-export type DocChoice = { id: string; title: string };
-
-/** 参考の「＋ ページ」（まだ付けていない文書のページのメニュー）。 */
-function AddRefMenu(props: { choices: DocChoice[]; disabled: boolean; onAdd: (pageId: string) => void }) {
-  const menu = usePopover();
-  return (
-    <div ref={menu.ref} className="addref">
-      <button
-        type="button"
-        className="addchip"
-        aria-label={RECORDING_REF_WORDS.addLabel}
-        aria-expanded={menu.open}
-        disabled={props.disabled}
-        onClick={menu.toggle}
-      >
-        <PlusIcon />
-        {RECORDING_REF_WORDS.add}
-      </button>
-      {menu.open && (
-        <div className="pop" role="menu" aria-label={RECORDING_REF_WORDS.menuLabel}>
-          {props.choices.map((choice) => (
-            <button
-              type="button"
-              key={choice.id}
-              className="mi"
-              role="menuitem"
-              title={choice.title}
-              onClick={() => {
-                menu.setOpen(false);
-                props.onAdd(choice.id);
-              }}
-            >
-              <DocIcon />
-              <span>{choice.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function audioOf(source: ProjectSource): AudioInput[] {
@@ -174,10 +125,6 @@ export type RecordingControlsProps = {
   bridge: Bridge;
   recording: { active: boolean; saving: boolean; start: () => void };
   view: RecordingView;
-  /** 同じ案件の文書のページ（並びは pages の順。参考のチップとメニュー）。 */
-  docPages: DocChoice[];
-  /** 参考のチップを押したとき（その文書のページを開く）。 */
-  onOpenPage: (pageId: string) => void;
   /** 実行中の工程（どの案件でも 1 つ）。 */
   activeRun: ActiveRun | null;
   notice: RunNotice | null;
@@ -323,11 +270,6 @@ export function RecordingControls(props: RecordingControlsProps) {
     setPending((all) => ({ ...all, language }));
     void saveRecording((recording) => ({ ...recording, language })).finally(() => setPending({}));
   };
-  const addRef = (pageId: string) =>
-    void saveRecording((recording) => ({ ...recording, refs: addRecordingRef(recording.refs, pageId) }));
-  const removeRef = (pageId: string) =>
-    void saveRecording((recording) => ({ ...recording, refs: removeRecordingRef(recording.refs, pageId) }));
-
   // Finder からのドロップ（音声の録音で、このページを出していてダイアログが無いときだけ）
   const acceptDrop = props.dropEnabled && source.kind === "audio" && !recordingBusy;
   useEffect(() => {
@@ -374,8 +316,6 @@ export function RecordingControls(props: RecordingControlsProps) {
   const selectedChoice = choices.options.find((option) => optionValue(option) === flowValue);
   const flowTitle = selectedChoice ? flowLabel(selectedChoice) : missingLabel;
   const needsFlow = view.flow.steps.length === 0;
-  // 参考のチップ（付けた順。文書の名前は画面の名前）と、まだ付けていない文書（docs-core の recordingRefView）
-  const { chips: refs, choices: refChoices, empty: refsEmpty } = recordingRefView(props.docPages, view.recording.refs);
   // すべて再実行: 音声があれば工程 1 から、文章（と音声の無い録音）は工程 2 から
   const rerunQueue = rerunQueueOf(view);
   const doneAt = view.runs
@@ -402,7 +342,9 @@ export function RecordingControls(props: RecordingControlsProps) {
       chatBusy: props.chatBusy,
       leaseNote: props.leaseNote ?? null,
       candidateReason: action === "transcribeOnly" ? null : candidateChoiceReason({ recording: view.recording, flow: view.flow, queue }),
-      executionReason: props.start.reasonFor(action),
+      executionReason: action !== "transcribeOnly" && view.executionBlockReason
+        ? { reason: view.executionBlockReason, setup: false }
+        : props.start.reasonFor(action),
       setupReason: props.setupReasonFor(queue, action),
     });
   };
@@ -553,25 +495,6 @@ export function RecordingControls(props: RecordingControlsProps) {
             ))}
           </select>
         </div>
-        <span className="k">
-          <LinkIcon />
-          {RECORDING_FIELD_LABELS.refs}
-        </span>
-        <div className="v refs">
-          {refs.map((ref) => (
-            <span className="chip" key={ref.id}>
-              <button type="button" className="go" title={recordingRefOpenLabel(ref.title)} onClick={() => props.onOpenPage(ref.id)}>
-                <DocIcon />
-                <span>{ref.title}</span>
-              </button>
-              <button type="button" className="x" aria-label={recordingRefRemoveLabel(ref.title)} disabled={busy || locked} onClick={() => removeRef(ref.id)}>
-                <CloseIcon />
-              </button>
-            </span>
-          ))}
-          {refChoices.length > 0 && <AddRefMenu choices={refChoices} disabled={busy || locked} onAdd={addRef} />}
-          {refsEmpty && <span className="help">{RECORDING_REF_WORDS.empty}</span>}
-        </div>
         <label className="k" htmlFor="rec-flow">
           <FlowIcon />
           {FLOW_CHOICE_LABEL}
@@ -683,7 +606,8 @@ export function RecordingChatColumn(props: {
   const runningInProject = activeRun !== null && activeRun.projectId === view.projectId && !runningHere;
   // 別の工程で実行を押せない理由（入力欄の「＋ → 工程を実行」。1 工程ずつ見る）
   const stepRunReason = (stepId: string): string | null =>
-    candidateChoiceReason({ recording: view.recording, flow: view.flow, queue: [stepId] }) ?? props.setupReasonFor([stepId], true);
+    candidateChoiceReason({ recording: view.recording, flow: view.flow, queue: [stepId] }) ??
+    view.executionBlockReason ?? props.setupReasonFor([stepId], true);
   return (
     <div className="col">
       <ChatPanel
@@ -692,7 +616,7 @@ export function RecordingChatColumn(props: {
         projectRunning={runningInProject}
         chat={props.chat}
         loadPartial={props.loadPartial}
-        runBlocked={activeRun !== null || props.chatBusy || props.saving || Boolean(props.leaseNote)}
+        runBlocked={activeRun !== null || props.chatBusy || props.saving || Boolean(props.leaseNote) || Boolean(view.executionBlockReason)}
         stepRunReason={stepRunReason}
         saving={props.saving}
         onRunStep={props.onRunStep}

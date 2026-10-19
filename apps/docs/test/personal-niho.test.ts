@@ -213,7 +213,7 @@ describe("確定した原文から NIHO API へ後続だけ（controller と Fak
     expect(body).toMatchObject({
       recordingPageId: "pg1", recordingId: "rec1", audio: [], basis: [], transcriptionExecutor: null, generationExecutor: "niho_api",
       consentVersion: CONSENT, containerRef: { kind: "folder", projectId: "proj1" },
-      sourceVersion: { path: SOURCE_PATH }, references: [{ path: "pages/ref1.md" }],
+      sourceVersion: { path: SOURCE_PATH }, references: [],
       steps: [
         { stepKey: "outline", kind: "REVISION", provider: "gemini", model: "gemini-3.8-flash", effort: "low" },
         { stepKey: "minutes", kind: "INSIGHT", provider: "gemini", model: "gemini-3.8-flash", effort: "low" },
@@ -427,7 +427,7 @@ describe("ports の失敗の区別（Native・FakeBridge の code と同じ）",
     await capture(bridgeWithConfirmedSource(), (bridge) => { bridge.personalNihoUnsynced = true; });
     await capture(bridgeWithConfirmedSource(), (bridge) => { bridge.recording("proj1", "rec1").transcript = "手直し"; });
     await capture(bridgeWithConfirmedSource(), (bridge) => { bridge.recording("proj1", "rec1").artifacts.minutes = "議事録"; });
-    await capture(bridgeWithConfirmedSource(), (bridge) => { bridge.projects.get("proj1")!.docs.ref1 = "書き換えた参考"; });
+    await capture(bridgeWithConfirmedSource(), (bridge) => { bridge.personalNihoBaseRevision += 1; });
     await capture(bridgeWithConfirmedSource(), (bridge) => {
       bridge.personalNihoAccessResult = { ...(bridge.personalNihoAccessResult as object), model: "gemini-3.1-pro-preview" } as typeof bridge.personalNihoAccessResult;
     });

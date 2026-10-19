@@ -15,7 +15,7 @@
 //! 秘密・指示文・本文はログに出さない（このモジュールは何も書き出さない）。
 
 use crate::cloud::{lease_held_error, CapturedOperation, Cloud, OperationIdentity, OwnedLease};
-use crate::store::{self, CandidateWrite, PersonalPublish, PublishOutcome, StoreError};
+use crate::store::{self, CandidateWrite, PersonalPublish, PublishOutcome, StoreError, MAX_REFERENCE_PAGES};
 use crate::{AppState, CommandError, CommandResult, OUTSIDE_LOCK_KEY};
 use niho_desktop_vault::{atomic_write, is_version_id, validate_relative_path, DOCS_ROOT_PROJECT_ID};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -1925,8 +1925,13 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
       }
     }
   }
+  // 文字起こしだけの実行には AI 工程の参考文書を読まず、参考文書の上限も適用しない。
+  let references = if selected.is_empty() {
+    Vec::new()
+  } else {
+    store.personal_references(project_id, &rec)?
+  };
   // 参考ページ（本文が空の文書は入力に入れない。runner の usedRefs と同じ）
-  let references = store.personal_references(project_id, &rec)?;
   let mut reference_pages = Vec::new();
   let mut reference_titles = Vec::new();
   for reference in references
@@ -1942,6 +1947,12 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
       "content": reference.body,
       "expectedSha256": sha,
     }));
+  }
+  if reference_pages.len() > MAX_REFERENCE_PAGES {
+    return Err(failure(
+      "personal_references_too_many",
+      "同じフォルダの文書が64件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。",
+    ));
   }
   let mut expected = Map::new();
   for step_id in &selected {

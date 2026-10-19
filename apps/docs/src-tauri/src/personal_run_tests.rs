@@ -1668,6 +1668,59 @@ fn material_tells_the_page_from_the_recording_reads_the_captured_store_and_verif
 }
 
 #[test]
+fn transcription_only_does_not_read_or_limit_automatic_reference_pages() {
+  tauri::async_runtime::block_on(async {
+    let h = Harness::signed_in("transcription-only-many-refs", LeaseMode::Grant);
+    let project_path = h.root.join("projects/proj1/project.json");
+    let mut project: Value = serde_json::from_slice(&fs::read(&project_path).unwrap()).unwrap();
+    let mut new_page_ids = Vec::new();
+    for index in 0..64 {
+      let page_id = format!("extra{index:02}");
+      project["pages"]["items"].as_object_mut().unwrap().insert(
+        page_id.clone(),
+        json!({ "kind": "document", "title": format!("参考 {index}"), "createdAt": "2026-10-17T00:00:00.000Z" }),
+      );
+      new_page_ids.push(json!(page_id));
+      fs::write(
+        h.root.join(format!("projects/proj1/pages/{page_id}.md")),
+        if index % 2 == 0 {
+          format!("本文 {index}")
+        } else {
+          String::new()
+        },
+      )
+      .unwrap();
+    }
+    project["pages"]["order"].as_array_mut().unwrap().extend(new_page_ids);
+    write_json(&project_path, &project);
+
+    let transcribe = open(
+      &h.state,
+      &h.cloud,
+      request("i-many-refs-transcribe", "local_transcription_only", Some("this-mac")),
+    )
+    .await
+    .unwrap();
+    let material = read_material(&h.state, &transcribe.handle, vec![]).await.unwrap();
+    assert_eq!(material["referencePages"], json!([]));
+    close(&h.state, &h.cloud, &transcribe.handle).await.unwrap();
+
+    let ai = open(
+      &h.state,
+      &h.cloud,
+      request("i-many-refs-ai", "local_full", Some("gemini")),
+    )
+    .await
+    .unwrap();
+    let error = read_material(&h.state, &ai.handle, vec!["outline".into()])
+      .await
+      .unwrap_err();
+    assert_eq!(error.code, "personal_references_too_many");
+    close(&h.state, &h.cloud, &ai.handle).await.unwrap();
+  });
+}
+
+#[test]
 fn candidates_are_immutable_idempotent_and_keep_whether_the_model_was_reported() {
   tauri::async_runtime::block_on(async {
     let h = Harness::signed_in("candidate", LeaseMode::Grant);

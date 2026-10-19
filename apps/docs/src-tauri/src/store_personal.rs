@@ -14,7 +14,7 @@ use super::versions::{
 };
 use super::{
   new_id, read_json, read_jsonl, validate_id, validate_input_file, validate_run_id, Result, Store, StoreError,
-  WRITE_LOCK,
+  MAX_REFERENCE_PAGES, WRITE_LOCK,
 };
 use super::{ROOT_RECORDING_ID, SOURCE_STEP_ID};
 use serde_json::{json, Value};
@@ -56,7 +56,7 @@ pub(crate) struct PersonalVersion {
   pub(crate) row: Value,
 }
 
-/// 参考ページ 1 枚（録音の refs の順。台帳に文書として載っているものだけ）。
+/// 自動参考ページ 1 枚（同じフォルダの台帳順にある独立文書だけ）。
 pub(crate) struct PersonalReference {
   pub(crate) page_id: String,
   pub(crate) title: String,
@@ -408,27 +408,31 @@ impl Store {
     Ok(read_plain_file(&self.under(&rec.base, &["versions", step_id, name])?))
   }
 
-  /// 録音の参考ページ（refs の順。台帳に文書として載っているものだけ。本文が空の文書も返す〔使うかは呼び出し側〕）。
+  /// 録音と同じフォルダの自動参考ページ（台帳順の独立文書。本文が空の文書も返す〔使うかは呼び出し側〕）。
   pub(crate) fn personal_references(
     &self,
     project_id: Option<&str>,
     rec: &PersonalRecording,
   ) -> Result<Vec<PersonalReference>> {
-    let refs: Vec<String> = rec
-      .recording
-      .get("refs")
-      .and_then(Value::as_array)
-      .map(|refs| refs.iter().filter_map(Value::as_str).map(str::to_string).collect())
-      .unwrap_or_default();
+    // ホームには録音と同じフォルダという境界がないため、自動参考を入れない。
+    if project_id.is_none() {
+      return Ok(Vec::new());
+    }
     let pages = Self::page_list(&rec.owner);
     let mut found = Vec::new();
-    for page_id in refs {
-      let Some(page) = pages
-        .iter()
-        .find(|page| Self::page_id(page) == Some(page_id.as_str()) && Self::page_field(page, "kind") == Some("doc"))
-      else {
+    for page in pages {
+      if Self::page_field(&page, "kind") != Some("doc") || page.get("derivation").is_some() {
+        continue;
+      }
+      let Some(page_id) = Self::page_id(&page).map(str::to_string) else {
         continue;
       };
+      if found.len() >= MAX_REFERENCE_PAGES {
+        return Err(StoreError::new(
+          "personal_references_too_many",
+          "同じフォルダの文書が64件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。",
+        ));
+      }
       let file = self.doc_file_at(project_id, &page_id)?;
       let body = match read_plain_file(&file) {
         Some(bytes) => {
@@ -437,7 +441,7 @@ impl Store {
         None => String::new(),
       };
       found.push(PersonalReference {
-        title: Self::page_field(page, "title").unwrap_or_default().to_string(),
+        title: Self::page_field(&page, "title").unwrap_or_default().to_string(),
         path: format!("pages/{page_id}.md"),
         page_id,
         body,

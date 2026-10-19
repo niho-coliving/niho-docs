@@ -52,6 +52,8 @@ use versions::{newest_version_bytes, VersionPlan, WrittenVersion};
 pub(crate) use versions::{recording_prefix, resolution_run};
 
 const MAX_ID_CHARS: usize = 64;
+/// 1 工程で参照する独立文書の上限（docs-core の RECORDING_AUTO_REFERENCE_MAX と同じ）。
+pub(crate) const MAX_REFERENCE_PAGES: usize = 64;
 /// 「あなたについて」の本文（パーソナライズ）の字数の上限（docs-core の ABOUT_MAX_CHARS と同じ）。
 const ABOUT_MAX_CHARS: usize = 2_000;
 const ID_ALPHABET: &[u8] = b"abcdefghijkmnpqrstuvwxyz23456789";

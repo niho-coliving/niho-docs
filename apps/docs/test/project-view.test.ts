@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   FLOW_TEMPLATES,
   ROOT_RECORDING_ID,
@@ -119,6 +119,30 @@ describe("記事本文の別案", () => {
 });
 
 describe("loadRecordingView の frozenRefs", () => {
+  it("参考が上限を超えても録音を開けて、AI工程だけを止める理由を返す", async () => {
+    const bridge = new FakeBridge();
+    const project = await bridge.createProject(pagedProject("朝市"), null, null, []);
+    for (let index = 0; index < 65; index += 1) {
+      const page = await bridge.createPage(project.id, { kind: "doc", title: `参考 ${index + 1}`, createdAt: "2026-10-16T00:00:00.000Z" });
+      if (index % 2 === 0) await bridge.writePage(project.id, page.id, `本文 ${index + 1}`);
+    }
+    const rec = await bridge.createPage(project.id, {
+      kind: "rec",
+      title: "第1回",
+      createdAt: "2026-10-16T01:00:00.000Z",
+      recording: recordingOf(),
+    });
+    const open = openProjectOf(await bridge.loadProject(project.id));
+    const entry = open.pages.find((page) => page.id === rec.id)!;
+    const readPage = vi.spyOn(bridge, "readPage");
+    const view = await loadRecordingView(bridge, project.id, open.project, entry);
+
+    expect(view.recording.id).toBe(rec.id);
+    expect(view.materials.refs).toEqual([]);
+    expect(view.executionBlockReason).toContain("64件を超えている");
+    expect(readPage).not.toHaveBeenCalled();
+  });
+
   it("渡した参考をそのまま使い、渡さなければ文書を読み直す", async () => {
     const bridge = new FakeBridge();
     const project = await bridge.createProject(pagedProject("朝市"), null, null, []);

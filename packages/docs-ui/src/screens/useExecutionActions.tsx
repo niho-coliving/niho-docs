@@ -372,6 +372,10 @@ export function useExecutionActions(context: Context) {
     const runQueue = route.kind === "local_transcription_only" ? [SOURCE_STEP_ID]
       : route.kind === "generation_only" ? queue.filter((id) => id !== SOURCE_STEP_ID) : queue;
     if (runQueue.length === 0) return false;
+    if (runQueue.some((id) => id !== SOURCE_STEP_ID) && captured.executionBlockReason) {
+      showFailure(captured.executionBlockReason);
+      return false;
+    }
     if (fixedTarget && !runQueue.includes(fixedTarget.stepId)) fixedTarget = null;
     // 文字起こしをし直す実行は、後工程に使う文字起こしの案を作り直す（#19108。続く後工程もその案から作る）
     if (!fixedTarget && runQueue.includes(SOURCE_STEP_ID)) {

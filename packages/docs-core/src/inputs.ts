@@ -21,7 +21,7 @@ export type InputRef =
   | { kind: "info" }
   | { kind: "guide" };
 
-/** 参考ページ 1 枚（録音のページで選んだ同じ案件の文書。`title` は画面の名前〔空なら「無題」〕・`body` は本文の Markdown）。 */
+/** 自動参考ページ 1 枚（同じフォルダの独立文書。`title` は画面の名前〔空なら「無題」〕・`body` は本文の Markdown）。 */
 export type PromptRef = { pageId: string; title: string; body: string };
 
 /** 入力に入れる参考ページ（付けた順。本文が空の文書は入れない）。 */
@@ -31,8 +31,8 @@ export function usedRefs(refs: readonly PromptRef[] | undefined): PromptRef[] {
 
 /**
  * 入力の規則（spec §5.1）: 工程 N（N ≥ 2）の入力 ＝ 文字起こし（または文章）＋ 工程 2〜N−1 の成果物（最新版）
- * ＋ 参考ページ（録音のページで選んだ文書。無ければ何も足さない）＋ 案件情報 ＋ 文書ガイド。工程の成果物は人は選ばない
- * （参考だけを録音のページで選ぶ）。`stepIndex` は `flow.steps` の添字（工程 2 が 0）。
+ * ＋ 参考ページ（同じフォルダから自動で固定した独立文書。無ければ何も足さない）＋ 案件情報 ＋ 文書ガイド。
+ * `stepIndex` は `flow.steps` の添字（工程 2 が 0）。
  */
 export function inputsFor(flow: Flow, stepIndex: number, sourceName = "文字起こし"): InputRef[] {
   if (!Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex >= flow.steps.length) {
