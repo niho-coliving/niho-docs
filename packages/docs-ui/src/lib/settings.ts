@@ -17,30 +17,27 @@ import {
 } from "@niho/docs-core";
 
 /**
- * アプリの設定（Tauri の app data の settings.json。spec §4.1）。接続方式・方式ごとの 登録した AI とプロファイルと文字起こしの
- * エンジン・言語・保存先。
+ * アプリの設定（Tauri の app data の settings.json。spec §4.1）。モデルの方式・方式ごとの 登録した AI とプロファイル・文字起こしの
+ * エンジンと言語・保存先。
  *
- * 方式（サブスクリプション／API キー）は全体で 1 つを選び、上限・失敗でも自動で切り替えない（spec §2）。登録した AI の並び・
- * プロファイルの表・文字起こしのエンジンは方式ごとに別に持つ（API キー方式のモデルの表がサブスクリプションの表を上書きしない。
- * #18383）。画面・実行・工程設計・会話は `activeProviders`・`activeProfiles`・`effectiveEngine`（今の方式の値）だけを読む。
+ * 登録と利用を分ける（owner 2026-10-19）。接続設定は登録で、サブスクリプションの AI と API キーの AI・Deepgram を同時に持てる。
+ * 方式（`connection`。サブスクリプション／API キー）はモデルの方式＝文字起こし修正以降の工程と「AIと作る」で使う方式で、全体で 1 つを
+ * 選び、上限・失敗でも自動で切り替えない（spec §2）。登録した AI の並び・プロファイルの表は方式ごとに別に持つ（API キー方式のモデルの
+ * 表がサブスクリプションの表を上書きしない。#18383）。工程・工程設計・会話は `activeProviders`・`activeProfiles`（今の方式の値）だけを
+ * 読む。文字起こしのエンジンは方式に依らず、登録したもの全部から選ぶ（`transcriptionEngines`・`effectiveEngine`）。
  * 鍵は settings.json に置かない（app data の api-keys/ だけ。Tauri の save_api_key。#18769）。
  *
  * 版 1（S1）は `providers`・`profiles` を直に持っていた。読むときにサブスクリプションの表へ移す（同じ挙動になる）。S2a の版 2 は
- * 文字起こしのエンジンを `transcription.engine` に持っていた。読むときにサブスクリプションのエンジンへ移す。
+ * 文字起こしのエンジンを `transcription.engine` に持っていた。版 2〜4 はエンジンと Deepgram の登録を方式ごとの表に持っていた。読むときに
+ * 今の方式のエンジンを `transcription.engine` へ、API キーの表の Deepgram の登録を `transcription.deepgram` へ移す。
  */
 export type { Connection };
 export const CONNECTIONS: readonly Connection[] = ["subscription", "apiKey"];
 
-/**
- * 方式ごとの値。`providers` は登録した順（工程に提供元の指定が無ければ先頭を使う）。`engine` は人が選んだ文字起こしのエンジン
- * （null は「使える中の先頭」。選んだエンジンが使えなくなったら先頭に追従する＝`effectiveEngine`）。`deepgram` は Deepgram を
- * 登録したか（API キー方式だけ。文字起こしだけに使い、AI の並びには入れない）。
- */
+/** 方式ごとの値。`providers` は登録した順（工程に提供元の指定が無ければ先頭を使う）。 */
 export type ConnectionSettings = {
   providers: ProviderId[];
   profiles: Profile[];
-  engine: TranscriptionEngine | null;
-  deepgram: boolean;
 };
 
 /**
@@ -58,11 +55,16 @@ export type ContinuationExecutor = (typeof MAC_CONTINUATION_PLACE_OPTIONS)[numbe
 const CONTINUATION_EXECUTORS: ReadonlySet<string> = new Set(MAC_CONTINUATION_PLACE_OPTIONS.map((option) => option.value));
 
 export type AppSettings = {
-  version: 4;
+  version: 5;
+  /** モデルの方式（文字起こし修正以降の工程と「AIと作る」）。文字起こしには効かない。 */
   connection: Connection;
   connections: Record<Connection, ConnectionSettings>;
-  /** 文字起こしの言語と、時刻を画面・書き出しに含める端末の選択。 */
-  transcription: { language: Language; showTimestamps: boolean };
+  /**
+   * 文字起こしの言語と、時刻を画面・書き出しに含める端末の選択。`engine` は人が選んだ既定のエンジン（null は「使える中の先頭」。
+   * 選んだエンジンが使えなくなったら追従する＝`effectiveEngine`）。`deepgram` は Deepgram を登録したか（方式に依らない。文字起こし
+   * だけに使い、AI の並びには入れない）。
+   */
+  transcription: { language: Language; showTimestamps: boolean; engine: TranscriptionEngineId | null; deepgram: boolean };
   /** 保存先（null は ~/Documents/NIHO docs）。 */
   docsRoot: string | null;
   /**
@@ -79,15 +81,15 @@ export type AppSettings = {
 export type CliPathKey = ProviderId;
 
 function defaultConnection(connection: Connection, providers: ProviderId[]): ConnectionSettings {
-  return { providers, profiles: defaultProfiles(connection), engine: null, deepgram: false };
+  return { providers, profiles: defaultProfiles(connection) };
 }
 
 export function defaultSettings(): AppSettings {
   return {
-    version: 4,
+    version: 5,
     connection: "subscription",
     connections: { subscription: defaultConnection("subscription", ["claude"]), apiKey: defaultConnection("apiKey", []) },
-    transcription: { language: "ja", showTimestamps: false },
+    transcription: { language: "ja", showTimestamps: false, engine: null, deepgram: false },
     docsRoot: null,
     vault: { provider: "local", deviceName: null },
     personalExecution: { continuation: "this_pc" },
@@ -155,18 +157,22 @@ function normalizeProfiles(value: unknown, connection: Connection): Profile[] {
   });
 }
 
-function normalizeEngine(value: unknown, connection: Connection): TranscriptionEngine | null {
-  if (value === "gemini" || value === "this-mac") return value;
+function normalizeEngine(value: unknown): TranscriptionEngineId | null {
+  return TRANSCRIPTION_ENGINE_IDS.includes(value as TranscriptionEngineId) ? (value as TranscriptionEngineId) : null;
+}
+
+/** 版 4 までの方式ごとのエンジン（"gemini" はその方式の Gemini。Deepgram は API キー方式だけ）。 */
+function legacyEngine(value: unknown, connection: Connection): TranscriptionEngineId | null {
+  if (value === "gemini") return connection === "apiKey" ? "gemini-api" : "gemini-subscription";
+  if (value === "this-mac") return "this-mac";
   return value === "deepgram" && connection === "apiKey" ? "deepgram" : null;
 }
 
-function normalizeConnection(value: unknown, connection: Connection, fallbackProviders: ProviderId[], fallbackEngine: unknown = null): ConnectionSettings {
+function normalizeConnection(value: unknown, connection: Connection, fallbackProviders: ProviderId[]): ConnectionSettings {
   const record = isRecord(value) ? value : {};
   return {
     providers: normalizeProviders(record.providers) ?? fallbackProviders,
     profiles: normalizeProfiles(record.profiles, connection),
-    engine: normalizeEngine(record.engine ?? fallbackEngine, connection),
-    deepgram: connection === "apiKey" && record.deepgram === true,
   };
 }
 
@@ -177,14 +183,31 @@ function normalizeConnection(value: unknown, connection: Connection, fallbackPro
 export function normalizeSettings(value: unknown): AppSettings {
   const settings = defaultSettings();
   if (!isRecord(value)) return settings;
-  if ((value.version === 2 || value.version === 3 || value.version === 4) && isRecord(value.connections)) {
-    // S2a の版 2 は文字起こしのエンジンを transcription.engine に持っていた（サブスクリプションだけだった）
-    const legacyEngine = isRecord(value.transcription) ? value.transcription.engine : null;
+  if ((value.version === 2 || value.version === 3 || value.version === 4 || value.version === 5) && isRecord(value.connections)) {
+    const connections = value.connections;
     settings.connections = {
-      subscription: normalizeConnection(value.connections.subscription, "subscription", ["claude"], legacyEngine),
-      apiKey: normalizeConnection(value.connections.apiKey, "apiKey", []),
+      subscription: normalizeConnection(connections.subscription, "subscription", ["claude"]),
+      apiKey: normalizeConnection(connections.apiKey, "apiKey", []),
     };
     if (CONNECTIONS.includes(value.connection as Connection)) settings.connection = value.connection as Connection;
+    const transcription = isRecord(value.transcription) ? value.transcription : {};
+    if (value.version === 5) {
+      settings.transcription.engine = normalizeEngine(transcription.engine);
+      settings.transcription.deepgram = transcription.deepgram === true;
+    } else {
+      // 版 2〜4 はエンジンを方式ごとの表に持っていた（今の方式のエンジンを既定として引き継ぐ）。S2a の版 2 はサブスクリプションの
+      // エンジンを transcription.engine に持っていた。Deepgram の登録は API キーの表にあった
+      const table = connections[settings.connection];
+      const own = isRecord(table) ? table.engine : undefined;
+      const fallback = settings.connection === "subscription" ? transcription.engine : undefined;
+      settings.transcription.engine = legacyEngine(own ?? fallback, settings.connection);
+      settings.transcription.deepgram = isRecord(connections.apiKey) && connections.apiKey.deepgram === true;
+      // 版 4 の API キー方式で選んでいなかった人は、使える中の先頭＝API キーの Gemini で文字起こししていた。従量課金のエンジンは
+      // 自動では選ばなくなったので、黙ってこの Mac に変わらないよう、移すときだけ明示の選択として引き継ぐ
+      if (settings.transcription.engine === null && settings.connection === "apiKey" && settings.connections.apiKey.providers.includes("gemini")) {
+        settings.transcription.engine = "gemini-api";
+      }
+    }
   } else {
     // S1（版 1）: サブスクリプション固定・providers と profiles を直に持つ。文字起こしは この Mac しか無かった（人が選んだ値では
     // ないので「使える中の先頭」にする。登録した AI が Claude だけなら同じく この Mac）
@@ -205,9 +228,9 @@ export function normalizeSettings(value: unknown): AppSettings {
     }
     if (Object.keys(cliPaths).length > 0) settings.cliPaths = cliPaths;
   }
-  if (value.version === 3 || value.version === 4) settings.vault = normalizeVault(value.vault);
+  if (value.version === 3 || value.version === 4 || value.version === 5) settings.vault = normalizeVault(value.vault);
   // 以前の実行方法（`route`）は読み替えない（NIHO docs は後方互換を作らない。#18872）。知らない値は既定（この Mac）
-  if (value.version === 4 && isRecord(value.personalExecution)) {
+  if ((value.version === 4 || value.version === 5) && isRecord(value.personalExecution)) {
     const continuation = value.personalExecution.continuation;
     if (typeof continuation === "string" && CONTINUATION_EXECUTORS.has(continuation)) {
       settings.personalExecution.continuation = continuation as ContinuationExecutor;
@@ -233,32 +256,40 @@ export function activeProfiles(settings: AppSettings): readonly Profile[] {
   return activeConnection(settings).profiles;
 }
 
+function withConnection(
+  settings: AppSettings,
+  connection: Connection,
+  change: (current: ConnectionSettings) => ConnectionSettings,
+): AppSettings {
+  return { ...settings, connections: { ...settings.connections, [connection]: change(settings.connections[connection]) } };
+}
+
 function withActive(settings: AppSettings, change: (current: ConnectionSettings) => ConnectionSettings): AppSettings {
-  return { ...settings, connections: { ...settings.connections, [settings.connection]: change(activeConnection(settings)) } };
+  return withConnection(settings, settings.connection, change);
 }
 
 export function setActiveProfiles(settings: AppSettings, profiles: Profile[]): AppSettings {
   return withActive(settings, (current) => ({ ...current, profiles }));
 }
 
-/** 方式を切り替える（案件・フローはそのまま。実行中は画面と Tauri の両方で断る）。 */
+/** モデルの方式を切り替える（案件・フロー・文字起こしのエンジンはそのまま。実行中は画面と Tauri の両方で断る）。 */
 export function setConnection(settings: AppSettings, connection: Connection): AppSettings {
   return settings.connection === connection ? settings : { ...settings, connection };
 }
 
-/** 今の方式の文字起こしのエンジンを選ぶ。 */
-export function setEngine(settings: AppSettings, engine: TranscriptionEngine): AppSettings {
-  return withActive(settings, (current) => ({ ...current, engine }));
+/** 既定の文字起こしのエンジンを選ぶ（方式に依らない）。 */
+export function setEngine(settings: AppSettings, engine: TranscriptionEngineId): AppSettings {
+  return { ...settings, transcription: { ...settings.transcription, engine } };
 }
 
-/** Deepgram を登録した（API キー方式だけ）。 */
+/** Deepgram を登録した（方式に依らない。鍵は api-keys/deepgram）。 */
 export function hasDeepgram(settings: AppSettings): boolean {
-  return settings.connection === "apiKey" && settings.connections.apiKey.deepgram;
+  return settings.transcription.deepgram;
 }
 
-/** Deepgram の登録（API キー方式の表だけを変える）。 */
+/** Deepgram の登録。 */
 export function setDeepgram(settings: AppSettings, registered: boolean): AppSettings {
-  return { ...settings, connections: { ...settings.connections, apiKey: { ...settings.connections.apiKey, deepgram: registered } } };
+  return { ...settings, transcription: { ...settings.transcription, deepgram: registered } };
 }
 
 /**
@@ -284,12 +315,16 @@ function alignProfilesToAvailable(
 }
 
 /**
- * AI を登録する（並びの最後に足す）。CLI が使えるモデルの一覧（`available`）を返したときは、プロファイルの その AI の
- * モデルを一覧に合わせる（{@link alignProfilesToAvailable}）。
+ * AI を登録する（`connection` の方式の並びの最後に足す。省くと今の方式）。CLI が使えるモデルの一覧（`available`）を返したときは、
+ * プロファイルの その AI のモデルを一覧に合わせる（{@link alignProfilesToAvailable}）。
  */
-export function addProvider(settings: AppSettings, provider: ProviderId, available: readonly string[] = []): AppSettings {
-  const connection = settings.connection;
-  return withActive(settings, (current) => {
+export function addProvider(
+  settings: AppSettings,
+  provider: ProviderId,
+  available: readonly string[] = [],
+  connection: Connection = settings.connection,
+): AppSettings {
+  return withConnection(settings, connection, (current) => {
     if (current.providers.includes(provider)) return current;
     return {
       ...current,
@@ -301,41 +336,71 @@ export function addProvider(settings: AppSettings, provider: ProviderId, availab
 
 /**
  * 登録済みの AI のモデルを、ログイン・確認の後に CLI が返した一覧へ合わせる（未ログインで追加したときの控えのモデルが、
- * アカウントの一覧に無いまま実行に使われないように）。変える必要が無ければ同じ設定を返す。
+ * アカウントの一覧に無いまま実行に使われないように）。`connection` を省くと今の方式。変える必要が無ければ同じ設定を返す。
  */
-export function alignProviderModels(settings: AppSettings, provider: ProviderId, available: readonly string[]): AppSettings {
-  const current = activeConnection(settings);
+export function alignProviderModels(
+  settings: AppSettings,
+  provider: ProviderId,
+  available: readonly string[],
+  connection: Connection = settings.connection,
+): AppSettings {
+  const current = settings.connections[connection];
   if (!current.providers.includes(provider)) return settings;
-  const profiles = alignProfilesToAvailable(current.profiles, provider, available, settings.connection);
+  const profiles = alignProfilesToAvailable(current.profiles, provider, available, connection);
   if (profiles.every((profile, index) => profile === current.profiles[index])) return settings;
-  return setActiveProfiles(settings, profiles);
+  return withConnection(settings, connection, (table) => ({ ...table, profiles }));
 }
 
 /**
- * 最後の 1 つは解除できない（AI が 0 になると工程を実行できず行き止まりになる）。API キー方式で鍵を 1 つも保存していないとき
- * （登録が 0）は、そもそも行が無い。
+ * モデルの方式（工程・「AIと作る」で使う方式）の最後の 1 つは解除できない（AI が 0 になると工程を実行できず行き止まりになる）。
+ * 使っていない方式の AI は、最後の 1 つでも解除できる。API キー方式で鍵を 1 つも保存していないとき（登録が 0）は、そもそも行が無い。
  */
-export function canRemoveProvider(settings: AppSettings, provider: ProviderId): boolean {
-  const providers = activeProviders(settings);
-  return providers.includes(provider) && providers.length > 1;
+export function canRemoveProvider(settings: AppSettings, provider: ProviderId, connection: Connection = settings.connection): boolean {
+  const providers = settings.connections[connection].providers;
+  return providers.includes(provider) && (connection !== settings.connection || providers.length > 1);
 }
 
-/** AI の登録を外す（プロファイルの値は残す。登録し直せば戻る）。最後の 1 つなら変えない。 */
-export function removeProvider(settings: AppSettings, provider: ProviderId): AppSettings {
-  if (!canRemoveProvider(settings, provider)) return settings;
-  return withActive(settings, (current) => ({ ...current, providers: current.providers.filter((item) => item !== provider) }));
+/** AI の登録を外す（プロファイルの値は残す。登録し直せば戻る）。解除できなければ変えない。 */
+export function removeProvider(settings: AppSettings, provider: ProviderId, connection: Connection = settings.connection): AppSettings {
+  if (!canRemoveProvider(settings, provider, connection)) return settings;
+  return withConnection(settings, connection, (current) => ({ ...current, providers: current.providers.filter((item) => item !== provider) }));
 }
 
 // ---------------------------------------------------------------------------
 // 文字起こし
 
 /**
- * 使える文字起こしのエンジン（Gemini → この Mac → Deepgram の順。owner 2026-10-15）。Gemini は今の方式で登録しているとき
- * だけ、Deepgram は API キー方式で登録しているときだけ。
+ * 文字起こしのエンジン（方式を含む。spec §5.5・owner 2026-10-19）。Gemini はサブスクリプション（Antigravity CLI）と API キー
+ * （Gemini API）を別のエンジンにする。Deepgram は API キー、この Mac は方式を持たない。並びは owner 2026-10-15 の順
+ * （Gemini → この Mac → Deepgram）。
  */
-export function transcriptionEngines(settings: AppSettings): TranscriptionEngine[] {
-  const engines: TranscriptionEngine[] = [];
-  if (activeProviders(settings).includes("gemini")) engines.push("gemini");
+export type TranscriptionEngineId = "gemini-subscription" | "gemini-api" | "this-mac" | "deepgram";
+export const TRANSCRIPTION_ENGINE_IDS: readonly TranscriptionEngineId[] = ["gemini-subscription", "gemini-api", "this-mac", "deepgram"];
+
+/** エンジンの提供元（実行・記録の provider）。 */
+export function engineProvider(engine: TranscriptionEngineId): TranscriptionEngine {
+  return engine === "gemini-subscription" || engine === "gemini-api" ? "gemini" : engine;
+}
+
+/** エンジンの方式（この Mac は方式を持たない＝null）。 */
+export function engineConnection(engine: TranscriptionEngineId): Connection | null {
+  if (engine === "gemini-subscription") return "subscription";
+  return engine === "gemini-api" || engine === "deepgram" ? "apiKey" : null;
+}
+
+/** 使った分だけ請求されるエンジン（人が選んだときだけ使い、自動で既定にも代わりにもしない）。 */
+export function engineMetered(engine: TranscriptionEngineId): boolean {
+  return engineConnection(engine) === "apiKey";
+}
+
+/**
+ * 使える文字起こしのエンジン（登録したもの全部。モデルの方式に依らない）。Gemini はその方式で Gemini を登録しているとき、Deepgram は
+ * 登録しているとき（鍵の確かめは実行の失敗が理由を出す。今までと同じ）。
+ */
+export function transcriptionEngines(settings: AppSettings): TranscriptionEngineId[] {
+  const engines: TranscriptionEngineId[] = [];
+  if (settings.connections.subscription.providers.includes("gemini")) engines.push("gemini-subscription");
+  if (settings.connections.apiKey.providers.includes("gemini")) engines.push("gemini-api");
   engines.push("this-mac");
   if (hasDeepgram(settings)) engines.push("deepgram");
   return engines;
@@ -364,34 +429,67 @@ export function rememberedSpeechSupport(): SpeechUnsupported | null {
 }
 
 /** そのエンジンがこの Mac で動くか（`unsupported` を省くと、覚えている結果で決める）。 */
-export function engineRunsHere(engine: TranscriptionEngine, unsupported: SpeechUnsupported | null = speechUnsupported): boolean {
-  if (engine === "deepgram" || unsupported === null) return true;
-  return unsupported === "engine" && engine === "gemini";
+export function engineRunsHere(engine: TranscriptionEngineId, unsupported: SpeechUnsupported | null = speechUnsupported): boolean {
+  const provider = engineProvider(engine);
+  if (provider === "deepgram" || unsupported === null) return true;
+  return unsupported === "engine" && provider === "gemini";
 }
 
 /** 設定の「文字起こし」に出す、使えない理由と代わりの手段。 */
 export function speechUnsupportedNote(unsupported: SpeechUnsupported): string {
   return unsupported === "os"
-    ? "この macOS では音声を処理できないため（macOS 26 以降で使えます）、「この Mac」と Gemini では文字起こしできません。API キー方式で Deepgram を登録すると文字起こしできます。"
-    : "この Mac では音声認識を使えないため、「この Mac」では文字起こしできません。Gemini を登録するか、API キー方式で Deepgram を登録すると文字起こしできます。";
+    ? "この macOS では音声を処理できないため（macOS 26 以降で使えます）、「この Mac」と Gemini では文字起こしできません。接続設定で Deepgram の API キーを登録し、既定のエンジンに選ぶと文字起こしできます。"
+    : "この Mac では音声認識を使えないため、「この Mac」では文字起こしできません。Gemini を登録するか、接続設定で Deepgram の API キーを登録して既定のエンジンに選ぶと文字起こしできます。";
 }
 
 /**
- * 実際に使うエンジン: 今の方式で人が選んだもの（使えて、この Mac で動くときだけ）、無ければ使える中でこの Mac で動く先頭。
- * どれも動かなければ、人が選んだもの（無ければ使える中の先頭）のまま、実行の前に理由を出す（run-readiness）。`unsupported` を
- * 省くと、覚えている確認の結果で決める（実行はこちら）。
+ * 実際に使うエンジン: 人が選んだもの（使えて、この Mac で動くときだけ）、無ければ使える中でこの Mac で動く、従量課金でない先頭。
+ * 従量課金のエンジン（Gemini の API キー・Deepgram）は人が選んだときだけ使い、自動で既定にも代わりにもしない（意図しない請求を
+ * 避ける。spec §2）。どれも当てはまらなければ、人が選んだもの（無ければ従量課金でない先頭）のまま、実行の前に理由を出す
+ * （run-readiness）。`unsupported` を省くと、覚えている確認の結果で決める（実行はこちら）。
  */
-export function effectiveEngine(settings: AppSettings, unsupported: SpeechUnsupported | null = speechUnsupported): TranscriptionEngine {
+export function effectiveEngine(settings: AppSettings, unsupported: SpeechUnsupported | null = speechUnsupported): TranscriptionEngineId {
   const engines = transcriptionEngines(settings);
-  const chosen = activeConnection(settings).engine;
+  const chosen = settings.transcription.engine;
   const picked = chosen && engines.includes(chosen) ? chosen : null;
   const runnable = engines.filter((engine) => engineRunsHere(engine, unsupported));
   if (picked && runnable.includes(picked)) return picked;
-  return runnable[0] ?? picked ?? engines[0] ?? "this-mac";
+  const unmetered = (engine: TranscriptionEngineId) => !engineMetered(engine);
+  return runnable.find(unmetered) ?? picked ?? engines.find(unmetered) ?? "this-mac";
 }
 
 const ENGINE_LABELS: Record<TranscriptionEngine, string> = { gemini: "Gemini", "this-mac": "この Mac", deepgram: "Deepgram" };
 
+/** 提供元の名前（実行の記録の provider）。 */
 export function engineLabel(engine: TranscriptionEngine): string {
   return ENGINE_LABELS[engine];
+}
+
+/** エンジンの名前。Gemini は両方の方式を登録しているときだけ方式を添える（「Gemini（API キー）」）。 */
+export function engineIdLabel(settings: AppSettings, engine: TranscriptionEngineId): string {
+  const label = engineLabel(engineProvider(engine));
+  if (engineProvider(engine) !== "gemini") return label;
+  const engines = transcriptionEngines(settings);
+  if (!engines.includes("gemini-subscription") || !engines.includes("gemini-api")) return label;
+  return `${label}（${engine === "gemini-api" ? "API キー" : "サブスクリプション"}）`;
+}
+
+/** エンジンの方式と使う仕組み（設定の文字起こしの行の補足）。 */
+export function engineMeansLabel(engine: TranscriptionEngineId): string {
+  switch (engine) {
+    case "gemini-subscription":
+      return "サブスクリプション · Antigravity CLI";
+    case "gemini-api":
+      return "API キー · Google Gemini";
+    case "deepgram":
+      return "API キー · Nova-3";
+    default:
+      return "この Mac の音声認識";
+  }
+}
+
+/** エンジンの料金の種類（サブスクリプションは料金なしではなく契約の範囲＝利用上限を使う）。 */
+export function engineBillingLabel(engine: TranscriptionEngineId): string {
+  if (engine === "this-mac") return "料金なし";
+  return engineMetered(engine) ? "従量課金" : "契約の範囲";
 }

@@ -8,6 +8,11 @@ import {
   canRemoveProvider,
   defaultSettings,
   effectiveEngine,
+  engineBillingLabel,
+  engineConnection,
+  engineIdLabel,
+  engineMetered,
+  engineProvider,
   engineRunsHere,
   normalizeSettings,
   rememberSpeechSupport,
@@ -36,7 +41,7 @@ const S1_SETTINGS = {
 describe("設定の移行（S1 の形）", () => {
   it("S1 の settings.json はそのまま読めて、同じ AI・同じモデル・同じ文字起こしで動く", () => {
     const settings = normalizeSettings(S1_SETTINGS);
-    expect(settings.version).toBe(4);
+    expect(settings.version).toBe(5);
     // 保存先は「この Mac だけ」から始める（C3 #18595）
     expect(settings.vault).toEqual({ provider: "local", deviceName: null });
     expect(settings.connection).toBe("subscription");
@@ -50,8 +55,7 @@ describe("設定の移行（S1 の形）", () => {
     // 後から登録する AI の列は既定で埋まる
     expect(activeProfiles(settings)[0]?.models.gemini).toEqual({ model: "gemini-3.8-flash", effort: "medium" });
     // S1 の engine は選べなかった値なので「使える中の先頭」にする（Claude だけなら この Mac）
-    expect(settings.transcription).toEqual({ language: "en", showTimestamps: false });
-    expect(settings.connections.subscription.engine).toBeNull();
+    expect(settings.transcription).toEqual({ language: "en", showTimestamps: false, engine: null, deepgram: false });
     expect(effectiveEngine(settings)).toBe("this-mac");
     expect(settings.docsRoot).toBe("/Users/test/Documents/My docs");
     expect(settings.cliPaths).toEqual({ claude: "/opt/tools/claude" });
@@ -66,7 +70,7 @@ describe("設定の移行（S1 の形）", () => {
       profileName: "高性能",
       connection: "subscription",
     });
-    // 保存し直しても同じ（版 4 として読む）
+    // 保存し直しても同じ（版 5 として読む）
     expect(normalizeSettings(JSON.parse(JSON.stringify(settings)))).toEqual(settings);
   });
 
@@ -89,15 +93,14 @@ describe("設定の移行（S1 の形）", () => {
     expect(activeProfiles(settings)[0]?.models.gpt).toEqual({ model: "gpt-5.6-terra", effort: "high" });
     expect(activeProfiles(settings).map((profile) => profile.id)).toEqual(["standard", "advanced", "light"]);
     expect(settings.connections.apiKey.providers).toEqual([]);
-    // Deepgram はサブスクリプションに無い（API キー方式だけ）
-    expect(settings.connections.subscription.engine).toBeNull();
-    expect(settings.transcription).toEqual({ language: "ja", showTimestamps: false });
+    // 版 4 までの Deepgram はサブスクリプションのエンジンに無かった（API キー方式だけ）ので読み替えない
+    expect(settings.transcription).toEqual({ language: "ja", showTimestamps: false, engine: null, deepgram: false });
     expect(settings.cliPaths).toEqual({ gemini: "/opt/agy" });
   });
 });
 
 describe("タイムスタンプ表示の端末設定", () => {
-  it("未設定・旧版・不正値は OFF、true だけを今の版（4）で復元する", () => {
+  it("未設定・旧版・不正値は OFF、true だけを今の版（5）で復元する", () => {
     expect(defaultSettings().transcription.showTimestamps).toBe(false);
     expect(normalizeSettings(S1_SETTINGS).transcription.showTimestamps).toBe(false);
     expect(normalizeSettings({ ...S1_SETTINGS, transcription: { language: "ja", showTimestamps: "true" } }).transcription.showTimestamps).toBe(false);
@@ -106,12 +109,12 @@ describe("タイムスタンプ表示の端末設定", () => {
       ...defaultSettings(),
       transcription: { language: "en", showTimestamps: true },
     });
-    expect(restored.version).toBe(4);
-    expect(restored.transcription).toEqual({ language: "en", showTimestamps: true });
+    expect(restored.version).toBe(5);
+    expect(restored.transcription).toEqual({ language: "en", showTimestamps: true, engine: null, deepgram: false });
   });
 
   it("ほかの設定を変えても選択を保持する", () => {
-    const shown = { ...defaultSettings(), transcription: { language: "ja" as const, showTimestamps: true } };
+    const shown = { ...defaultSettings(), transcription: { ...defaultSettings().transcription, showTimestamps: true } };
     expect(setConnection(shown, "apiKey").transcription.showTimestamps).toBe(true);
     expect(setEngine(shown, "this-mac").transcription.showTimestamps).toBe(true);
   });
@@ -157,6 +160,23 @@ describe("登録した AI", () => {
     expect(activeProfiles(settings)[0]?.models.claude).toEqual(defaultProfiles()[0]?.models.claude);
   });
 
+  it("登録は方式を指定できる。使っていない方式の AI は最後の 1 つでも解除できる", () => {
+    let settings = addProvider(defaultSettings(), "gemini", [], "apiKey");
+    expect(settings.connections.apiKey.providers).toEqual(["gemini"]);
+    // モデルの方式（サブスクリプション）の AI は変わらない
+    expect(activeProviders(settings)).toEqual(["claude"]);
+    expect(canRemoveProvider(settings, "gemini", "apiKey")).toBe(true);
+    expect(canRemoveProvider(settings, "claude", "subscription")).toBe(false);
+    // 登録していない方式の AI は解除できない
+    expect(canRemoveProvider(settings, "gpt", "apiKey")).toBe(false);
+    settings = removeProvider(settings, "gemini", "apiKey");
+    expect(settings.connections.apiKey.providers).toEqual([]);
+    // 方式を指定したモデルの合わせ込みは、その方式の表だけを変える
+    const apiGpt = addProvider(defaultSettings(), "gpt", [], "apiKey");
+    expect(alignProviderModels(apiGpt, "gpt", ["gpt-6-astra"], "apiKey").connections.subscription).toEqual(apiGpt.connections.subscription);
+    expect(alignProviderModels(apiGpt, "gpt", ["gpt-6-astra"], "subscription")).toBe(apiGpt);
+  });
+
   it("方式ごとに別の表（サブスクリプションの表を変えても API キー方式の表は変わらない）", () => {
     const base = defaultSettings();
     const changed = setActiveProfiles(base, [{ id: "standard", name: "標準", models: { claude: { model: "haiku", effort: "low" } } }]);
@@ -176,92 +196,171 @@ describe("文字起こしの既定のエンジン", () => {
     expect(transcriptionEngines(settings)).toEqual(["this-mac"]);
     expect(effectiveEngine(settings)).toBe("this-mac");
     settings = addProvider(settings, "gemini");
-    expect(transcriptionEngines(settings)).toEqual(["gemini", "this-mac"]);
-    expect(effectiveEngine(settings)).toBe("gemini");
+    expect(transcriptionEngines(settings)).toEqual(["gemini-subscription", "this-mac"]);
+    expect(effectiveEngine(settings)).toBe("gemini-subscription");
     // 人が選んだら、使える間はそれ
     const chosen = setEngine(settings, "this-mac");
     expect(effectiveEngine(chosen)).toBe("this-mac");
     // Gemini を選んでいても、登録を外せば この Mac
-    const gemini = setEngine(settings, "gemini");
+    const gemini = setEngine(settings, "gemini-subscription");
     expect(effectiveEngine(removeProvider(gemini, "gemini"))).toBe("this-mac");
+  });
+
+  it("モデルの方式がサブスクリプションのまま、Deepgram と API キーの Gemini も登録して選べる。従量課金は選んだときだけ使う（owner 2026-10-19）", () => {
+    let settings = addProvider(defaultSettings(), "gemini");
+    settings = setDeepgram(settings, true);
+    settings = addProvider(settings, "gemini", [], "apiKey");
+    expect(settings.connection).toBe("subscription");
+    // モデルの方式の AI は変わらない（工程・工程設計・会話はサブスクリプションのまま）
+    expect(activeProviders(settings)).toEqual(["claude", "gemini"]);
+    expect(transcriptionEngines(settings)).toEqual(["gemini-subscription", "gemini-api", "this-mac", "deepgram"]);
+    expect(effectiveEngine(settings)).toBe("gemini-subscription");
+    expect(effectiveEngine(setEngine(settings, "deepgram"))).toBe("deepgram");
+    expect(effectiveEngine(setEngine(settings, "gemini-api"))).toBe("gemini-api");
+    // サブスクリプションの Gemini を外しても、従量課金（API キーの Gemini・Deepgram）へ自動では寄せない
+    expect(effectiveEngine(removeProvider(settings, "gemini", "subscription"))).toBe("this-mac");
+    // モデルの方式を切り替えても、エンジンの候補と選んだエンジンは変わらない
+    const chosen = setEngine(settings, "deepgram");
+    expect(transcriptionEngines(setConnection(chosen, "apiKey"))).toEqual(transcriptionEngines(chosen));
+    expect(effectiveEngine(setConnection(chosen, "apiKey"))).toBe("deepgram");
+    // 提供元・方式・料金の種類（サブスクリプションは料金なしではなく契約の範囲）
+    expect(["gemini-subscription", "gemini-api", "this-mac", "deepgram"].map((id) => engineProvider(id as never))).toEqual([
+      "gemini",
+      "gemini",
+      "this-mac",
+      "deepgram",
+    ]);
+    expect(engineConnection("gemini-subscription")).toBe("subscription");
+    expect(engineConnection("gemini-api")).toBe("apiKey");
+    expect(engineConnection("deepgram")).toBe("apiKey");
+    expect(engineConnection("this-mac")).toBeNull();
+    expect(engineMetered("deepgram") && engineMetered("gemini-api")).toBe(true);
+    expect(engineMetered("gemini-subscription") || engineMetered("this-mac")).toBe(false);
+    expect(engineBillingLabel("this-mac")).toBe("料金なし");
+    expect(engineBillingLabel("gemini-subscription")).toBe("契約の範囲");
+    expect(engineBillingLabel("deepgram")).toBe("従量課金");
+    // Gemini は両方の方式を登録しているときだけ方式を添える
+    expect(engineIdLabel(settings, "gemini-api")).toBe("Gemini（API キー）");
+    expect(engineIdLabel(settings, "gemini-subscription")).toBe("Gemini（サブスクリプション）");
+    expect(engineIdLabel(removeProvider(settings, "gemini", "apiKey"), "gemini-subscription")).toBe("Gemini");
+    expect(engineIdLabel(settings, "deepgram")).toBe("Deepgram");
   });
 });
 
 describe("この Mac で動かない文字起こし（#18753）", () => {
   afterEach(() => rememberSpeechSupport(null));
 
-  it("音声認識を使えない Mac では「この Mac」を既定にせず、動く中の先頭にする（人が「この Mac」を選んでいても）", () => {
-    let settings = setConnection(defaultSettings(), "apiKey");
-    settings = addProvider(settings, "claude");
-    settings = setDeepgram(settings, true);
+  it("音声認識を使えない Mac では「この Mac」を既定にせず、動く中の先頭にする（人が「この Mac」を選んでいても）。従量課金には自動で寄せない", () => {
+    const settings = setDeepgram(defaultSettings(), true);
     expect(effectiveEngine(settings)).toBe("this-mac");
     rememberSpeechSupport("engine");
-    expect(effectiveEngine(settings)).toBe("deepgram");
-    expect(effectiveEngine(setEngine(settings, "this-mac"))).toBe("deepgram");
-    // Gemini は音声認識を使わないので、登録していれば Gemini
-    expect(effectiveEngine(addProvider(settings, "gemini"))).toBe("gemini");
+    // 動くのが従量課金の Deepgram だけなら自動では選ばず、この Mac のまま実行の前に理由を出す（run-readiness）
+    expect(effectiveEngine(settings)).toBe("this-mac");
+    // 人が Deepgram を選べば Deepgram
+    expect(effectiveEngine(setEngine(settings, "deepgram"))).toBe("deepgram");
+    // Gemini は音声認識を使わないので、登録していれば Gemini（人が「この Mac」を選んでいても）
+    expect(effectiveEngine(addProvider(settings, "gemini"))).toBe("gemini-subscription");
+    expect(effectiveEngine(setEngine(addProvider(settings, "gemini"), "this-mac"))).toBe("gemini-subscription");
     // 確かめた結果を渡せば、覚えている結果より先
     expect(effectiveEngine(settings, null)).toBe("this-mac");
     // エンジンの並び（設定の選択肢）は変えない
     expect(transcriptionEngines(settings)).toEqual(["this-mac", "deepgram"]);
   });
 
-  it("macOS 26 より前では Gemini も動かないので Deepgram にする。どれも動かなければ人が選んだもの（無ければ先頭）のまま", () => {
+  it("macOS 26 より前では Gemini も動かない。Deepgram は選んだときだけ使い、どれも当てはまらなければ人が選んだもの（無ければ従量課金でない先頭）のまま", () => {
     rememberSpeechSupport("os");
     let settings = addProvider(defaultSettings(), "gemini");
-    expect(effectiveEngine(settings)).toBe("gemini");
+    expect(effectiveEngine(settings)).toBe("gemini-subscription");
     expect(effectiveEngine(setEngine(settings, "this-mac"))).toBe("this-mac");
-    settings = setConnection(settings, "apiKey");
-    settings = addProvider(settings, "gemini");
     settings = setDeepgram(settings, true);
-    expect(effectiveEngine(settings)).toBe("deepgram");
-    expect(engineRunsHere("gemini")).toBe(false);
+    expect(effectiveEngine(settings)).toBe("gemini-subscription");
+    expect(effectiveEngine(setEngine(settings, "deepgram"))).toBe("deepgram");
+    expect(engineRunsHere("gemini-subscription")).toBe(false);
+    expect(engineRunsHere("gemini-api")).toBe(false);
     expect(engineRunsHere("deepgram")).toBe(true);
-    expect(engineRunsHere("gemini", "engine")).toBe(true);
+    expect(engineRunsHere("gemini-api", "engine")).toBe(true);
     expect(engineRunsHere("this-mac", "engine")).toBe(false);
     expect(engineRunsHere("this-mac", null)).toBe(true);
   });
 });
 
 describe("方式（S2b）", () => {
-  it("S2a の版 2 の transcription.engine はサブスクリプションのエンジンへ移す", () => {
+  it("S2a の版 2 の transcription.engine はサブスクリプションのエンジンとして既定へ移す", () => {
     const settings = normalizeSettings({
       version: 2,
       connection: "subscription",
       connections: { subscription: { providers: ["claude", "gemini"], profiles: [] }, apiKey: { providers: [], profiles: [] } },
       transcription: { engine: "this-mac", language: "ja" },
     });
-    expect(settings.connections.subscription.engine).toBe("this-mac");
-    expect(settings.connections.apiKey.engine).toBeNull();
+    expect(settings.transcription.engine).toBe("this-mac");
     expect(effectiveEngine(settings)).toBe("this-mac");
     expect(effectiveEngine(setConnection(settings, "apiKey"))).toBe("this-mac");
   });
 
-  it("方式を切り替えても、それぞれの 登録した AI・プロファイル・エンジンはそのまま（鍵は設定に置かない）", () => {
+  it("版 4 の方式ごとのエンジンは今の方式のエンジンを既定として引き継ぎ、Deepgram の登録は方式に依らない登録へ移す", () => {
+    const v4 = {
+      version: 4,
+      connection: "apiKey",
+      connections: {
+        subscription: { providers: ["claude", "gemini"], profiles: [], engine: "this-mac" },
+        apiKey: { providers: ["gemini"], profiles: [], engine: "gemini", deepgram: true },
+      },
+      transcription: { language: "ja", showTimestamps: true },
+    };
+    const settings = normalizeSettings(v4);
+    expect(settings.version).toBe(5);
+    expect(settings.transcription).toEqual({ language: "ja", showTimestamps: true, engine: "gemini-api", deepgram: true });
+    expect(transcriptionEngines(settings)).toEqual(["gemini-subscription", "gemini-api", "this-mac", "deepgram"]);
+    // 方式の表はエンジン・Deepgram の欄を持たない
+    expect(Object.keys(settings.connections.apiKey).sort()).toEqual(["profiles", "providers"]);
+    // サブスクリプションで保存していた版 4 は、サブスクリプションのエンジンを引き継ぐ（Gemini はその方式の Gemini）
+    expect(normalizeSettings({ ...v4, connection: "subscription" }).transcription.engine).toBe("this-mac");
+    const subscriptionGemini = { ...v4.connections.subscription, engine: "gemini" };
+    expect(normalizeSettings({ ...v4, connection: "subscription", connections: { ...v4.connections, subscription: subscriptionGemini } }).transcription.engine).toBe(
+      "gemini-subscription",
+    );
+    // サブスクリプションの表の "deepgram" は版 4 でも無効だった値なので読み替えない
+    const subscriptionDeepgram = { ...v4.connections.subscription, engine: "deepgram" };
+    expect(
+      normalizeSettings({ ...v4, connection: "subscription", connections: { ...v4.connections, subscription: subscriptionDeepgram } }).transcription.engine,
+    ).toBeNull();
+    // 版 4 の API キー方式で選んでいなかった人は API キーの Gemini で文字起こししていたので、黙ってこの Mac に変えず引き継ぐ
+    const unchosen = { ...v4, connections: { ...v4.connections, apiKey: { providers: ["gemini"], profiles: [], deepgram: true } } };
+    expect(normalizeSettings(unchosen).transcription.engine).toBe("gemini-api");
+    expect(effectiveEngine(normalizeSettings(unchosen))).toBe("gemini-api");
+    // API キーの Gemini が無ければ引き継ぐものは無い（Deepgram は自動では選ばない）
+    const withoutGemini = { ...v4, connections: { ...v4.connections, apiKey: { providers: ["claude"], profiles: [], deepgram: true } } };
+    expect(normalizeSettings(withoutGemini).transcription.engine).toBeNull();
+    expect(effectiveEngine(normalizeSettings(withoutGemini))).toBe("gemini-subscription");
+  });
+
+  it("方式を切り替えても、それぞれの 登録した AI・プロファイルと文字起こしのエンジンはそのまま（鍵は設定に置かない）", () => {
     let settings = addProvider(defaultSettings(), "gemini");
     settings = setEngine(settings, "this-mac");
     settings = setConnection(settings, "apiKey");
     expect(activeProviders(settings)).toEqual([]);
     settings = addProvider(settings, "claude");
     settings = setDeepgram(settings, true);
-    expect(transcriptionEngines(settings)).toEqual(["this-mac", "deepgram"]);
+    // サブスクリプションの Gemini は、API キー方式のままでも文字起こしに使える
+    expect(transcriptionEngines(settings)).toEqual(["gemini-subscription", "this-mac", "deepgram"]);
     settings = addProvider(settings, "gemini");
-    // Gemini → この Mac → Deepgram の順。既定は使える中の先頭
-    expect(transcriptionEngines(settings)).toEqual(["gemini", "this-mac", "deepgram"]);
-    expect(effectiveEngine(settings)).toBe("gemini");
+    // Gemini → この Mac → Deepgram の順（Gemini は方式ごとに別のエンジン）。人が選んだものを使う
+    expect(transcriptionEngines(settings)).toEqual(["gemini-subscription", "gemini-api", "this-mac", "deepgram"]);
+    expect(effectiveEngine(settings)).toBe("this-mac");
     settings = setEngine(settings, "deepgram");
     expect(effectiveEngine(settings)).toBe("deepgram");
-    // サブスクリプションに戻すと、サブスクリプションの値（Deepgram は出ない）
+    // サブスクリプションに戻しても、文字起こしのエンジンの候補と選んだエンジンは変わらない
     const back = setConnection(settings, "subscription");
     expect(activeProviders(back)).toEqual(["claude", "gemini"]);
-    expect(transcriptionEngines(back)).toEqual(["gemini", "this-mac"]);
-    expect(effectiveEngine(back)).toBe("this-mac");
-    // Deepgram の登録を外すと、選んでいたエンジンは使える中の先頭へ
-    expect(effectiveEngine(setDeepgram(settings, false))).toBe("gemini");
+    expect(transcriptionEngines(back)).toEqual(transcriptionEngines(settings));
+    expect(effectiveEngine(back)).toBe("deepgram");
+    // Deepgram の登録を外すと、選んでいたエンジンは従量課金でない先頭へ（API キーの Gemini には寄せない）
+    expect(effectiveEngine(setDeepgram(settings, false))).toBe("gemini-subscription");
     // 保存し直しても同じ。鍵の欄は無い
     const saved = JSON.parse(JSON.stringify(settings));
     expect(normalizeSettings(saved)).toEqual(settings);
-    expect(Object.keys(saved.connections.apiKey).sort()).toEqual(["deepgram", "engine", "profiles", "providers"]);
+    expect(Object.keys(saved.connections.apiKey).sort()).toEqual(["profiles", "providers"]);
+    expect(Object.keys(saved.transcription).sort()).toEqual(["deepgram", "engine", "language", "showTimestamps"]);
     expect(JSON.stringify(saved)).not.toMatch(/secret|"key"|sk-/i);
   });
 });

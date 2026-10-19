@@ -672,6 +672,7 @@ fn open_request(intent: &str, project: Option<&str>, executor: &str) -> OpenRequ
       executor: Some(executor.into()),
     },
     transcription_provider: None,
+    transcription_connection: None,
     output_target: None,
   }
 }

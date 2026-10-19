@@ -118,12 +118,13 @@ export function settingsWithProviders(providers: ProviderId[], base: AppSettings
   return { ...base, connections: { ...base.connections, subscription: { ...base.connections.subscription, providers } } };
 }
 
-/** API キー方式で AI（と Deepgram）を登録した設定。 */
+/** モデルの方式を API キーにし、API キーの AI（と Deepgram）を登録した設定（サブスクリプションの表は base のまま）。 */
 export function apiKeySettings(providers: ProviderId[], deepgram = false, base: AppSettings = defaultSettings()): AppSettings {
   return {
     ...base,
     connection: "apiKey",
-    connections: { ...base.connections, apiKey: { ...base.connections.apiKey, providers, deepgram } },
+    connections: { ...base.connections, apiKey: { ...base.connections.apiKey, providers } },
+    transcription: { ...base.transcription, deepgram },
   };
 }
 import { DEFAULT_EXECUTION_PREFERENCES, hashText, nihoApiProvider, type ArtifactState, type ChatTurnRequest, type ConversationFile, type ExecutionPreferences } from "@niho/docs-core";
@@ -1376,7 +1377,7 @@ export class FakeBridge implements Bridge {
     onEvent: (envelope: TurnEnvelope) => void,
     operation?: string | null,
   ): Promise<TurnResult> {
-    this.sendGuard(operation, "audio_part");
+    this.sendGuard(operation, "audio_part", request.provider === "GeminiApi");
     const call = this.audioPartRequests.length;
     this.audioPartRequests.push({ turnId, jobId, file, part, request });
     const events = this.audioPartScript(request, call, { file, part });
@@ -2198,17 +2199,26 @@ export class FakeBridge implements Bridge {
   }
 
   /** 送信の command に operation が添えられたとき（Native の send_guard と同じ）。 */
-  private sendGuard(operation: string | null | undefined, kind: "turn" | "audio_part" | "this_mac" | "audio_prepare" | "deepgram") {
+  private sendGuard(
+    operation: string | null | undefined,
+    kind: "turn" | "audio_part" | "this_mac" | "audio_prepare" | "deepgram",
+    geminiApi?: boolean,
+  ) {
     if (!operation) return;
     const op = this.personalOps.get(operation);
     if (!op || this.personalGuardFailed(op, kind)) throw PERSONAL_GUARD_FAILED;
+    // 区切りの送信は、固定した文字起こしの方式と同じ提供元だけ（Native の gemini_transcription_matches と同じ）
+    if (geminiApi !== undefined && personalTranscriptionKey(op.request) !== (geminiApi ? "gemini-api" : "gemini")) throw PERSONAL_GUARD_FAILED;
   }
 
   async personalOpen(request: PersonalOpenRequest): Promise<PersonalOperationInfo> {
     this.personalCalls.push({ name: "personalOpen", args: [structuredClone(request)] });
     const route = request.route;
     const local = route.kind === "local_full" || route.kind === "local_transcription_only";
-    const routeOk = local ? request.transcriptionProvider === "this-mac" || request.transcriptionProvider === "gemini" || request.transcriptionProvider === "deepgram" : route.kind === "generation_only" && ["this_pc", "niho_api"].includes(route.executor) && request.transcriptionProvider === null;
+    const key = personalTranscriptionKey(request);
+    const routeOk = local
+      ? key !== undefined && key !== null
+      : route.kind === "generation_only" && ["this_pc", "niho_api"].includes(route.executor) && key === null;
     if (!routeOk) throw { code: "personal_bad_request", message: "実行の依頼の形が正しくありません。" };
     if (!this.personalOwner) throw { code: "personal_not_signed_in", message: "NIHO アカウントでログインしてから実行してください。" };
     const owner = this.personalOwner;
@@ -2281,7 +2291,8 @@ export class FakeBridge implements Bridge {
       snapshot.recordingPageId === op.request.recordingPageId && snapshot.recordingId === op.request.recordingId &&
       canonical(snapshot.containerRef) === canonical(container);
     if (derived) return identity;
-    const transcription = op.request.transcriptionProvider === null ? null : PERSONAL_TRANSCRIPTION_MODELS[op.request.transcriptionProvider];
+    const key = personalTranscriptionKey(op.request);
+    const transcription = key ? PERSONAL_TRANSCRIPTION_MODELS[key] : null;
     return identity && snapshot.schemaVersion === 1 && canonical(snapshot.route) === canonical(op.request.route) &&
       canonical(snapshot.transcriptionModel) === canonical(transcription) && canonical(snapshot.outputTarget ?? null) === canonical(op.request.outputTarget ?? null);
   }
@@ -2436,7 +2447,7 @@ export class FakeBridge implements Bridge {
       },
       flow: structuredClone(flow),
       audio,
-      transcriptionModel: local && op.request.transcriptionProvider ? structuredClone(PERSONAL_TRANSCRIPTION_MODELS[op.request.transcriptionProvider]) : null,
+      transcriptionModel: local && personalTranscriptionKey(op.request) ? structuredClone(PERSONAL_TRANSCRIPTION_MODELS[personalTranscriptionKey(op.request)!]) : null,
       sourceVersion: sourceLatest
         ? {
             versionId: sourceLatest.versionId,
@@ -3062,8 +3073,29 @@ export const PERSONAL_FAKE_AUDIO_BYTES = 187882;
 const PERSONAL_TRANSCRIPTION_MODELS = {
   "this-mac": { provider: "this-mac", model: "niho-speech" },
   gemini: { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT },
+  "gemini-api": { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT, connection: "apiKey" },
   deepgram: { provider: "deepgram", model: "nova-3", connection: "apiKey" },
 } as const;
+
+/**
+ * 依頼の文字起こしのエンジン（Native の parse_transcription と同じ。Gemini は方式が無ければサブスクリプション、API キーだけ別。
+ * Deepgram は API キーだけ、この Mac は方式を持たない）。後続だけの実行は null、形の合わない依頼は undefined。
+ */
+function personalTranscriptionKey(request: PersonalOpenRequest): keyof typeof PERSONAL_TRANSCRIPTION_MODELS | null | undefined {
+  const connection = request.transcriptionConnection ?? null;
+  switch (request.transcriptionProvider) {
+    case null:
+      return connection === null ? null : undefined;
+    case "this-mac":
+      return connection === null ? "this-mac" : undefined;
+    case "gemini":
+      return connection === "apiKey" ? "gemini-api" : connection === null || connection === "subscription" ? "gemini" : undefined;
+    case "deepgram":
+      return connection === null || connection === "apiKey" ? "deepgram" : undefined;
+    default:
+      return undefined;
+  }
+}
 
 async function snapshotHashValid(snapshot: PersonalFixedSnapshot): Promise<boolean> {
   try {

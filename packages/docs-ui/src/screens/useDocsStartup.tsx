@@ -7,7 +7,7 @@ import { type Selection } from "../components/Rail";
 import { errorMessage, isCommandError, type Bridge, type RecentId } from "../lib/bridge";
 import { openProjectOf, type OpenProject, type RecordingView } from "../lib/project-view";
 import { type RunReadinessStatuses } from "../lib/run-readiness";
-import { activeProviders, normalizeSettings, type AppSettings } from "../lib/settings";
+import { activeProviders, effectiveEngine, normalizeSettings, type AppSettings } from "../lib/settings";
 import { readinessKeyOf, type Phase } from "./workspace-model";
 
 type Context = {
@@ -45,12 +45,14 @@ export function useDocsStartup(context: Context) {
 
   /**
    * 実行の前の準備を確かめ直す（登録した AI の状態と、できること・この Mac の音声モデル）。確かめられなかったものは null にして、
-   * 実行を止めない（runSetupReason）。
+   * 実行を止めない（runSetupReason）。文字起こしのエンジンがサブスクリプションの Gemini なら、モデルの方式に依らず Antigravity CLI
+   * も確かめる。
    */
   const refreshReadiness = useCallback(
     (settingsNow: AppSettings) => {
-      for (const provider of activeProviders(settingsNow)) {
-        const contract = contractProvider(provider, settingsNow.connection);
+      const contracts = activeProviders(settingsNow).map((provider) => contractProvider(provider, settingsNow.connection));
+      if (effectiveEngine(settingsNow) === "gemini-subscription") contracts.push(contractProvider("gemini", "subscription"));
+      for (const contract of new Set(contracts)) {
         bridge.providerStatus(contract).then(
           (status) => {
             if (status.installed) capabilitiesRef.current = { ...capabilitiesRef.current, [contract]: status.capabilities };

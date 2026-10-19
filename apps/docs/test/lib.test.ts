@@ -181,8 +181,35 @@ describe("usage", () => {
       month,
     );
     // サブスクリプションの見込み金額は出さない（null）
-    expect(usage.providers.claude).toEqual({ runs: 1, tokenRuns: 1, input: 1000, output: 200, durationMs: 60_000, audioSec: 0, costUsd: null, models: [] });
-    expect(usage.speech).toMatchObject({ runs: 1, audioSec: 3600, models: [] });
+    expect(usage.providers.claude).toEqual({ runs: 1, tokenRuns: 1, input: 1000, output: 200, durationMs: 60_000, audioSec: 0, costUsd: null, meteredRuns: 0, models: [] });
+    expect(usage.speech).toMatchObject({ runs: 1, audioSec: 3600, models: [], meteredRuns: 0 });
+  });
+
+  it("文字起こしはエンジンの方式に依らず数え、見込み金額は従量課金（API キー）の記録だけを足す（owner 2026-10-19）", () => {
+    const month = new Date("2026-10-15T00:00:00");
+    const usage = summarizeUsage(
+      [
+        // モデルの方式（サブスクリプション）と同じ記録と、違う方式の記録（Deepgram・API キーの Gemini）
+        { id: "1", kind: "run", at: "2026-10-02T00:00:00", stepId: "source", stepName: "文字起こし", version: 1, result: "saved", provider: "gemini", connection: "subscription", audioSec: 600 },
+        { id: "2", kind: "run", at: "2026-10-03T00:00:00", stepId: "source", stepName: "文字起こし", version: 2, result: "saved", provider: "deepgram", connection: "apiKey", model: "nova-3", audioSec: 3600, keyterms: 2 },
+        { id: "3", kind: "run", at: "2026-10-04T00:00:00", stepId: "source", stepName: "文字起こし", version: 3, result: "saved", provider: "this-mac", connection: "subscription", audioSec: 60 },
+        // AI の行はモデルの方式の記録だけ
+        { id: "4", kind: "run", at: "2026-10-05T00:00:00", stepId: "a", stepName: "a", version: 1, result: "saved", provider: "claude", connection: "apiKey", inputTokens: 10, outputTokens: 1 },
+      ],
+      month,
+      "subscription",
+    );
+    expect(usage.speech).toMatchObject({ runs: 3, audioSec: 4260, meteredRuns: 1 });
+    // Deepgram（60 分・Keyterm あり）だけを足す: 60 × (0.0043 + 0.0013)
+    expect(usage.speech.costUsd).toBeCloseTo(60 * 0.0056, 6);
+    expect(usage.providers.claude.runs).toBe(0);
+    // 従量課金の記録で金額が出せなければ「取得できません」（推測しない）
+    const unknown = summarizeUsage(
+      [{ id: "5", kind: "run", at: "2026-10-06T00:00:00", stepId: "source", stepName: "文字起こし", version: 1, result: "saved", provider: "gemini", connection: "apiKey" }],
+      month,
+      "subscription",
+    );
+    expect(unknown.speech).toMatchObject({ runs: 1, meteredRuns: 1, costUsd: null });
   });
 
   it("提供元がトークン数を返さなかった実行は数えない（推測しない）", () => {

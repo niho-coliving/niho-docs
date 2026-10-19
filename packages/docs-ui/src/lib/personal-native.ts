@@ -134,6 +134,11 @@ export type NativePersonalRequest = {
   route: PersonalRoute;
   /** 端末内の経路の文字起こしの方式（後続だけの実行は null）。 */
   transcriptionProvider: "this-mac" | "gemini" | "deepgram" | null;
+  /**
+   * 文字起こしのエンジンの方式（Gemini のサブスクリプション／API キー。Deepgram は API キー、この Mac と後続だけの実行は null）。
+   * モデルの方式（deps.connection）とは別に開始時に固定する。
+   */
+  transcriptionConnection?: Connection | null;
   continuationOfRunId: string | null;
   consentVersion: string;
   stepIds: string[];
@@ -262,6 +267,7 @@ export async function runNativePersonalExecution(deps: NativePersonalDeps, reque
     runId: request.runId,
     route: request.route,
     transcriptionProvider: request.transcriptionProvider,
+    transcriptionConnection: request.transcriptionConnection ?? null,
     ...(request.outputTarget ? { outputTarget: structuredClone(request.outputTarget) } : {}),
   });
   const native = createNativePersonalPorts(deps, opened, request);
@@ -631,7 +637,11 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       if (!model) throw new PersonalExecutionError("TRANSCRIPTION_MODEL_MISSING", "文字起こし方式を固定できません。");
       const { flow, prompt } = await fixedPromptBasis(snapshot);
       const info = infoOf(prompt);
-      const connection = deps.connection().connection;
+      const gemini = model.provider === "gemini";
+      const deepgram = model.provider === "deepgram";
+      // 方式は開始時に固定したエンジンの方式（Gemini の API キーは固定値に connection を持ち、無ければサブスクリプション。Deepgram は
+      // API キー）。モデルの方式は文字起こしに効かない。この Mac は方式を持たないので、記録には今のモデルの方式を残す（以前と同じ）
+      const connection: Connection = gemini ? (model.connection ?? "subscription") : deepgram ? "apiKey" : deps.connection().connection;
       // 版・記録は adapter が候補として捕捉する。案件名は固定入力に無いので入れない（Gemini の指示は「取材・対話・会議などの録音」）
       const project: Project = {
         version: 1,
@@ -655,8 +665,6 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       };
       const versionId = newVersionId();
       const location = { versionId, artifactId: SOURCE_STEP_ID, path: `recordings/${snapshot.recordingId}/versions/${SOURCE_STEP_ID}/${versionId}.md` };
-      const gemini = model.provider === "gemini";
-      const deepgram = model.provider === "deepgram";
       const geminiModel: ResolvedStepModel | null = gemini
         ? { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT, profileId: "transcription", profileName: "文字起こし", connection }
         : null;

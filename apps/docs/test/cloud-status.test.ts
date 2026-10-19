@@ -146,7 +146,7 @@ describe("自動保存の期限（250ms・最大 1 秒）", () => {
 });
 
 describe("設定の版 4（保存先・続きの場所）", () => {
-  it("版 2 は「この Mac だけ」・Mac の名前と続きはこの Mac にして版 4 で読む（ほかの値はそのまま）", () => {
+  it("版 2 は「この Mac だけ」・Mac の名前と続きはこの Mac にして今の版（5）で読む（ほかの値はそのまま）", () => {
     const settings = normalizeSettings({
       version: 2,
       connection: "apiKey",
@@ -154,7 +154,7 @@ describe("設定の版 4（保存先・続きの場所）", () => {
       transcription: { language: "en" },
       docsRoot: "/Users/test/Documents/My docs",
     });
-    expect(settings.version).toBe(4);
+    expect(settings.version).toBe(5);
     expect(settings.vault).toEqual({ provider: "local", deviceName: null });
     expect(settings.connection).toBe("apiKey");
     expect(settings.connections.apiKey.providers).toEqual(["gpt"]);

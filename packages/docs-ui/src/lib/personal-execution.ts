@@ -649,9 +649,14 @@ export async function buildPersonalFixedSnapshot(request: PersonalExecutionReque
     } else if (
       selectedTranscriptionModel.provider === "gemini" &&
       selectedTranscriptionModel.model === GEMINI_TRANSCRIPTION_MODEL &&
-      selectedTranscriptionModel.effort === GEMINI_TRANSCRIPTION_EFFORT
+      selectedTranscriptionModel.effort === GEMINI_TRANSCRIPTION_EFFORT &&
+      (selectedTranscriptionModel.connection === undefined || selectedTranscriptionModel.connection === "apiKey")
     ) {
-      transcriptionModel = { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT };
+      // サブスクリプションの Gemini は connection を持たない（以前と同じ固定値）。API キーの Gemini だけ connection を持つ（Native と同じ）
+      transcriptionModel =
+        selectedTranscriptionModel.connection === "apiKey"
+          ? { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT, connection: "apiKey" }
+          : { provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT };
     } else if (
       selectedTranscriptionModel.provider === "deepgram" &&
       selectedTranscriptionModel.model === DEEPGRAM_MODEL &&

@@ -316,7 +316,8 @@ export function audioPartFileName(file: number, part: number): string {
 /**
  * 本人 Mac 実行（R6 #18739。src-tauri/src/personal_run.rs）の operation を開く依頼。Native が開始時の Store・namespace・実行の
  * ロック・lease を持ち、画面へは不透明な handle と本人・保存先の識別だけを返す。transcriptionProvider は端末内の経路だけ
- * （後続だけの実行は null）。
+ * （後続だけの実行は null）。transcriptionConnection はエンジンの方式（Gemini は subscription／apiKey、Deepgram は apiKey、
+ * この Mac と後続だけの実行は null）で、Native は Gemini の API キーだけ固定値に connection を持たせる。
  */
 export type PersonalOpenRequest = {
   projectId: ProjectId;
@@ -326,6 +327,7 @@ export type PersonalOpenRequest = {
   runId: string;
   route: PersonalRoute;
   transcriptionProvider: "this-mac" | "gemini" | "deepgram" | null;
+  transcriptionConnection?: "subscription" | "apiKey" | null;
   outputTarget?: PersonalExecutionRequest["outputTarget"];
 };
 

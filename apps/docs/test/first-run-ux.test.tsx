@@ -128,7 +128,7 @@ describe("実行の前に分かる準備の不足", () => {
     bridge.pickedAudio = ["/Users/me/朝の会.m4a"];
     await click(button(container, "ファイルを選択"));
     await until(() => container.querySelector(".afile") !== null);
-    expect(runNote(container)).toBe("この Mac では音声認識を使えません。Gemini か Deepgram（API キー方式）を登録すると実行できます");
+    expect(runNote(container)).toBe("この Mac では音声認識を使えません。Gemini を登録するか、Deepgram を既定のエンジンに選ぶと実行できます");
     expect(button(container, "文書作成を開始").disabled).toBe(true);
 
     await click(button(container, "設定を開く"));
@@ -137,7 +137,9 @@ describe("実行の前に分かる準備の不足", () => {
     expect(container.textContent).toContain("日本語 · 使えません");
     expect(buttons(container).some((candidate) => candidate.textContent === "取得")).toBe(false);
     const engines = container.querySelector<HTMLElement>('[aria-label="既定のエンジン"]')!;
-    expect(button(engines, "この Mac").disabled).toBe(true);
+    // エンジンの行は名前・方式・料金の種類（名前は b）
+    const thisMac = [...engines.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.querySelector("b")?.textContent === "この Mac")!;
+    expect(thisMac.disabled).toBe(true);
   });
 });
 

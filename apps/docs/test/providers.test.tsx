@@ -122,9 +122,15 @@ describe("設定: 登録した AI の行と追加・解除", () => {
     expect(document.activeElement).toBe(dialog.querySelectorAll(".vcard")[0]);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
     expect(document.activeElement).toBe(button(dialog, "キャンセル"));
+    // サブスクリプション（この Mac でログイン）と API キーの 2 群。API キーの群には Deepgram もモデルの方式に依らず出る（owner 2026-10-19）
+    expect([...dialog.querySelectorAll(".vgroup-h b")].map((heading) => heading.textContent)).toEqual(["サブスクリプション", "API キー"]);
     expect([...dialog.querySelectorAll(".vcard")].map((card) => card.textContent)).toEqual([
       "GPTCodex CLI でログイン",
       "GeminiAntigravity CLI でログイン",
+      "ClaudeAnthropic の API キー",
+      "GPTOpenAI の API キー",
+      "GeminiGoogle Gemini の API キー",
+      "Deepgram文字起こしだけに使います",
     ]);
     expect(button(dialog, "追加").disabled).toBe(true);
     await click(dialog.querySelectorAll(".vcard")[0]!);
@@ -262,22 +268,28 @@ describe("文字起こしの既定のエンジン", () => {
     screen = await renderApp(bridge);
     const { container } = screen;
     await click(button(container, "設定"));
+    // 行は名前・方式・料金の種類（名前は b）
     const seg = () => [...container.querySelectorAll<HTMLButtonElement>('[aria-label="既定のエンジン"] button')];
-    expect(seg().map((item) => [item.textContent, item.getAttribute("aria-pressed")])).toEqual([["この Mac", "true"]]);
+    const names = () => seg().map((item) => [item.querySelector("b")?.textContent, item.getAttribute("aria-pressed")]);
+    expect(names()).toEqual([["この Mac", "true"]]);
+    expect(seg()[0]!.textContent).toContain("料金なし");
     await click(button(container, "＋ 追加"));
     await click([...container.querySelectorAll(".add-ai .vcard")].find((card) => card.textContent?.startsWith("Gemini"))!);
     await click(button(container.querySelector<HTMLElement>(".add-ai")!, "追加"));
-    expect(seg().map((item) => [item.textContent, item.getAttribute("aria-pressed")])).toEqual([
+    expect(names()).toEqual([
       ["Gemini", "true"],
       ["この Mac", "false"],
     ]);
+    // サブスクリプションの Gemini は料金なしではなく契約の範囲
+    expect(seg()[0]!.textContent).toContain("サブスクリプション · Antigravity CLI");
+    expect(seg()[0]!.textContent).toContain("契約の範囲");
     await click(button(container, "工程設計"));
     expect(container.querySelector(".scard.fixed")?.textContent).toContain("Gemini · 日本語");
     await click(button(container, "設定"));
     await openMenu(container, "Antigravity CLI");
     await click(button(row(container, "Antigravity CLI")!, "解除"));
     await click(button(container.querySelector<HTMLElement>('[role="dialog"]')!, "解除する"));
-    expect(seg().map((item) => [item.textContent, item.getAttribute("aria-pressed")])).toEqual([["この Mac", "true"]]);
+    expect(names()).toEqual([["この Mac", "true"]]);
   });
 
   it("使用量: AI の行は工程と会話だけ、文字起こしは（Gemini でも）文字起こしの行だけに数える。Antigravity CLI の週の残り（返らなければ「取得できません」）", async () => {

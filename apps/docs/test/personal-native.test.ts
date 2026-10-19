@@ -464,6 +464,58 @@ describe("本人 Mac 実行の ports（Native 経由・FakeBridge と実 control
     expect(rec(bridge).runs.at(-1)).toMatchObject({ provider: "deepgram", model: "nova-3", modelUsed: "nova-3" });
   });
 
+  it("文字起こしのエンジンの方式はモデルの方式と別に固定する（サブスクリプションのまま Deepgram・API キーの Gemini を使える）", async () => {
+    // モデルの方式はサブスクリプションのまま、Deepgram（API キー）で文字起こしする
+    const deepgram = setupBridge();
+    deepgram.keychain.set("deepgram", "dg_test_1234567890");
+    const viaDeepgram = await runNativePersonalExecution(
+      deps(deepgram),
+      request({ route: { kind: "local_transcription_only" }, stepIds: [], transcriptionProvider: "deepgram", transcriptionConnection: "apiKey" }),
+    );
+    expect(viaDeepgram.state).toBe("transcription_complete");
+    expect(rec(deepgram).runs.at(-1)).toMatchObject({ provider: "deepgram", connection: "apiKey" });
+
+    // API キーの Gemini は Gemini API で区切りを送り、固定値に方式を持つ（モデルの方式はサブスクリプションのまま）
+    const geminiApi = setupBridge();
+    geminiApi.audioPartScript = (_request, call) => [done(call === 0 ? `[00:02] ${TRANSCRIPT_TEXT}。` : "[00:01] 鎌倉の朝市です。", "EndTurn", null, "gemini-3.8-flash")];
+    const reserve = vi.spyOn(geminiApi, "personalReserveIntent");
+    const viaApi = await runNativePersonalExecution(
+      deps(geminiApi, { readEntitlement: async () => ({ planConfirmed: false, usage: "unknown" }) }),
+      request({ route: { kind: "local_transcription_only" }, stepIds: [], transcriptionProvider: "gemini", transcriptionConnection: "apiKey" }),
+    );
+    expect(viaApi.state).toBe("transcription_complete");
+    expect(geminiApi.audioPartRequests.map((part) => part.request.provider)).toEqual(["GeminiApi", "GeminiApi"]);
+    expect(reserve.mock.calls[0]![2].transcriptionModel).toEqual({ provider: "gemini", model: "gemini-3.8-flash", effort: "low", connection: "apiKey" });
+    expect(rec(geminiApi).runs.at(-1)).toMatchObject({ provider: "gemini", connection: "apiKey" });
+
+    // サブスクリプションの Gemini は、モデルの方式が API キーでも Antigravity CLI で送り、固定値は以前と同じ形
+    const geminiSub = setupBridge();
+    geminiSub.audioPartScript = geminiApi.audioPartScript;
+    const reserveSub = vi.spyOn(geminiSub, "personalReserveIntent");
+    const viaSub = await runNativePersonalExecution(
+      deps(geminiSub, { connection: () => ({ connection: "apiKey", providers: ["gpt"] }) }),
+      request({ route: { kind: "local_transcription_only" }, stepIds: [], transcriptionProvider: "gemini", transcriptionConnection: "subscription" }),
+    );
+    expect(viaSub.state).toBe("transcription_complete");
+    expect(geminiSub.audioPartRequests.map((part) => part.request.provider)).toEqual(["GeminiCli", "GeminiCli"]);
+    expect(reserveSub.mock.calls[0]![2].transcriptionModel).toEqual({ provider: "gemini", model: "gemini-3.8-flash", effort: "low" });
+    expect(rec(geminiSub).runs.at(-1)).toMatchObject({ provider: "gemini", connection: "subscription" });
+  });
+
+  it("文字起こしのエンジンと方式の食い違った依頼は Native が受け付けない", async () => {
+    const bridge = setupBridge();
+    for (const fields of [
+      { transcriptionProvider: "deepgram", transcriptionConnection: "subscription" },
+      { transcriptionProvider: "this-mac", transcriptionConnection: "apiKey" },
+    ] as const) {
+      await expect(
+        runNativePersonalExecution(deps(bridge), request({ route: { kind: "local_transcription_only" }, stepIds: [], ...fields })),
+      ).rejects.toMatchObject({ code: "personal_bad_request" });
+    }
+    expect(bridge.audioPartRequests).toHaveLength(0);
+    expect(bridge.deepgramRequests).toHaveLength(0);
+  });
+
   it("APIキーの資格情報・固定モデルを検証してローカル生成を続ける", async () => {
     const bridge = setupBridge();
     // 録音は別端末でsubscriptionとして作られたまま。この端末で本人が明示したAPIキーを同じprovider/model/effortへ使う。
