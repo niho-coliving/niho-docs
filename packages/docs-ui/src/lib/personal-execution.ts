@@ -1,4 +1,4 @@
-import type { Effort, FlowSnapshot, GlossaryEntry, ResolvedStepModel, RunCheckpoint, RunRecord, SpeakerMode } from "@niho/docs-core";
+import { SOURCE_STEP_ID, type Effort, type FlowSnapshot, type GlossaryEntry, type ResolvedStepModel, type RunCheckpoint, type RunRecord, type SpeakerMode } from "@niho/docs-core";
 import { personalReportedModelMatches } from "./personal-provider-readiness";
 import { DEEPGRAM_MODEL, GEMINI_TRANSCRIPTION_EFFORT, GEMINI_TRANSCRIPTION_MODEL } from "./runner";
 
@@ -76,6 +76,8 @@ export type PersonalSnapshotMaterial = {
   audio: VerifiedAudioRef[];
   transcriptionModel: PersonalTranscriptionModel | null;
   sourceVersion: (Omit<PersonalVersionRef, "sha256" | "bytes"> & { content: string; expectedSha256?: string; synced: boolean }) | null;
+  /** 原文の版の置き場（後工程に使う文字起こしの案の artifactId。#19108。無い旧素材は最初の案＝source）。 */
+  sourceArtifactId?: string;
   referencePages: Array<{ pageId: string; path: string; versionId: string; content: string; expectedSha256?: string }>;
   priorSteps: Array<{ stepId: string; versionId: string; path: string; content: string; expectedSha256?: string }>;
   expectedCurrentArtifactShaByStep: Record<string, string | null>;
@@ -419,7 +421,9 @@ function exactPagePath(path: string, pageId: string): string {
 function recordingPath(path: string, recordingId: string, area: "inputs" | "source" | "step", stepId?: string): string {
   const segments = pathSegments(path);
   const prefix = ["recordings", recordingId];
-  const expected = area === "inputs" ? [...prefix, "inputs"] : [...prefix, "versions", area === "source" ? "source" : safeId(stepId!, "stepId")];
+  // 文字起こしの別案（#19108）の版は、工程 1 でも versions/<artifactId>/ に置く
+  const sourceArea = stepId && stepId !== SOURCE_STEP_ID ? safeId(stepId, "stepId") : SOURCE_STEP_ID;
+  const expected = area === "inputs" ? [...prefix, "inputs"] : [...prefix, "versions", area === "source" ? sourceArea : safeId(stepId!, "stepId")];
   if (segments.length <= expected.length || expected.some((segment, index) => segments[index] !== segment)) {
     throw new PersonalExecutionError("PATH_NOT_ALLOWED", "録音ページの版参照が許可範囲外です。");
   }
@@ -453,7 +457,9 @@ function validateRequestShell(request: PersonalExecutionRequest): void {
     safeId(request.outputTarget.stepId, "outputTarget.stepId");
     safeId(request.outputTarget.candidateId, "outputTarget.candidateId");
     safeId(request.outputTarget.artifactId, "outputTarget.artifactId");
-    if (!request.stepIds.includes(request.outputTarget.stepId)) {
+    // 文字起こしの別案（#19108）は文字起こしをする経路だけ（工程の列に文字起こしは入らない）
+    const sourceTarget = request.outputTarget.stepId === SOURCE_STEP_ID && request.route.kind !== "generation_only";
+    if (!sourceTarget && !request.stepIds.includes(request.outputTarget.stepId)) {
       throw new PersonalExecutionError("INVALID_OUTPUT_TARGET", "別案の出力先は実行する工程に固定してください。");
     }
     if (request.outputTarget.instruction !== undefined && request.outputTarget.instruction.length > 20_000) {
@@ -674,7 +680,7 @@ export async function buildPersonalFixedSnapshot(request: PersonalExecutionReque
         expectSha256(sha256, material.sourceVersion!.expectedSha256);
         return {
           versionId: safeId(material.sourceVersion!.versionId, "sourceVersion.versionId"),
-          path: recordingPath(material.sourceVersion!.path, recordingId, "source"),
+          path: recordingPath(material.sourceVersion!.path, recordingId, "source", material.sourceArtifactId),
           sha256,
           bytes: textBytes(material.sourceVersion!.content),
           originRunId: safeId(material.sourceVersion!.originRunId, "sourceVersion.originRunId"),

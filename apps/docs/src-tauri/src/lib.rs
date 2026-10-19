@@ -807,6 +807,22 @@ async fn rename_candidate(
   )
 }
 
+/// 後工程に使う文字起こしの案を変える（#19108。`expected` は画面が知っている今の指定）。
+#[tauri::command]
+async fn set_source_candidate(
+  state: State<'_, AppState>,
+  project_id: Option<String>,
+  recording_id: String,
+  candidate_id: String,
+  expected: Option<String>,
+) -> CommandResult<()> {
+  Ok(
+    state
+      .store()
+      .set_source_candidate_at(project_id.as_deref(), &recording_id, &candidate_id, expected.as_deref())?,
+  )
+}
+
 /// 素材の無い録音に文章を貼る（工程 1 の版 1 にする）。
 #[tauri::command]
 async fn set_recording_text(
@@ -2724,6 +2740,7 @@ pub fn run() {
       save_recording,
       create_candidate,
       rename_candidate,
+      set_source_candidate,
       set_recording_text,
       create_page,
       rename_page,

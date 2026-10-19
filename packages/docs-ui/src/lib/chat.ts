@@ -217,7 +217,8 @@ export async function saveProjectDrafts(input: {
       result: "saved",
       outputChars: countChars(markdown),
       ...(base?.basis ? { basis: base.basis } : {}),
-      ...(stepId === SOURCE_STEP_ID && base?.transcriptSpeakerNames !== undefined
+      // 話者名は文字起こしの版ごと（文字起こしの別案は置き場が artifacts/ でも工程 1。#19108）
+      ...((input.target?.stepId ?? stepId) === SOURCE_STEP_ID && base?.transcriptSpeakerNames !== undefined
         ? { transcriptSpeakerNames: normalizeTranscriptSpeakerNames(base.transcriptSpeakerNames) }
         : {}),
       auto: true,
@@ -370,6 +371,15 @@ function packDocuments(view: RecordingView, target?: ChatTarget | null): PackDoc
 /** Codex の完全な資料パックには、現在のフローから外れた既存文書も id を示して含める。 */
 function completePackDocuments(view: RecordingView, target?: ChatTarget | null): PackDocument[] {
   const documents = packDocuments(view, target);
+  // 開いている文字起こしの別案（#19108。置き場は artifacts/<artifactId>.md）
+  if (target?.stepId === SOURCE_STEP_ID && target.artifactId !== SOURCE_STEP_ID && (view.artifacts[target.artifactId] ?? "").trim()) {
+    documents.unshift({
+      stepId: target.artifactId,
+      name: target.name,
+      body: view.artifacts[target.artifactId]!,
+      version: candidateLatestVersion(view, SOURCE_STEP_ID, target.candidateId)?.version ?? null,
+    });
+  }
   const included = new Set(documents.map((document) => document.stepId));
   const candidateArtifacts = new Set(
     Object.values(view.recording.candidateSets ?? {}).flatMap((set) => Object.values(set.items).map((candidate) => candidate.artifactId)),
@@ -518,7 +528,8 @@ export async function runChatTurn(input: ChatTurnInput): Promise<ChatTurnOutcome
         const pack = codex
           ? buildCompleteMaterialPack({
               sourceName: view.sourceName,
-              source: view.source,
+              // 作業場所の artifacts/source.md と同じ本文（最初の文字起こし。文字起こしの別案は documents に入る。#19108）
+              source: view.transcript,
               documents: recording ? completePackDocuments(view, input.target) : [],
               // 録音の話者人数・言語 ＋ 案件の固有名詞・背景情報（参考ページは工程の入力だけ。資料パックには入れない）
               info: view.materials.info,
@@ -761,7 +772,7 @@ async function collectVersions(
     }
     const previousText = humanSaved
       ? (step.id === SOURCE_STEP_ID ? (await bridge.loadRecording(rec)).transcript : await bridge.readArtifact(rec, step.id)) ?? ""
-      : (step.id === SOURCE_STEP_ID ? view.source : view.artifacts[step.id]) ?? "";
+      : (step.id === SOURCE_STEP_ID ? view.transcript : view.artifacts[step.id]) ?? "";
     if (latest > 0 && !isMarkdownChanged(markdown, previousText)) {
       // 書式だけの違い（末尾の改行など）は版にしない。正本には触れていない。
       continue;
@@ -854,7 +865,8 @@ export async function undoVersion(input: {
       ? { transcriptSpeakerNames: normalizeTranscriptSpeakerNames(base.transcriptSpeakerNames) }
       : {}),
   };
-  return bridge.saveArtifact(rec, artifactId, version.stepId === SOURCE_STEP_ID, markdown, record);
+  // 置き場が transcript.md かは artifactId で決める（文字起こしの別案は artifacts/<artifactId>.md。#19108）
+  return bridge.saveArtifact(rec, artifactId, artifactId === SOURCE_STEP_ID, markdown, record);
 }
 
 /** 会話の中の 1 つの版の「元に戻す」を記録する（その版のカードを「版 M で元に戻しました」にする）。 */

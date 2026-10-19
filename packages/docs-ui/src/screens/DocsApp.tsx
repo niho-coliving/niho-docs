@@ -26,7 +26,7 @@ import { formatRecordingLength, newId } from "../lib/format";
 import { THIS_MAC_STATUS_UNAVAILABLE, resolveThisMacSelection, type PcRunnerStatus } from "../lib/pc-runner";
 import { loadRecordingView, openProjectOf, recordingKey, recordingProgress, type OpenProject, type RecordingView } from "../lib/project-view";
 import { runBlockedReason } from "../lib/run-state";
-import { activeProfiles, activeProviders } from "../lib/settings";
+import { activeProfiles, activeProviders, transcriptionEngineChoices } from "../lib/settings";
 import { useGoogleDocs } from "../lib/use-google-docs";
 import { useGoogleDocsFolderExport } from "../lib/use-google-docs-folder-export";
 import { FlowDesignScreen } from "./FlowDesignScreen";
@@ -942,7 +942,8 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     changeDraft, renameSpeaker, openVersion, closeVersion,
     restoreVersion, recordingChat, rebuildStep, openCandidateDialog,
     createCandidate, commitCandidateName, copy, exportFile,
-    reveal, loadPartial,
+    reveal, loadPartial, createSourceCandidate, chooseSourceCandidate,
+    sourceSwitch,
   } = useArtifactActions({
     selectedStepId,
     view,
@@ -1233,6 +1234,8 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
         onNewAudio={() => void addRecordingPage(null)}
         onSelectPage={(projectId, pageId, id, candidateId) => void selectLocationPage(projectId, pageId, id, candidateId ?? null)}
         onAddCandidate={openCandidateDialog}
+        sourceEngineChoices={bridge.capabilities?.localExecution === false ? undefined : transcriptionEngineChoices(settings)}
+        onAddSourceCandidate={(projectId, pageId, engine) => void createSourceCandidate(projectId, pageId, engine)}
         newProjectId={screen === "work" && open?.id !== null ? open?.id ?? null : null}
         onDrop={(drop) => void applyRailDrop(drop)}
         onMoveFolder={reorderFolder}
@@ -1307,7 +1310,7 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
           changeDraft, undoRebuildRef, renameSpeaker, setCandidateNameEdits,
           commitCandidateName, setCompareOpen, changeSettings, settingsRef,
           accountExecutionProblem: accountExecution.problem,
-          addDocPage,
+          addDocPage, chooseSourceCandidate, sourceSwitch,
         }} />}
         <FlowDesignScreen {...{
           screen, designFlow, busy, flowOrigin,

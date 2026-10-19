@@ -1,24 +1,25 @@
 "use client";
 
-import { candidatesFor, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
+import { candidatesFor, selectedSourceCandidate, SOURCE_STEP_ID, type ArtifactCandidate, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
 import { useState } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { EditorToolControls } from "../components/EditorTools";
 import { type FailureAction } from "../components/FailureBand";
 import { PageMenu, PageTop, type EditorMenuActions, type ExportActions } from "../components/PageTop";
 import { CloudPageNotice } from "../components/SaveStatus";
-import { StepActions, WorkView, stepExport, stepRunState } from "../components/WorkView";
+import { StepActions, WorkView, stepExport, stepRunState, type WorkViewProps } from "../components/WorkView";
 import type { ArtifactAutosave } from "../lib/artifact-autosave";
 import { type Bridge } from "../lib/bridge";
 import { type ChatTarget } from "../lib/chat";
 import type { CloudController } from "../lib/cloud";
 import { artifactPath, cloudSettled, pathHasConflict, saveStatus } from "../lib/cloud";
 import { finalizeMarkdown, isMarkdownChanged } from "../lib/markdown";
-import { recordingRef, stepMarkdown, stepName, type RecordingView } from "../lib/project-view";
+import { candidateMarkdown, recordingRef, stepMarkdown, stepName, type RecordingView } from "../lib/project-view";
 import { type ActiveRun, type RunNotice } from "../lib/run-state";
 import { type AppSettings } from "../lib/settings";
 import { type ChatController } from "../lib/use-chat";
 import type { GoogleDocsController } from "../lib/use-google-docs";
+import type { SourceSwitch } from "./useArtifactActions";
 import { artifactSaveKey, draftKey, titleKey, versionKey, type Draft, type OpenedArtifactDocument, type RebuildRequest, type RebuildUndo, type ViewingVersion } from "./workspace-model";
 
 import type { ProjectSyncSnapshot } from "../lib/cloud-types";
@@ -78,7 +79,52 @@ type Props = {
   changeSettings: (next: AppSettings) => void;
   settingsRef: MutableRefObject<AppSettings>;
   setEditorTools: Dispatch<SetStateAction<EditorToolControls | null>>;
+  /** 後工程に使う文字起こしを変える（#19108。undo は「元に戻す」）。 */
+  chooseSourceCandidate: (candidateId: string, undo?: boolean) => Promise<void>;
+  /** 後工程に使う文字起こしを変えた直後（その録音の文字起こしのページに 1 行出す）。 */
+  sourceSwitch: SourceSwitch | null;
 };
+
+/**
+ * 文字起こしの案のページの「後工程に使う」の状態（#19108。文字起こしの案が 2 つ以上のときだけ）。変えた直後の 1 行は押したページに
+ * 出し、元に戻した後は結果だけを出す。
+ */
+function sourceUseOf(input: {
+  view: RecordingView;
+  stepId: string;
+  target: ChatTarget | null;
+  sourceSwitch: SourceSwitch | null;
+  disabled: boolean;
+  choose: (candidateId: string, undo?: boolean) => Promise<void>;
+}): WorkViewProps["sourceUse"] {
+  const { view, stepId, target, sourceSwitch } = input;
+  const candidates = candidatesFor(view.recording, SOURCE_STEP_ID);
+  if (stepId !== SOURCE_STEP_ID || !target || candidates.length < 2) return undefined;
+  let selected: ArtifactCandidate | null = null;
+  try {
+    selected = selectedSourceCandidate(view.recording);
+  } catch {
+    selected = null;
+  }
+  const chosen = sourceSwitch && sourceSwitch.shownOn === target.candidateId
+    ? candidates.find((candidate) => candidate.id === sourceSwitch.candidateId) ?? null
+    : null;
+  const notice = sourceSwitch && chosen
+    ? sourceSwitch.undone
+      ? { text: `後工程に使う文字起こしを「${chosen.name}」に戻しました。` }
+      : {
+          text: `後工程に使う文字起こしを「${chosen.name}」にしました。作成済みのページは、作り直すまで今のままです。`,
+          onUndo: () => void input.choose(sourceSwitch.previousId, true),
+        }
+    : null;
+  return {
+    selected: selected?.id === target.candidateId,
+    selectedName: selected?.name ?? null,
+    notice,
+    disabled: input.disabled,
+    onChoose: () => void input.choose(target.candidateId),
+  };
+}
 
 /** ArtifactScreen の描画。保存・実行・遷移の操作は controller から受け取る。 */
 export function ArtifactScreen(props: Props) {
@@ -99,6 +145,7 @@ export function ArtifactScreen(props: Props) {
     startRun, undoRebuildRef, renameSpeaker, loadPartial,
     recordingChat, chatOpen, setCandidateNameEdits, commitCandidateName,
     setCompareOpen, changeSettings, settingsRef, setEditorTools,
+    chooseSourceCandidate, sourceSwitch,
   } = props;
 
       // 保存の状態と、別の Mac の更新・両方の変更の知らせ（古い版を開いている間は出さない）
@@ -109,7 +156,7 @@ export function ArtifactScreen(props: Props) {
         ? autosave.states[artifactSaveKey(key, openedArtifact.scopeId)]
         : undefined;
       const captureReady = openedArtifact?.key === key && openedArtifact.scopeId === documentScopeId;
-      const savedText = stepMarkdown(view, stepId);
+      const savedText = selectedTarget ? candidateMarkdown(view, stepId, selectedTarget.candidateId) : stepMarkdown(view, stepId);
       const unsaved =
         (local !== undefined && local.phase !== "saved") ||
         (currentDraft !== undefined && (savedText === undefined || isMarkdownChanged(currentDraft.markdown, savedText)));
@@ -234,7 +281,8 @@ export function ArtifactScreen(props: Props) {
             target={selectedTarget}
             onCandidateNameChange={selectedTarget ? (name) => setCandidateNameEdits((all) => ({ ...all, [selectedTarget.candidateId]: name })) : undefined}
             onCandidateNameCommit={selectedTarget ? (name) => void commitCandidateName(selectedTarget, name) : undefined}
-            onCompare={selectedTarget && candidatesFor(view.recording, stepId).length > 1 ? () => setCompareOpen(true) : undefined}
+            onCompare={selectedTarget && stepId !== SOURCE_STEP_ID && candidatesFor(view.recording, stepId).length > 1 ? () => setCompareOpen(true) : undefined}
+            sourceUse={sourceUseOf({ view, stepId, target: selectedTarget, sourceSwitch, disabled: activeRun !== null || saving, choose: chooseSourceCandidate })}
             showTimestamps={settings.transcription.showTimestamps}
             onShowTimestampsChange={(showTimestamps) =>
               changeSettings({

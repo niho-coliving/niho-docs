@@ -5,6 +5,7 @@ import {
   ROOT_RECORDING_ID,
   SAMPLE_MAX_CHARS,
   SOURCE_STEP_ID,
+  selectedSourceArtifactId,
   candidatesFor,
   projectPages,
   rootRecording,
@@ -798,6 +799,9 @@ export class FakeBridge implements Bridge {
     const next = structuredClone(recording);
     if (found.recording.candidateSets) next.candidateSets = structuredClone(found.recording.candidateSets);
     else delete next.candidateSets;
+    // 後工程に使う文字起こしの指定も専用の command だけが変える（Rust の save_recording と同じ）
+    if (found.recording.sourceCandidateId) next.sourceCandidateId = found.recording.sourceCandidateId;
+    else delete next.sourceCandidateId;
     found.recording = next;
   }
   async createCandidate(rec: RecordingRef, stepId: string, candidateSet: import("@niho/docs-core").CandidateSet, newArtifactId: string, duplicateMarkdown: string | null, record: RunRecord | null) {
@@ -815,6 +819,17 @@ export class FakeBridge implements Bridge {
       this.write(data, newArtifactId, false, duplicateMarkdown, record);
     }
     owner.candidateSets = { ...(owner.candidateSets ?? {}), [stepId]: next };
+  }
+  /** 呼ばれた順の setSourceCandidate（テストが確かめる）。 */
+  sourceCandidateCalls: Array<{ rec: RecordingRef; candidateId: string; expected: string | null }> = [];
+  async setSourceCandidate(rec: RecordingRef, candidateId: string, expected: string | null) {
+    this.sourceCandidateCalls.push({ rec: structuredClone(rec), candidateId, expected });
+    const owner = rec.recordingId === ROOT_RECORDING_ID ? this.require(rec.projectId).project : this.require(rec.projectId).recordings[rec.recordingId]!.recording;
+    if ((owner.sourceCandidateId ?? null) !== expected) {
+      throw { code: "store_conflict", message: "後工程に使う文字起こしが、ほかの画面で変わりました。開き直してから選んでください。" };
+    }
+    if (!owner.candidateSets?.[SOURCE_STEP_ID]?.items[candidateId]) throw { code: "store_bad_page", message: "後工程に使う文字起こしが見つかりません。" };
+    owner.sourceCandidateId = candidateId;
   }
   async renameCandidate(rec: RecordingRef, stepId: string, candidateId: string, name: string) {
     const owner = rec.recordingId === ROOT_RECORDING_ID ? this.require(rec.projectId).project : this.require(rec.projectId).recordings[rec.recordingId]!.recording;
@@ -2397,12 +2412,20 @@ export class FakeBridge implements Bridge {
       const texts = data.versions[stepId] ?? [];
       const number = texts.length;
       if (number === 0) return null;
-      const row = [...data.runs].reverse().find((run) => run.stepId === stepId && run.version === number);
+      // 版の置き場（文字起こしの別案は artifactId。Native の newest_version_row と同じ）
+      const row = [...data.runs].reverse().find((run) => (run.artifactId ?? run.stepId) === stepId && run.version === number);
       const content = texts[number - 1]!;
       const path = (row?.versionPath as string | undefined) ?? `recordings/${rid}/versions/${stepId}/v${number}.md`;
       return { versionId: path.split("/").at(-1)!.replace(/\.md$/, ""), path, content, expectedSha256: await sha256Text(content), row };
     };
-    const latestSource = await latest(SOURCE_STEP_ID);
+    // 原文は後工程に使う文字起こしの案（#19108。指定が台帳に無ければ断る。Native の selected_source_artifact と同じ）
+    let sourceArtifactId: string;
+    try {
+      sourceArtifactId = selectedSourceArtifactId(data.recording);
+    } catch {
+      throw { code: "source_candidate_missing", message: "後工程に使う文字起こしが見つかりません。録音のページで選び直してください。" };
+    }
+    const latestSource = await latest(sourceArtifactId);
     const sourceOrigin = latestSource ? personalVersionOrigin(latestSource.row) : null;
     const sourceLatest = sourceOrigin ? latestSource : null;
     const last = selected.length > 0 ? stepIds.indexOf(selected.at(-1)!) : -1;
@@ -2428,7 +2451,12 @@ export class FakeBridge implements Bridge {
       const artifactId = op.request.outputTarget?.stepId === stepId ? op.request.outputTarget.artifactId : stepId;
       expected[stepId] = data.artifacts[artifactId] === undefined ? null : await sha256Text(data.artifacts[artifactId]!);
     }
-    if (local) expected[SOURCE_STEP_ID] = data.transcript === null ? null : await sha256Text(data.transcript);
+    if (local) {
+      // 文字起こしの別案を作る実行は、その案の今の本文を照合値にする
+      const sourceTarget = op.request.outputTarget?.stepId === SOURCE_STEP_ID ? op.request.outputTarget.artifactId : SOURCE_STEP_ID;
+      const current = sourceTarget === SOURCE_STEP_ID ? data.transcript : (data.artifacts[sourceTarget] ?? null);
+      expected[SOURCE_STEP_ID] = current === null ? null : await sha256Text(current);
+    }
     const info = op.request.projectId === null ? { terms: [], background: "" } : data.projectInfo;
     const recording = data.recording as RecordingFile & { speakers?: SpeakerMode; language?: "ja" | "en" };
     const speakers = recording.speakers ?? info.speakers ?? "auto";
@@ -2448,6 +2476,7 @@ export class FakeBridge implements Bridge {
       flow: structuredClone(flow),
       audio,
       transcriptionModel: local && personalTranscriptionKey(op.request) ? structuredClone(PERSONAL_TRANSCRIPTION_MODELS[personalTranscriptionKey(op.request)!]) : null,
+      sourceArtifactId,
       sourceVersion: sourceLatest
         ? {
             versionId: sourceLatest.versionId,
@@ -2538,7 +2567,12 @@ export class FakeBridge implements Bridge {
     if (recorded === undefined || recorded !== input.expectedCurrentSha) throw { code: "personal_expected_mismatch", message: "本文の照合値が、受け付けた固定入力と一致しません。" };
     const data = this.personalRecording(op);
     const source = input.kind === "source";
-    const current = source ? data.transcript : (data.artifacts[input.artifactId] ?? null);
+    // 最初の文字起こしだけが transcript.md。文字起こしの別案は artifacts/<artifactId>.md（#19108）
+    const transcriptFile = source && input.artifactId === SOURCE_STEP_ID;
+    if (source && !transcriptFile && !Object.values(data.recording.candidateSets?.[SOURCE_STEP_ID]?.items ?? {}).some((item) => item.artifactId === input.artifactId)) {
+      throw { code: "personal_target_deleted", message: "この文字起こしは削除されたため、結果を反映できません。" };
+    }
+    const current = transcriptFile ? data.transcript : (data.artifacts[input.artifactId] ?? null);
     const currentSha = current === null ? null : await sha256Text(current);
     if (currentSha !== input.expectedCurrentSha) return { status: "input_changed", reason: "実行を始めた後に本文が変わったため、候補は残したまま反映しませんでした。" };
     const target = this.requireRec({ projectId: op.request.projectId, recordingId: op.request.recordingId });
@@ -2563,7 +2597,7 @@ export class FakeBridge implements Bridge {
       inputBasisSha256: op.head.snapshotSha256,
     } as unknown as RunRecord;
     target.runs.push(row);
-    if (source) target.transcript = candidate.text;
+    if (transcriptFile) target.transcript = candidate.text;
     else target.artifacts[input.artifactId] = candidate.text;
     // Native と同じく、集約の同じ版にも runs.jsonl の行と同じ表示の番号を付ける
     const aggregate = structuredClone(input.aggregate);

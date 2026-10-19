@@ -1,8 +1,8 @@
 "use client";
 
 import type { DocsAutoVersionReason } from "@niho/docs-core";
-import { addCandidate, candidateFor, candidatesFor, countChars, formatTranscriptSpeakerDefaultLabel, listTranscriptSpeakers, normalizeTranscriptSpeakerNames, renameTranscriptSpeakerLabel, resolveTranscriptSpeakerName, SOURCE_STEP_ID, stepSupportsCandidates, type PromptRef, type RunRecord, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
-import { useEffect } from "react";
+import { addCandidate, candidateFor, candidatesAllowed, candidatesFor, countChars, sourceCandidateName, TRANSCRIPTION_ENGINE_LABELS, type TranscriptionEngine, formatTranscriptSpeakerDefaultLabel, listTranscriptSpeakers, normalizeTranscriptSpeakerNames, renameTranscriptSpeakerLabel, resolveTranscriptSpeakerName, SOURCE_STEP_ID, stepSupportsCandidates, type PromptRef, type RunRecord, type RunStartAction, type TranscriptSpeakerEntry } from "@niho/docs-core";
+import { useEffect, useState } from "react";
 import { type Failure, type FailureAction } from "../components/FailureBand";
 import { type Selection } from "../components/Rail";
 import type { ProjectEntry } from "../host/DocsHost";
@@ -16,8 +16,9 @@ import { cloudProjectId as toCloudProjectId } from "../lib/cloud";
 import { newId } from "../lib/format";
 import { finalizeMarkdown, isMarkdownChanged } from "../lib/markdown";
 import { fileStem } from "../lib/names";
-import { candidateLatestVersion, candidateMarkdown, candidateVersions, latestVersionRecord, loadRecordingView, openProjectOf, recordingKey, recordingRef, selectedCandidate, stepArtifactId, stepMarkdown, stepName, versionsOf, type OpenProject, type RecordingView } from "../lib/project-view";
+import { candidateLatestVersion, candidateMarkdown, candidateVersions, isTranscriptFile, latestVersionRecord, transcriptOriginProvider, loadRecordingView, openProjectOf, recordingKey, recordingRef, selectedCandidate, stepArtifactId, stepMarkdown, stepName, versionsOf, type OpenProject, type RecordingView } from "../lib/project-view";
 import { type ActiveRun } from "../lib/run-state";
+import { engineConnection, engineProvider, type TranscriptionEngineId } from "../lib/settings";
 import { type ChatController } from "../lib/use-chat";
 import { artifactSaveKey, draftKey, NO_RECORDING, versionKey, type CandidateDialogState, type Draft, type OpenedArtifactDocument, type RebuildRequest, type RebuildUndo, type ToastAction, type ViewingVersion } from "./workspace-model";
 
@@ -65,6 +66,14 @@ type Context = {
   selectLocationPage: (projectId: ProjectId, pageId: string, stepId: string | null, candidateId?: string | null, shouldApply?: () => boolean) => Promise<void>;
   setCandidateNameEdits: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 };
+
+/** 後工程に使う文字起こしを変えた直後の記録（押したページ・選んだ案・前の案・元に戻した後か）。 */
+export type SourceSwitch = { key: string; shownOn: string; candidateId: string; previousId: string; undone: boolean };
+
+/** 文字起こしのエンジンの表示名（docs-core の TRANSCRIPTION_ENGINE_LABELS）。 */
+function engineName(engine: TranscriptionEngine): string {
+  return TRANSCRIPTION_ENGINE_LABELS[engine];
+}
 
 /** 録音から作ったページの編集・版の復元・話者名・別案と書き出し。 */
 export function useArtifactActions(context: Context) {
@@ -114,7 +123,8 @@ export function useArtifactActions(context: Context) {
     const target: AutoVersionTarget = {
       rec: recordingRef(view),
       stepId: artifactId,
-      source: stepId === SOURCE_STEP_ID,
+      // 置き場が transcript.md か（文字起こしの別案は工程 1 でも artifacts/。#19108）
+      source: isTranscriptFile(artifactId),
       handle: opened.handle,
       draftKey: key,
       scopeId: opened.scopeId,
@@ -142,16 +152,18 @@ export function useArtifactActions(context: Context) {
     const targetView = view;
     const targetStepId = stepId;
     const rec = recordingRef(targetView);
-    const key = draftKey(targetView.key, targetStepId);
+    // 文字起こしの案ごとに話者名を持つ（#19108。エンジンが違えば同じ番号でも別の人として扱う）
+    const targetCandidate = selectedCandidate(targetView, targetStepId, selection?.candidateId);
+    const key = draftKey(targetView.key, currentArtifactId ?? targetStepId);
     const opened = openedArtifactRef.current;
     if (!opened || opened.key !== key) {
       showFailure("本文を開き直してから、もう一度お試しください。");
       return;
     }
     const targetDraft = drafts[key];
-    const base = latestVersionRecord(targetView.runs, targetStepId);
+    const base = latestVersionRecord(targetView.runs, targetStepId, targetCandidate);
     const names = normalizeTranscriptSpeakerNames(base?.transcriptSpeakerNames);
-    const markdown = targetDraft?.markdown ?? targetView.source;
+    const markdown = targetDraft?.markdown ?? candidateMarkdown(targetView, targetStepId, selection?.candidateId) ?? "";
     const speakers = listTranscriptSpeakers(markdown, names);
     const currentSpeaker = speakers.find((candidate) => candidate.key === speaker.key);
     if (!currentSpeaker) return;
@@ -178,7 +190,8 @@ export function useArtifactActions(context: Context) {
       kind: "save",
       at: new Date().toISOString(),
       stepId: targetStepId,
-      stepName: stepName(targetView, targetStepId),
+      stepName: selectedTarget?.name ?? stepName(targetView, targetStepId),
+      ...(targetCandidate ? { candidateId: targetCandidate.id, artifactId: targetCandidate.artifactId } : {}),
       version: null,
       result: "saved",
       outputChars: countChars(nextMarkdown),
@@ -310,7 +323,7 @@ export function useArtifactActions(context: Context) {
       // 世代は返らないので、届いている同期の状態より新しい保存とみなす（古い状態で「クラウドに保存済み」にしない）。
       autosave.markSaved(
         saveKey,
-        { rec, stepId: currentArtifactId, source: stepId === SOURCE_STEP_ID, handle, draftKey: key, scopeId: opened.scopeId },
+        { rec, stepId: currentArtifactId, source: isTranscriptFile(currentArtifactId), handle, draftKey: key, scopeId: opened.scopeId },
         (cloud.snapshots[toCloudProjectId(rec.projectId)]?.localGeneration ?? 0) + 1,
       );
       autoVersion.versioned(saveKey, markdown);
@@ -634,9 +647,144 @@ export function useArtifactActions(context: Context) {
   const reveal = async () => {
     if (!view || !stepId) return;
     try {
-      await bridge.revealArtifact(recordingRef(view), currentArtifactId ?? stepId, stepId === SOURCE_STEP_ID);
+      await bridge.revealArtifact(recordingRef(view), currentArtifactId ?? stepId, isTranscriptFile(currentArtifactId ?? stepId));
     } catch (error) {
       showFailure(errorMessage(error, "Finder で表示できませんでした。"));
+    }
+  };
+
+  // ---- 文字起こしの別案（#19108） ----
+
+  /** 後工程に使う文字起こしを変えた直後の 1 行（変えた録音の文字起こしのページにだけ出す。「元に戻す」で前の案へ）。 */
+  const [sourceSwitch, setSourceSwitch] = useState<SourceSwitch | null>(null);
+
+  /**
+   * 文字起こしを別のエンジンでもう 1 つ作る。名前・設定の入力は無く、録音の話者人数・言語・固有名詞をそのまま使う。最初の 1 つ目を足すと
+   * きは今の文字起こし（transcript.md）を最初の案として台帳に載せる（本文・版・話者名は動かさない）。作った案のページを開き、文字起こし
+   * だけを始める（後工程は始めない。後工程に使う指定も変えない）。
+   */
+  const createSourceCandidate = async (projectId: ProjectId, pageId: string, engineId: TranscriptionEngineId) => {
+    if (candidateBusy) return;
+    if (runRef.current || chatSendingProjectRef.current === projectId) {
+      showFailure("処理が終わってから文字起こしを追加してください。");
+      return;
+    }
+    if (rootChangeRef.current) {
+      showFailure("保存先の変更が終わってから文字起こしを追加してください。");
+      return;
+    }
+    setCandidateBusy(true);
+    let runLockHeld = false;
+    try {
+      await bridge.acquireRunLock(projectId);
+      runLockHeld = true;
+      const loadedSpace = openProjectOf(await bridge.loadPages(projectId));
+      const page = loadedSpace.pages.find((entry) => entry.id === pageId && entry.kind === "rec");
+      if (!page) throw NO_RECORDING;
+      const fresh = await loadRecordingView(bridge, projectId, loadedSpace.project, page);
+      if (!candidatesAllowed(fresh.recording, SOURCE_STEP_ID)) throw new Error("音声のある録音だけ、文字起こしを追加できます。");
+      const now = new Date().toISOString();
+      const primaryRecord = latestVersionRecord(fresh.runs, SOURCE_STEP_ID, candidateFor(fresh.recording, SOURCE_STEP_ID, null));
+      const origin = transcriptOriginProvider(fresh.runs, primaryRecord?.version ?? null);
+      const primaryEngine: TranscriptionEngine | undefined = origin === "gemini" || origin === "this-mac" || origin === "deepgram" ? origin : undefined;
+      const primaryConnection = primaryEngine === "gemini" ? primaryRecord?.connection ?? "subscription" : undefined;
+      const primaryName = primaryEngine ? engineName(primaryEngine) : "最初の文字起こし";
+      const engine = engineProvider(engineId);
+      const connection = engineConnection(engineId);
+      const existingNames = new Set([
+        primaryName,
+        ...Object.values(fresh.recording.candidateSets?.[SOURCE_STEP_ID]?.items ?? {}).map((item) => item.name),
+      ]);
+      const name = engine === "gemini"
+        ? (() => {
+            const base = engineId === "gemini-api" ? "Gemini（API キー）" : "Gemini（サブスクリプション）";
+            if (!existingNames.has(base)) return base;
+            for (let number = 2; ; number += 1) if (!existingNames.has(`${base} ${number}`)) return `${base} ${number}`;
+          })()
+        : sourceCandidateName(fresh.recording, engine, { name: primaryName, ...(primaryEngine ? { engine: primaryEngine } : {}) });
+      const candidate = {
+        id: newId("candidate"),
+        artifactId: newId("artifact"),
+        name,
+        engine,
+        ...(connection ? { engineConnection: connection } : {}),
+        createdAt: now,
+      };
+      const updated = addCandidate(fresh.recording, {
+        stepId: SOURCE_STEP_ID,
+        candidate,
+        primaryId: newId("candidate"),
+        primaryName,
+        ...(primaryEngine ? { primaryEngine } : {}),
+        ...(primaryConnection ? { primaryConnection } : {}),
+        now,
+      });
+      const candidateSet = updated.candidateSets?.[SOURCE_STEP_ID];
+      if (!candidateSet) throw new Error("文字起こしの台帳を作れませんでした。");
+      const rec = { projectId, recordingId: page.recordingId ?? page.id };
+      await bridge.createCandidate(rec, SOURCE_STEP_ID, candidateSet, candidate.artifactId, null, null);
+      // 台帳の作成だけを旧 store lock で閉じ、文字起こしは Native controller 自身の operation/lease へ渡す（記事本文の別案と同じ）
+      await bridge.releaseRunLock(projectId);
+      runLockHeld = false;
+      await refreshProjects();
+      await selectLocationPage(projectId, pageId, SOURCE_STEP_ID, candidate.id);
+      const current = viewRef.current;
+      if (!current || current.projectId !== projectId || current.recordingId !== rec.recordingId) {
+        throw new Error("文字起こしの案は作成しましたが、開始できませんでした。案のページで作り直してください。");
+      }
+      const started = startRun(
+        [SOURCE_STEP_ID],
+        { stepId: SOURCE_STEP_ID, candidateId: candidate.id, artifactId: candidate.artifactId, name: candidate.name },
+        "step",
+        null,
+        "transcribeOnly",
+      );
+      if (!started) throw new Error("文字起こしの案は作成しましたが、開始できませんでした。案のページで作り直してください。");
+    } catch (error) {
+      showFailure(errorMessage(error, "文字起こしを追加できませんでした。"));
+    } finally {
+      if (runLockHeld) await bridge.releaseRunLock(projectId).catch(() => undefined);
+      setCandidateBusy(false);
+    }
+  };
+
+  /**
+   * 後工程（文字起こし修正・記事方針・記事本文など）に使う文字起こしを、開いている案に変える。開く・作るだけでは変えず、この操作だけで
+   * 変える。作成済みのページは消さず、入力が変わったページには「元の文字起こしが変わりました。」が出る（自動では作り直さない）。
+   * 別の画面・端末が先に変えていたら書かずに知らせる。
+   */
+  const chooseSourceCandidate = async (candidateId: string, undo = false) => {
+    const current = viewRef.current;
+    if (!current) return;
+    if (runRef.current && runRef.current.projectId === current.projectId) {
+      showFailure("実行が終わってから、後工程に使う文字起こしを選べます。");
+      return;
+    }
+    if (chatSendingProjectRef.current === current.projectId) {
+      showFailure("「AIと作る」の依頼が終わってから、後工程に使う文字起こしを選べます。");
+      return;
+    }
+    const rec = recordingRef(current);
+    const candidates = candidatesFor(current.recording, SOURCE_STEP_ID);
+    const previousId = current.recording.sourceCandidateId ?? candidates[0]?.id ?? null;
+    if (!previousId || previousId === candidateId) return;
+    let runLockHeld = false;
+    try {
+      await bridge.acquireRunLock(current.projectId);
+      runLockHeld = true;
+      await bridge.setSourceCandidate(rec, candidateId, current.recording.sourceCandidateId ?? null);
+      await bridge.releaseRunLock(current.projectId);
+      runLockHeld = false;
+      // 結果の 1 行は押したページに出す（元に戻したときも同じページ）
+      const shownOn = selectionRef.current?.stepId === SOURCE_STEP_ID ? selectionRef.current.candidateId ?? candidateId : candidateId;
+      setSourceSwitch({ key: current.key, shownOn, candidateId, previousId, undone: undo });
+      await reloadView(rec);
+      await refreshProjects();
+    } catch (error) {
+      showFailure(errorMessage(error, "後工程に使う文字起こしを変えられませんでした。"));
+      await reloadView(rec).catch(() => undefined);
+    } finally {
+      if (runLockHeld) await bridge.releaseRunLock(current.projectId).catch(() => undefined);
     }
   };
 
@@ -653,6 +801,7 @@ export function useArtifactActions(context: Context) {
     changeDraft, renameSpeaker, openVersion, closeVersion,
     restoreVersion, recordingChat, rebuildStep, openCandidateDialog,
     createCandidate, commitCandidateName, copy, exportFile,
-    reveal, loadPartial,
+    reveal, loadPartial, createSourceCandidate, chooseSourceCandidate,
+    sourceSwitch: sourceSwitch && view && sourceSwitch.key === view.key ? sourceSwitch : null,
   };
 }

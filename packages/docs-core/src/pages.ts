@@ -96,6 +96,7 @@ export function rootRecording(project: Project): Recording | null {
     source: project.source ?? { kind: "audio", audio: [] },
     refs: project.refs,
     candidateSets: project.candidateSets,
+    ...(project.sourceCandidateId ? { sourceCandidateId: project.sourceCandidateId } : {}),
   });
 }
 
@@ -109,6 +110,7 @@ export function projectWithRootRecording(project: Project, recording: Recording)
     source: recording.source,
     refs: recording.refs,
     candidateSets: recording.candidateSets,
+    sourceCandidateId: recording.sourceCandidateId,
     info: { ...project.info, speakers: recording.speakers, language: recording.language },
   };
 }
@@ -132,7 +134,8 @@ export function recordingWithCurrentFlow(
   connection: Connection = "subscription",
 ): Recording {
   for (const stepId of Object.keys(recording.candidateSets ?? {})) {
-    if (!stepSupportsCandidates(flow, stepId)) {
+    // 文字起こしの案は工程設計の外（工程 1 は固定）なので、工程を直しても残る
+    if (stepId !== SOURCE_STEP_ID && !stepSupportsCandidates(flow, stepId)) {
       throw new Error("複数案の本文があるため、その工程を削除したり最後から動かしたりできません。");
     }
   }

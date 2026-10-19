@@ -2381,6 +2381,140 @@ fn an_on_device_transcription_outside_folders_publishes_into_the_docs_root_recor
 }
 
 #[test]
+fn a_transcript_candidate_publishes_into_its_own_artifact_and_feeds_later_steps_only_when_selected() {
+  tauri::async_runtime::block_on(async {
+    let h = Harness::signed_in("transcript-candidate", LeaseMode::Grant);
+    let dir = h.rec_dir();
+    fs::write(dir.join("transcript.md"), "最初の文字起こし").unwrap();
+    let recording_path = dir.join("recording.json");
+    let mut recording: Value = serde_json::from_str(&fs::read_to_string(&recording_path).unwrap()).unwrap();
+    let ledger = json!({
+      "stepId": "source",
+      "order": ["tx1", "tx2"],
+      "items": {
+        "tx1": { "id": "tx1", "artifactId": "source", "name": "Gemini", "createdAt": "2026-10-19T01:00:00.000Z" },
+        "tx2": { "id": "tx2", "artifactId": "artifact-tx2", "name": "この Mac", "createdAt": "2026-10-19T01:00:00.000Z" },
+      },
+    });
+    recording["candidateSets"] = json!({ "source": ledger.clone() });
+    write_json(&recording_path, &recording);
+
+    let target = json!({ "stepId": "source", "candidateId": "tx2", "artifactId": "artifact-tx2", "inputVersions": {} });
+    let mut open_request = request("intent-tx2", "local_transcription_only", Some("this-mac"));
+    open_request.output_target = Some(target.clone());
+    let opened = open(&h.state, &h.cloud, open_request).await.unwrap();
+    let material = read_material(&h.state, &opened.handle, vec![]).await.unwrap();
+    // 照合値は別案の今の本文（まだ無い）。最初の文字起こしの本文ではない
+    assert_eq!(material["expectedCurrentArtifactShaByStep"]["source"], Value::Null);
+    let snapshot = rehash(
+      snapshot_from(
+        &opened,
+        &material,
+        json!({ "kind": "local_transcription_only" }),
+        Some("proj1"),
+        "pg1",
+        "rec1",
+      ),
+      |snapshot| snapshot["outputTarget"] = target.clone(),
+    );
+    assert_eq!(
+      reserve_intent(&h.state, &opened.handle, "intent-tx2", &snapshot).unwrap(),
+      ReserveResult::New
+    );
+    let version = vid("transcriptAlt");
+    let text = "[00:00:00] 連売の朝";
+    let primary = candidate(
+      "source",
+      "source",
+      &version,
+      text,
+      "this-mac",
+      json!(THIS_MAC_TRANSCRIPTION_MODEL),
+    );
+    // 受付で固定した案以外（最初の案）の置き場へは書けない
+    assert_eq!(
+      persist_candidate(&h.state, &opened.handle, primary).unwrap_err().code,
+      candidate_mismatch().code
+    );
+    let mut wire = candidate(
+      "source",
+      "source",
+      &version,
+      text,
+      "this-mac",
+      json!(THIS_MAC_TRANSCRIPTION_MODEL),
+    );
+    wire.artifact_id = "artifact-tx2".into();
+    wire.path = format!("recordings/rec1/versions/artifact-tx2/{version}.md");
+    persist_candidate(&h.state, &opened.handle, wire).unwrap();
+    let publish_wire = || {
+      let mut wire = publish_input("intent-tx2", "source", "source", &version, None);
+      wire.artifact_id = "artifact-tx2".into();
+      wire
+    };
+
+    // 台帳から消えた案へは、遅れて届いた結果を書いて戻さない
+    let mut removed = recording.clone();
+    removed["candidateSets"]["source"]["order"] = json!(["tx1"]);
+    removed["candidateSets"]["source"]["items"] = json!({ "tx1": ledger["items"]["tx1"].clone() });
+    write_json(&recording_path, &removed);
+    let refused = publish(&h.state, &h.cloud, &opened.handle, publish_wire())
+      .await
+      .unwrap_err();
+    assert_eq!(refused.code, "personal_target_deleted");
+    assert!(!dir.join("artifacts/artifact-tx2.md").exists());
+
+    write_json(&recording_path, &recording);
+    let published = publish(&h.state, &h.cloud, &opened.handle, publish_wire())
+      .await
+      .unwrap();
+    assert_eq!(published["status"], json!("committed"));
+    assert_eq!(fs::read_to_string(dir.join("artifacts/artifact-tx2.md")).unwrap(), text);
+    assert_eq!(
+      fs::read_to_string(dir.join("transcript.md")).unwrap(),
+      "最初の文字起こし"
+    );
+    let rows = runs(&h);
+    let row = rows
+      .iter()
+      .find(|row| row.get("artifactId").and_then(Value::as_str) == Some("artifact-tx2"))
+      .unwrap();
+    assert_eq!(row["stepId"], json!("source"));
+    assert_eq!(row["candidateId"], json!("tx2"));
+    close(&h.state, &h.cloud, &opened.handle).await.unwrap();
+
+    // 後工程の原文は「後工程に使う」に指定した案の確定版。指定が無ければ最初の案、台帳に無い指定は断る
+    let mut selected = recording.clone();
+    selected["sourceCandidateId"] = json!("tx2");
+    write_json(&recording_path, &selected);
+    let generation = open(&h.state, &h.cloud, request("intent-gen-tx2", "generation_only", None))
+      .await
+      .unwrap();
+    let material = read_material(&h.state, &generation.handle, vec!["outline".into()])
+      .await
+      .unwrap();
+    assert_eq!(material["sourceArtifactId"], json!("artifact-tx2"));
+    assert!(material["sourceVersion"]["path"]
+      .as_str()
+      .is_some_and(|path| path.starts_with("recordings/rec1/versions/artifact-tx2/")));
+    assert_eq!(material["sourceVersion"]["content"], json!(text));
+    close(&h.state, &h.cloud, &generation.handle).await.unwrap();
+
+    let mut broken = recording.clone();
+    broken["sourceCandidateId"] = json!("gone");
+    write_json(&recording_path, &broken);
+    let generation = open(&h.state, &h.cloud, request("intent-gen-gone", "generation_only", None))
+      .await
+      .unwrap();
+    let error = read_material(&h.state, &generation.handle, vec!["outline".into()])
+      .await
+      .unwrap_err();
+    assert_eq!(error.code, "source_candidate_missing");
+    close(&h.state, &h.cloud, &generation.handle).await.unwrap();
+  });
+}
+
+#[test]
 fn a_candidate_publish_keeps_the_logical_step_and_writes_only_its_artifact() {
   tauri::async_runtime::block_on(async {
     let h = Harness::signed_in("candidate-publish", LeaseMode::Grant);

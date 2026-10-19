@@ -1,6 +1,6 @@
 "use client";
 
-import { countChars, normalizeTranscriptSpeakerNames, type PromptRef, type RunRecord } from "@niho/docs-core";
+import { countChars, normalizeTranscriptSpeakerNames, SOURCE_STEP_ID, type PromptRef, type RunRecord } from "@niho/docs-core";
 import { useCallback, useEffect, useRef } from "react";
 import type { Failure } from "../components/FailureBand";
 import { type FailureAction } from "../components/FailureBand";
@@ -89,7 +89,7 @@ export function useWorkspacePersistence(context: Context) {
       if (draft) return draft.markdown;
       const shown = viewRef.current;
       if (!shown || shown.key !== recordingKey(target.rec)) return null;
-      return target.source ? shown.source : (shown.artifacts[target.stepId] ?? null);
+      return target.source ? shown.transcript : (shown.artifacts[target.stepId] ?? null);
     },
     latestOf: async (_key, target) => {
       const shown = viewRef.current;
@@ -112,7 +112,8 @@ export function useWorkspacePersistence(context: Context) {
         outputChars: countChars(markdown),
         auto: true,
         ...(base?.basis ? { basis: base.basis } : {}),
-        ...(target.source && base?.transcriptSpeakerNames !== undefined
+        // 話者名は文字起こし（工程 1）の版ごと。文字起こしの別案（置き場は artifacts/）も引き継ぐ
+        ...((target.source || target.flowStepId === SOURCE_STEP_ID) && base?.transcriptSpeakerNames !== undefined
           ? { transcriptSpeakerNames: normalizeTranscriptSpeakerNames(base.transcriptSpeakerNames) }
           : {}),
       };

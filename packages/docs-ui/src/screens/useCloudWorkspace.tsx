@@ -11,7 +11,7 @@ import { errorMessage, type Bridge, type FlowList as FlowListData, type ProjectI
 import type { CloudController } from "../lib/cloud";
 import { artifactPath, leaseLabel, localProjectId, nextRemoteLeaseExpiry, pagePath, remoteLeaseHolder, stepOfPath, cloudProjectId as toCloudProjectId, useCloudProtection, waitForApplied, type ConflictNames } from "../lib/cloud";
 import { DOCS_ROOT_PROJECT_ID, type CloudAppliedEvent } from "../lib/cloud-types";
-import { recordingRef, stepArtifactId, type OpenProject, type RecordingView } from "../lib/project-view";
+import { isTranscriptFile, recordingRef, stepArtifactId, withArtifactText, type OpenProject, type RecordingView } from "../lib/project-view";
 import { ABOUT_FILE, artifactSaveKey, draftKey, PROJECT_FILE, type Draft, type OpenedArtifactDocument, type ToastAction } from "./workspace-model";
 
 type Context = {
@@ -200,7 +200,16 @@ export function useCloudWorkspace(context: Context) {
         const recording = current?.recordings[recordingId]?.recording;
         if (!recording) return null;
         if (id === SOURCE_STEP_ID) return sourceStepName(recording.source);
-        return recording.flowSnapshot.steps.find((candidate) => candidate.id === id)?.name ?? null;
+        const step = recording.flowSnapshot.steps.find((candidate) => candidate.id === id)?.name;
+        if (step) return step;
+        // 案の置き場（artifacts/<artifactId>.md）は「工程 / 案」（文字起こしの別案を含む。#19108）
+        for (const [setStepId, set] of Object.entries(recording.candidateSets ?? {})) {
+          const candidate = Object.values(set.items).find((item) => item.artifactId === id);
+          if (!candidate) continue;
+          const owner = setStepId === SOURCE_STEP_ID ? sourceStepName(recording.source) : recording.flowSnapshot.steps.find((item) => item.id === setStepId)?.name;
+          return owner ? `${owner} / ${candidate.name}` : candidate.name;
+        }
+        return null;
       },
     };
   };
@@ -277,9 +286,10 @@ export function useCloudWorkspace(context: Context) {
   const captureEnabled = shownArtifactKey !== null && !artifactRefreshing;
   const shownProjectId = view?.projectId ?? null;
   const shownRecordingId = view?.recordingId ?? null;
-  const shownSource = shownStep === SOURCE_STEP_ID;
+  // 置き場が transcript.md か（文字起こしの別案は工程 1 でも artifacts/<artifactId>.md。#19108）
+  const shownSource = shownArtifactId !== null && isTranscriptFile(shownArtifactId);
   const shownStoredMarkdown = view && shownArtifactId
-    ? (shownSource ? view.source : view.artifacts[shownArtifactId])
+    ? (shownSource ? view.transcript : view.artifacts[shownArtifactId])
     : undefined;
   useEffect(() => {
     if (!captureEnabled || !shownArtifactKey || !shownRecordingId || !shownArtifactId) {
@@ -306,21 +316,7 @@ export function useCloudWorkspace(context: Context) {
           putOpenedArtifact(captured);
           const current = viewRef.current;
           if (!current || current.projectId !== shownProjectId || current.recordingId !== shownRecordingId) return;
-          const next = shownSource
-            ? {
-                ...current,
-                source: opened.markdown,
-                materials: { ...current.materials, source: opened.markdown },
-              }
-            : {
-                ...current,
-                artifacts: { ...current.artifacts, [shownArtifactId]: opened.markdown },
-                materials: {
-                  ...current.materials,
-                  artifacts: { ...current.materials.artifacts, [shownArtifactId]: opened.markdown },
-                },
-              };
-          putView(next);
+          putView(withArtifactText(current, shownArtifactId, opened.markdown));
         },
         (error: unknown) => {
           if (!cancelled) showFailure(errorMessage(error, "本文を読めませんでした。"));

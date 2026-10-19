@@ -3,7 +3,7 @@
  * 押してから失敗する経路（別の Mac の lease・別案から選んでいない）を作らず、押せない間は理由を 1 行で伝える。
  */
 
-import { candidatesFor, type Recording } from "@niho/docs-core";
+import { SOURCE_STEP_ID, candidatesFor, type Recording } from "@niho/docs-core";
 import type { ProjectId } from "./bridge";
 import { CHAT_BUSY_RUN_REASON, runIsOn, type ActiveRun } from "./run-state";
 
@@ -20,7 +20,8 @@ export function candidateChoiceReason(input: {
   queue: readonly string[];
   fixedStepId?: string | null;
 }): string | null {
-  const stepId = input.queue.find((id) => id !== input.fixedStepId && candidatesFor(input.recording, id).length > 0);
+  // 文字起こしの案は「後工程に使う」の指定で決まっている（#19108。作り直すのはその案）ので止めない
+  const stepId = input.queue.find((id) => id !== input.fixedStepId && id !== SOURCE_STEP_ID && candidatesFor(input.recording, id).length > 0);
   if (stepId === undefined) return null;
   const name = input.flow.steps.find((step) => step.id === stepId)?.name || "この工程";
   return `${name}の案を左から開いて選ぶと実行できます`;
