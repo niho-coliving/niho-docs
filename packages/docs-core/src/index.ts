@@ -42,3 +42,4 @@ export * from "./speech-result.js";
 export * from "./auto-version.js";
 export * from "./page-sharing.js";
 export * from "./storage-words.js";
+export * from "./folder-export-tree.js";
