@@ -324,6 +324,10 @@ fn status_lines_match_the_design_guide() {
   assert_eq!(line(RunnerState::Offline, None), "NIHO に接続できません");
   assert_eq!(line(RunnerState::Starting, None), "準備中");
   assert_eq!(
+    line(RunnerState::StorageUnavailable, None),
+    "保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。"
+  );
+  assert_eq!(
     serde_json::to_value(PcRunnerStatus {
       enabled: true,
       state: RunnerState::NeedsLogin,
@@ -686,11 +690,15 @@ struct TestHost {
   login_item_fails: AtomicBool,
   other_process: AtomicBool,
   container_busy: AtomicBool,
+  cloud_jobs_allowed: AtomicBool,
 }
 
 impl Host for TestHost {
   fn app(&self) -> &AppState {
     &self.app
+  }
+  fn allows_cloud_jobs(&self) -> bool {
+    self.cloud_jobs_allowed.load(Ordering::SeqCst)
   }
   fn after_submit(&self, container: &ContainerRef) {
     lock(&self.submitted).push(container.clone());
@@ -748,6 +756,7 @@ impl Rig {
       login_item_fails: AtomicBool::new(false),
       other_process: AtomicBool::new(false),
       container_busy: AtomicBool::new(false),
+      cloud_jobs_allowed: AtomicBool::new(true),
     });
     let account = Arc::new(TestAccount {
       signed_in: AtomicBool::new(true),
@@ -1241,6 +1250,23 @@ fn wait_until(what: &str, condition: impl Fn() -> bool) {
     std::thread::sleep(Duration::from_millis(10));
   }
   panic!("timed out: {what}");
+}
+
+#[test]
+fn loop_explains_unavailable_storage_and_resumes_when_cloud_returns() {
+  let rig = Rig::default_subscription("storage-unavailable");
+  rig.host.cloud_jobs_allowed.store(false, Ordering::SeqCst);
+  rig.runner.spawn_loop();
+  wait_until("storage unavailable", || {
+    rig.runner.status().state == RunnerState::StorageUnavailable
+  });
+  assert_eq!(rig.host.app.pc_gate.phase(), Phase::Off);
+  assert!(entries(&rig.log).is_empty());
+
+  rig.host.cloud_jobs_allowed.store(true, Ordering::SeqCst);
+  rig.runner.settings_changed();
+  wait_until("storage recovered", || rig.runner.status().state == RunnerState::Idle);
+  assert!(entries(&rig.log).contains(&"claim".to_string()));
 }
 
 #[test]

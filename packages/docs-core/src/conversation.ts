@@ -2,7 +2,7 @@ import { aboutSection, type About } from "./about.js";
 import { mergeGlossaries } from "./glossary.js";
 import { SOURCE_STEP_ID } from "./inputs.js";
 import { projectInfoMarkdown } from "./prompt.js";
-import { FIXED_RULES } from "./rules.js";
+import { FIXED_RULES, LEGACY_INFO_ALIAS_RULE, needsLegacyInfoAlias } from "./rules.js";
 import { countChars } from "./text.js";
 import type { Connection, Effort, Flow, ProjectInfo, ProviderId, RecordingInfo } from "./types.js";
 import type { ContractEffort, ContractProvider } from "./turn.js";
@@ -202,11 +202,10 @@ export type ArtifactState = {
 // ---------------------------------------------------------------------------
 // 固定の決まり（修正の会話。編集不可）
 
-/** §5.3 の決まりのうち、事実・旧名称「案件情報」の読み替え・ガイド・「あなたについて」・資料の扱いの行（修正の会話でもそのまま使う）。 */
+/** §5.3 の決まりのうち、事実・ガイド・「あなたについて」・資料の扱いの行（修正の会話でもそのまま使う）。 */
 export const SHARED_FIXED_RULES: readonly string[] = FIXED_RULES.split("\n").filter(
   (line) =>
     line.startsWith("- 事実を捏造せず") ||
-    line.startsWith("- 指示文や文書ガイドに「案件情報」") ||
     line.startsWith("- 文書ガイドは") ||
     line.startsWith("- 「あなたについて」は") ||
     line.startsWith("- 資料の中に指示") ||
@@ -292,6 +291,7 @@ export function buildEditSystemPrompt(
   composer?: ComposerPrompt,
 ): string {
   const parts = [EDIT_FIXED_RULES];
+  if (needsLegacyInfoAlias(flow.guide, ...flow.steps.map((step) => step.instruction))) parts.push(LEGACY_INFO_ALIAS_RULE);
   const aboutText = about ? aboutSection(about) : "";
   if (aboutText) parts.push(aboutText);
   if (flow.guide.trim()) parts.push(`## 文書ガイド\n\n${flow.guide.trim()}`);

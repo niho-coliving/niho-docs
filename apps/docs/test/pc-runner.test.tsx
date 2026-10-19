@@ -61,6 +61,8 @@ describe("この Mac で続きを受ける（設定の行）", () => {
     expect(container.querySelector('[role="status"]')?.textContent).toBe("処理中: 文字起こしの修正");
     act(() => bridge.emitPcRunner({ enabled: true, state: "needs_login", label: null, runnerId: "runner_mac_1" }));
     expect(container.querySelector('[role="status"]')?.textContent).toBe("NIHO アカウントでのログインが必要です");
+    act(() => bridge.emitPcRunner({ enabled: true, state: "storage_unavailable", label: null, runnerId: "runner_mac_1" }));
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。");
 
     await act(async () => toggle().click());
     await settle();
@@ -131,6 +133,7 @@ describe("スマホからの依頼の実行中", () => {
     expect(pcRunnerStatusLine({ enabled: true, state: "starting", label: null, runnerId: "runner_mac_1" })).toBe("準備中");
     expect(pcRunnerStatusLine({ enabled: true, state: "idle", label: null, runnerId: "runner_mac_1" })).toBe("待機中");
     expect(pcRunnerStatusLine({ enabled: true, state: "offline", label: null, runnerId: "runner_mac_1" })).toBe("NIHO に接続できません");
+    expect(pcRunnerStatusLine({ enabled: true, state: "storage_unavailable", label: null, runnerId: "runner_mac_1" })).toBe("保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。");
   });
 });
 

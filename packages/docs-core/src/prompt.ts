@@ -3,7 +3,7 @@ import { glossaryTable, mergeGlossaries } from "./glossary.js";
 import { projectEntitiesMarkdown } from "./entities.js";
 import { inputsFor, languageLabel, speakerLabel, usedRefs, type InputRef, type PromptRef } from "./inputs.js";
 import { UNTITLED_DOC } from "./pages.js";
-import { FIXED_RULES } from "./rules.js";
+import { FIXED_RULES, LEGACY_INFO_ALIAS_RULE, needsLegacyInfoAlias } from "./rules.js";
 import { countChars } from "./text.js";
 import { sourceForPrompt } from "./transcript-speakers.js";
 import type { Flow, RecordingInfo } from "./types.js";
@@ -63,6 +63,7 @@ export function buildSystemPrompt(flow: Flow, stepIndex: number, about?: About, 
   const step = flow.steps[stepIndex];
   if (!step) throw new RangeError(`stepIndex out of range: ${stepIndex}`);
   const parts = [FIXED_RULES];
+  if (needsLegacyInfoAlias(flow.guide, step.instruction, candidateInstruction ?? "")) parts.push(LEGACY_INFO_ALIAS_RULE);
   const aboutText = about ? aboutSection(about) : "";
   if (aboutText) parts.push(aboutText);
   if (flow.guide.trim()) parts.push(section("## 文書ガイド", flow.guide));

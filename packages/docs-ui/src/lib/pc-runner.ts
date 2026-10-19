@@ -4,7 +4,7 @@
  * 文言の正は docs/design/design-guide-docs.md §4.1（メニューバーと同じ文）。エラーは画面がコードから文を作る（§7）。
  */
 
-export type PcRunnerState = "off" | "starting" | "idle" | "running" | "needs_login" | "offline";
+export type PcRunnerState = "off" | "starting" | "idle" | "running" | "needs_login" | "offline" | "storage_unavailable";
 
 /** `pc_runner_status` と event `pc-runner://state` の値。`label` は実行中の工程名だけ。 */
 export type PcRunnerStatus = {
@@ -36,6 +36,8 @@ export function pcRunnerStatusLine(status: PcRunnerStatus): string {
       return "NIHO アカウントでのログインが必要です";
     case "offline":
       return "NIHO に接続できません";
+    case "storage_unavailable":
+      return "保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。";
     default:
       return "準備中";
   }

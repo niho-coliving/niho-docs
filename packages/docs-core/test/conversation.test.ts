@@ -56,15 +56,14 @@ function turn(fields: Partial<ChatTurn>): ChatTurn {
 
 describe("修正の会話の固定の決まり", () => {
   it("§5.3 の事実・ガイド・資料の行をそのまま含み、文書のファイルの場所と短い報告を足す", () => {
-    expect(SHARED_FIXED_RULES).toHaveLength(6);
+    expect(SHARED_FIXED_RULES).toHaveLength(5);
     for (const line of SHARED_FIXED_RULES) {
       expect(FIXED_RULES).toContain(line);
       expect(EDIT_FIXED_RULES).toContain(line);
     }
     // 「あなたについて」の扱いの行も修正の会話に入る（節が入る会話で、本人の説明を事実の根拠にしない）
     expect(SHARED_FIXED_RULES.some((line) => line.startsWith("- 「あなたについて」は"))).toBe(true);
-    // 保存済みのフローの文書ガイド・工程の指示に残る旧名称「案件情報」を、修正の会話でも背景情報と読み替える
-    expect(EDIT_FIXED_RULES).toContain("- 指示文や文書ガイドに「案件情報」とあれば、背景情報のこと（以前の名前）。");
+    expect(EDIT_FIXED_RULES).not.toContain("案件情報");
     expect(EDIT_FIXED_RULES).toContain("録音の事実の根拠にしない。");
     // どのファイルがどの文書かは「## 文書の一覧」。書けるのは artifacts/ の下だけ（composer #18722）
     expect(EDIT_FIXED_RULES).toContain("「## 文書の一覧」にある。直すときはそのファイルを読んでから書き換える。");
@@ -80,6 +79,13 @@ describe("修正の会話の固定の決まり", () => {
     expect(EDIT_FIXED_RULES).toContain("ファイルのパス・リンクは書かない");
     // 工程の実行の「本文だけを出す」は修正の会話には持ち込まない
     expect(EDIT_FIXED_RULES).not.toContain("本文だけを出す");
+  });
+
+  it("旧名称が保存済みの指示文・文書ガイドにある場合だけ読み替えを添える", () => {
+    const alias = "- 指示文や文書ガイドに「案件情報」とあれば、背景情報のこと（以前の名前）。";
+    expect(buildEditSystemPrompt(flow, "文字起こし")).not.toContain(alias);
+    expect(buildEditSystemPrompt({ ...flow, guide: "案件情報を確認する" }, "文字起こし")).toContain(alias);
+    expect(buildEditSystemPrompt({ ...flow, steps: [{ ...flow.steps[0]!, instruction: "案件情報に従う" }, ...flow.steps.slice(1)] }, "文字起こし")).toContain(alias);
   });
 
   it("システム側は 決まり → 文書ガイド → 文書の一覧（工程 → ファイル）→ 工程の指示文の要約", () => {

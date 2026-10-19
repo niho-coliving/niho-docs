@@ -91,7 +91,7 @@ describe("transcriptMarkdown", () => {
   });
 
   it("本物の niho-speech の出力（done に diarization が無い）も Markdown にする", () => {
-    // apps/docs/sidecar/niho-speech の Tests/NihoSpeechTests/Fixtures/ja-sample.m4a を
+    // 非公開の旧日本語音声サンプルを
     // convert → silence（区切りなし）→ transcribe --start 0.000 --end 13.350 に通した標準出力（macOS 27.0・2026-10-15）
     const real = [
       '{"type":"segment","start":0,"end":7.86,"text":"こんにちは。今日は鎌倉の拠点で新しい取り組みについて話します。"}',

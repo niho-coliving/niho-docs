@@ -76,6 +76,15 @@ describe("buildPrompt", () => {
     expect(buildSystemPrompt(flow, 0)).not.toContain("## 文書ガイド");
   });
 
+  it("旧名称がある指示文・文書ガイドだけに読み替えを添える", () => {
+    const alias = "- 指示文や文書ガイドに「案件情報」とあれば、背景情報のこと（以前の名前）。";
+    const standard = sampleFlow();
+    expect(FIXED_RULES).not.toContain(alias);
+    expect(buildSystemPrompt(standard, 0)).not.toContain(alias);
+    expect(buildSystemPrompt({ ...standard, guide: "案件情報を参照する" }, 0)).toContain(alias);
+    expect(buildSystemPrompt({ ...standard, steps: [{ ...standard.steps[0]!, instruction: "案件情報を参照する" }, ...standard.steps.slice(1)] }, 0)).toContain(alias);
+  });
+
   it("ユーザー側は 文字起こし → 工程の成果物（順） → 案件情報。送る量は字数", () => {
     const built = buildPrompt(sampleFlow(), 2, {
       sourceName: "文字起こし",

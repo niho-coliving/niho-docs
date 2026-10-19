@@ -474,6 +474,7 @@ pub enum RunnerState {
   Running,
   NeedsLogin,
   Offline,
+  StorageUnavailable,
 }
 
 /// `pc_runner_status` と `pc-runner://state` の値。`label` は実行中の工程名だけ。
@@ -496,6 +497,9 @@ pub(crate) fn status_line(status: &PcRunnerStatus) -> String {
     },
     RunnerState::NeedsLogin => "NIHO アカウントでのログインが必要です".into(),
     RunnerState::Offline => "NIHO に接続できません".into(),
+    RunnerState::StorageUnavailable => {
+      "保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。".into()
+    }
     RunnerState::Starting | RunnerState::Off => "準備中".into(),
   }
 }
@@ -948,7 +952,8 @@ impl Inner {
         continue;
       }
       if !self.host.allows_cloud_jobs() {
-        self.set_state(RunnerState::Off, None);
+        self.host.app().pc_gate.set(Phase::Off);
+        self.set_state(RunnerState::StorageUnavailable, None);
         self.sleep_or_wake(Duration::from_secs(30)).await;
         continue;
       }
@@ -958,7 +963,10 @@ impl Inner {
         self.sleep_or_wake(self.timing.login_recheck).await;
         continue;
       };
-      if matches!(self.state(), RunnerState::Off | RunnerState::NeedsLogin) {
+      if matches!(
+        self.state(),
+        RunnerState::Off | RunnerState::NeedsLogin | RunnerState::StorageUnavailable
+      ) {
         self.set_state(RunnerState::Starting, None);
       }
       let end = self.session_loop(session.as_ref()).await;

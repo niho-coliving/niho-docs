@@ -3,7 +3,7 @@
 # 本物（S1-C #18403 の Swift sidecar）が入るまで、開発ビルドの NIHO docs がこれで文字起こしを通す。
 # 音声は読まない。convert は 95 秒の音声として振る舞い、transcribe は --start / --end の範囲の固定の区切りを返す。
 # slice は区切りの WAV の代わりに範囲を書いたファイルを置く（Gemini＝Antigravity CLI の文字起こし用）。
-# record は 0.2 秒ごとに音量の行を出し、SIGTERM で固定のサンプル（sidecar の Tests の ja-sample.m4a・13.35 秒）を --output に写す。
+# record は 0.2 秒ごとに音量の行を出し、SIGTERM で合成音のテスト素材（13.35 秒）を --output に写す。
 # マイクの状態は印のファイルで変える: sidecar/fake/.mic-denied（許可が無い）・sidecar/fake/.mic-none（入力の装置が無い）。
 set -eu
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -112,7 +112,7 @@ case "$cmd" in
       awk -v n="$n" 'BEGIN { printf "{\"type\":\"level\",\"db\":%.1f,\"durationSec\":%.2f}\n", -24 - (n % 7) * 4, n * 0.2 }'
       sleep 0.2 || true
     done
-    cp "$here/../niho-speech/Tests/NihoSpeechTests/Fixtures/ja-sample.m4a" "$output"
+    cp "$here/../../fixtures/audio/synthetic-tone.m4a" "$output"
     rm -f "$caf"
     printf '{"type":"done","file":"%s","durationSec":13.35,"bytes":%d}\n' "$output" "$(wc -c < "$output" | tr -d ' ')"
     ;;

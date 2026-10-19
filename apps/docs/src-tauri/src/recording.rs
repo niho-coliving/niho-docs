@@ -752,7 +752,7 @@ while :; do sleep 0.1; done"#,
     fs::write(recordings.join("rec-a.recording.caf"), caf(2.0)).unwrap();
     // 書き出した後に CAF を消す前で落ちた（m4a を使う）
     fs::copy(
-      Path::new(env!("CARGO_MANIFEST_DIR")).join("../sidecar/niho-speech/Tests/NihoSpeechTests/Fixtures/ja-sample.m4a"),
+      Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/audio/synthetic-tone.m4a"),
       recordings.join("rec-b.m4a"),
     )
     .unwrap();
