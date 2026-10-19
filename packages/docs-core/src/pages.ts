@@ -20,8 +20,8 @@ import type {
 /**
  * 案件のページ（#18564 P1・#18566 P3）: 案件＝ページの入れ物。ページは 文書（doc）と 録音（rec）の 2 種類。
  * 今の案件（pages の無い project.json）は、案件フォルダ直下を予約 id `root` の録音のページ 1 枚として読む
- * （ファイルは動かさない。root の録音の値は project.json の flowSnapshot・source・info.speakers・info.language・refs）。
- * 話者人数・言語・参考は録音ごと（P3）。P1 で作った録音（recording.json にそれらが無い）は読むときに読み替える。
+ * （ファイルは動かさない。root の録音の値は project.json の flowSnapshot・source・info.speakers・info.language・legacy refs）。
+ * 話者人数・言語は録音ごと（P3）。P1 で作った録音（recording.json にそれらが無い）は読むときに読み替える。
  */
 
 /** 今の案件の録音（案件フォルダ直下）の予約 id。Rust の new_id は `o` を使わないので、新しいページの id とは重ならない。 */
@@ -31,6 +31,8 @@ export const ROOT_RECORDING_ID = "root";
 export const UNTITLED_DOC = "無題";
 export const UNTITLED_FOLDER = "無題のフォルダ";
 export const EMPTY_PROJECT_INFO = { terms: [], background: "" } as const;
+/** 1 回の工程へ自動で入れる同一フォルダ文書の上限。API の固定入力契約と同じ。 */
+export const RECORDING_AUTO_REFERENCE_MAX = 64;
 
 export function folderName(project: Pick<Project, "name">): string {
   return project.name.trim() || UNTITLED_FOLDER;
@@ -57,6 +59,14 @@ export function projectPages(project: Project): PageEntry[] {
     });
   }
   return project.flowSnapshot ? [{ id: ROOT_RECORDING_ID, kind: "rec", recordingId: ROOT_RECORDING_ID, title: "", createdAt: project.createdAt }] : [];
+}
+
+/**
+ * 録音の各工程へ自動で渡す独立文書。フォルダの台帳順を保ち、録音と録音由来の出力を除く。
+ * ホームを対象外にする判断は、保存場所を知る呼び出し側が行う。
+ */
+export function recordingAutoReferencePages(project: Project): PageEntry[] {
+  return projectPages(project).filter((page) => page.kind === "doc" && !page.derivation);
 }
 
 /**
