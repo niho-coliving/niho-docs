@@ -28,6 +28,8 @@ NIHO が著作権を持つコードに、第三者による利用・改変・再
 
 Mac のクライアント実装は公開側で検証します。既存の CLOUD 書き出し形式も読み取れます。`この Mac だけ` の書き出し入口は既定で非表示です。非公開 API の `/me/docs-drive/folder-exports/plan-local` とアップロード受付を配備・受入したビルドだけ、`VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT=true` を指定して有効にします。選んだファイルは一時的に NIHO API の管理する保存先へ送ります。
 
+CLOUD から `この Mac だけ` への切り替え入口も、非公開 API の事前確認・全件受信・確定を配備・受入したビルドに限り `VITE_NIHO_DOCS_CLOUD_CLOSING=true` で有効にします。すでに移行中のアカウントを再開する操作は、入口の設定に関係なく表示します。
+
 ```sh
 npm -C packages/docs-core ci
 npm -C packages/docs-core run check

@@ -2343,6 +2343,7 @@ dependencies = [
  "niho-desktop-account",
  "niho-desktop-vault",
  "niho-local-ai",
+ "objc2-foundation",
  "quick-xml",
  "reqwest",
  "rfd",

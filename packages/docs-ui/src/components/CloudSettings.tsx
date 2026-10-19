@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { folderName } from "@niho/docs-core";
 import { isCommandError, type Bridge, type CommandError } from "../lib/bridge";
 import { formatBytes, type CloudController } from "../lib/cloud";
-import type { CloudMigration, CloudState, DeletedProject, ReopeningPreview, VaultUsage } from "../lib/cloud-types";
+import type { ClosingPreview, ClosingProgress, PreparedClosing, CloudMigration, CloudState, DeletedProject, ReopeningPreview, VaultUsage } from "../lib/cloud-types";
 import { formatDateTime } from "../lib/format";
 import { ConfirmDialog } from "./ConfirmDialog";
 import "../styles/cloud.css";
@@ -60,6 +60,10 @@ export function CloudSettings(props: {
   const [confirmRebind, setConfirmRebind] = useState(false);
   const [reopeningPreview, setReopeningPreview] = useState<ReopeningPreview | null>(null);
   const [reopeningBusy, setReopeningBusy] = useState(false);
+  const [closingPreview, setClosingPreview] = useState<ClosingPreview | null>(null);
+  const [preparedClosing, setPreparedClosing] = useState<PreparedClosing | null>(null);
+  const [closingBusy, setClosingBusy] = useState(false);
+  const [closingProgress, setClosingProgress] = useState<ClosingProgress | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<CommandError | null>(null);
@@ -74,6 +78,15 @@ export function CloudSettings(props: {
   useEffect(() => {
     if (!editingName.current) setName(state?.deviceName ?? "");
   }, [state?.deviceName]);
+
+  useEffect(() => {
+    let closed = false;
+    let unlisten: (() => void) | undefined;
+    void bridge.onCloudClosingProgress((progress) => { if (!closed) setClosingProgress(progress); }).then((stop) => {
+      if (closed) stop(); else unlisten = stop;
+    });
+    return () => { closed = true; unlisten?.(); };
+  }, [bridge]);
 
   // 使用量（移行が進むたびに読み直す）
   useEffect(() => {
@@ -203,6 +216,53 @@ export function CloudSettings(props: {
     }
   };
 
+  const previewClosing = async () => {
+    setPreviewBusy(true);
+    setError(null);
+    try {
+      setClosingPreview(await bridge.cloudStorageClosingPreview());
+    } catch (failure) {
+      setError(asError(failure, "クラウドの内容を確認できませんでした。"));
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  const prepareClosing = async () => {
+    setClosingBusy(true);
+    setClosingProgress(null);
+    setError(null);
+    setClosingPreview(null);
+    try {
+      setPreparedClosing(await bridge.cloudStorageClosingPrepare());
+    } catch (failure) {
+      setError(asError(failure, "受信を完了できませんでした。途中から再開できます。"));
+    } finally {
+      setClosingBusy(false);
+    }
+  };
+
+  const cancelClosing = async () => {
+    try { await bridge.cloudStorageClosingCancel(); }
+    catch (failure) { setError(asError(failure, "受信を中断できませんでした。")); }
+  };
+
+  const confirmClosing = async () => {
+    if (!preparedClosing) return;
+    setClosingBusy(true);
+    setError(null);
+    try {
+      cloud.putState(await bridge.cloudStorageClosingConfirm(preparedClosing));
+      setPreparedClosing(null);
+      props.onProjectsChanged();
+      props.onNotice("この Mac だけに保存するようになりました");
+    } catch (failure) {
+      setError(asError(failure, "切り替えを確かめられませんでした。受信済みデータは残っています。"));
+    } finally {
+      setClosingBusy(false);
+    }
+  };
+
   const line = state && niho ? syncLine(state) : null;
   const migration = niho ? (state?.migration ?? null) : null;
   const total = usage ? usage.usedBytes + usage.reservedBytes : 0;
@@ -215,9 +275,11 @@ export function CloudSettings(props: {
       <div className="prow">
         <b>保存先</b>
         <span className="stc">
-          <span className="st">{niho ? "NIHO クラウド" : state?.storage?.mode === "LOCAL" ? "この Mac だけ" : "この Mac だけ（開発版）"}</span>
+          <span className="st">{state?.storage?.mode === "CLOSING" ? "NIHO クラウドから移行中" : niho ? "NIHO クラウド" : state?.storage?.mode === "LOCAL" ? "この Mac だけ" : "この Mac だけ（開発版）"}</span>
           <span className="help">
-            {niho
+            {state?.storage?.mode === "CLOSING"
+              ? "この Mac へ受信するまで同期を止めています。受信を再開できます。"
+              : niho
               ? "ページとフォルダはこの Mac と NIHO クラウドの両方に保存され、別の Mac やスマホからも開けます。録音の音声もクラウドに保存されます（クラウドでは 30 日で消え、この Mac には残ります）。"
               : state?.storage?.mode === "LOCAL"
                 ? "ページと音声はこの Mac に保存します。Web やほかの Mac とは同期しません。"
@@ -234,6 +296,18 @@ export function CloudSettings(props: {
             <button type="button" className="btn outline sm" disabled={previewBusy || reopeningBusy || props.running}
               onClick={() => void previewReopening()}>
               {previewBusy ? "内容を確認中…" : "変更"}
+            </button>
+          )}
+          {state?.storage?.mode === "CLOUD" && state.requiresAccount && bridge.capabilities?.cloudClosing === true && (
+            <button type="button" className="btn outline sm" disabled={previewBusy || closingBusy || props.running}
+              onClick={() => void previewClosing()}>
+              {previewBusy ? "内容を確認中…" : "変更"}
+            </button>
+          )}
+          {state?.storage?.mode === "CLOSING" && state.requiresAccount && (
+            <button type="button" className="btn outline sm" disabled={closingBusy || props.running}
+              onClick={() => void prepareClosing()}>
+              {closingBusy ? "受信・照合中…" : "受信を再開"}
             </button>
           )}
         </span>
@@ -260,6 +334,16 @@ export function CloudSettings(props: {
               </button>
             )}
           </span>
+        </div>
+      )}
+
+      {closingBusy && !preparedClosing && (
+        <div className="prow" role="status">
+          <b>クラウドを受信中</b>
+          <span className="stc">{closingProgress && closingProgress.total > 0
+            ? `${closingProgress.done} / ${closingProgress.total} 個を照合しました`
+            : "実行中の処理が終わるのを待つか、受信の準備をしています"}</span>
+          <span className="acts"><button type="button" className="btn outline sm" onClick={() => void cancelClosing()}>中断する</button></span>
         </div>
       )}
 
@@ -419,6 +503,46 @@ export function CloudSettings(props: {
             {reopeningPreview.projectCount} フォルダ・{reopeningPreview.fileCount} ファイル（{formatBytes(reopeningPreview.bytesTotal)}）を確認しました。
             無料枠は {formatBytes(reopeningPreview.quotaBytes)} です。音声 {reopeningPreview.audioCount} 件は、クラウドでは 30 日で消え、この Mac には残ります。
           </p>
+        </ConfirmDialog>
+      )}
+
+      {closingPreview && (
+        <ConfirmDialog
+          title="クラウドからこの Mac に移す"
+          confirmLabel="受信を始める"
+          confirmDisabled={closingPreview.availableFreeBytes < closingPreview.requiredFreeBytes}
+          onConfirm={() => void prepareClosing()}
+          onCancel={() => setClosingPreview(null)}
+        >
+          <p className="msg">まずクラウドの全データをこの Mac に受信して照合します。受信が完了するまでクラウドは削除しません。</p>
+          <p className="msg">フォルダ {closingPreview.preflight.folders} 件・ページ {closingPreview.preflight.pages} 件・音声 {closingPreview.preflight.unexpiredAudio} 件を受信します。削除済みフォルダ {closingPreview.preflight.deletedFolders} 件は、確定後に Mac のゴミ箱へ移します。</p>
+          <p className="msg">受信量 {formatBytes(Number(closingPreview.preflight.transferBytes))}。必要な空き容量 {formatBytes(closingPreview.requiredFreeBytes)}、現在 {formatBytes(closingPreview.availableFreeBytes)}。</p>
+          {closingPreview.availableFreeBytes < closingPreview.requiredFreeBytes && <p className="err">この Mac の空き容量が足りません。</p>}
+          <p className="msg">期限切れ音声 {closingPreview.preflight.expiredAudio} 件はクラウドから取得できません。ほかの Mac {closingPreview.preflight.otherMacs.length} 台の未送信分は各 Mac に残ります。</p>
+          {closingPreview.preflight.otherMacs.length > 0 && (
+            <ul className="msg closing-other-macs">
+              {closingPreview.preflight.otherMacs.map((mac, index) => (
+                <li key={`${mac.name}-${index}`}>{mac.name}（最終接続: {new Date(mac.lastUsedAt).toLocaleString("ja-JP")}）</li>
+              ))}
+            </ul>
+          )}
+          {closingPreview.preflight.active.runs + closingPreview.preflight.active.composerTurns + closingPreview.preflight.active.folderExports > 0 &&
+            <p className="msg">実行中の処理が終わるまで受信を待ちます。</p>}
+        </ConfirmDialog>
+      )}
+
+      {preparedClosing && (
+        <ConfirmDialog
+          title="クラウド保存を止める"
+          confirmLabel={closingBusy ? "確認中…" : "クラウドから削除"}
+          danger
+          busy={closingBusy}
+          onConfirm={() => void confirmClosing()}
+          onCancel={() => setPreparedClosing(null)}
+        >
+          <p className="msg">このアカウントのクラウド保存を止めます。ほかの Mac の内容は各 Mac に残り、以後同期されません。スマホや Web では開けなくなります。</p>
+          <p className="msg">クラウドの {preparedClosing.fileCount} ファイルをこの Mac に受信し、全件照合しました。削除したフォルダ {preparedClosing.deletedFolderCount} 件は確定後に Mac のゴミ箱へ移します。期限切れ音声 {preparedClosing.expiredAudioCount} 件は取得できません。</p>
+          <p className="msg">クラウドから削除した後も、復旧用バックアップから復元される可能性があります。</p>
         </ConfirmDialog>
       )}
     </>

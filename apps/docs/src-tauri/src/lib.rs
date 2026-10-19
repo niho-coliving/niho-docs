@@ -24,6 +24,7 @@ mod api_ai;
 mod cloud;
 mod contract;
 mod conversation;
+mod docs_closing;
 mod docs_reopening;
 mod docs_storage_api;
 mod google_docs;
@@ -2820,6 +2821,10 @@ pub fn run() {
       cloud::cloud_storage_select,
       cloud::cloud_storage_reopening_preview,
       cloud::cloud_storage_reopen,
+      cloud::cloud_storage_closing_preview,
+      cloud::cloud_storage_closing_prepare,
+      cloud::cloud_storage_closing_confirm,
+      cloud::cloud_storage_closing_cancel,
       cloud::open_page_document,
       cloud::open_artifact_document,
       cloud::save_opened_document,

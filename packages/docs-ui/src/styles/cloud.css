@@ -267,6 +267,11 @@
   margin-top: auto;
 }
 
+/* preflight の端末名は利用者が自由に付けられるため、狭い確認画面でも折り返す。 */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg .closing-other-macs li {
+  overflow-wrap: anywhere;
+}
+
 /* 録音のページの音声の添え書き（取得中・期限切れ） */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .afile.noted {
   height: auto;

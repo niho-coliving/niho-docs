@@ -52,6 +52,9 @@ import type {
   CloudRemoteEvent,
   CloudRemoteProjectsReply,
   CloudState,
+  ClosingPreview,
+  ClosingProgress,
+  PreparedClosing,
   ConflictEntry,
   ConflictSide,
   DeletedProject,
@@ -464,6 +467,8 @@ export type DocsCapabilities = {
   cloudSync?: boolean;
   /** LOCAL フォルダ書き出しの NIHO API が利用可能な場合だけ有効にする。 */
   localFolderExport?: boolean;
+  /** NIHO API の CLOUD から LOCAL への安全な切り替え受付が利用可能な場合だけ有効にする。 */
+  cloudClosing?: boolean;
 };
 
 export const MAC_DOCS_CAPABILITIES: Readonly<DocsCapabilities> = Object.freeze({
@@ -704,6 +709,10 @@ export interface Bridge {
   cloudStorageSelect(mode: "CLOUD" | "LOCAL"): Promise<CloudState>;
   cloudStorageReopeningPreview(): Promise<ReopeningPreview>;
   cloudStorageReopen(): Promise<CloudState>;
+  cloudStorageClosingPreview(): Promise<ClosingPreview>;
+  cloudStorageClosingPrepare(): Promise<PreparedClosing>;
+  cloudStorageClosingConfirm(prepared: PreparedClosing): Promise<CloudState>;
+  cloudStorageClosingCancel(): Promise<void>;
   /** 保存先を「この Mac だけ」/「NIHO クラウド」にする（rebind は別のアカウントの保存先をこのアカウントに結び直す）。 */
   cloudSetProvider(provider: VaultProviderKind, rebind?: boolean): Promise<CloudState>;
   /** この Mac の名前（空に戻すと Mac の名前）。 */
@@ -750,6 +759,7 @@ export interface Bridge {
   onCloudProject(handler: (event: CloudProjectEvent) => void): Promise<() => void>;
   onCloudApplied(handler: (event: CloudAppliedEvent) => void): Promise<() => void>;
   onCloudRemote(handler: (event: CloudRemoteEvent) => void): Promise<() => void>;
+  onCloudClosingProgress(handler: (progress: ClosingProgress) => void): Promise<() => void>;
 
   // ---- この Mac で続きを受ける（#18804 S2。src-tauri/src/pc_runner.rs）----
   pcRunnerStatus(): Promise<PcRunnerStatus>;
@@ -901,6 +911,10 @@ export const NATIVE_DOCS_OPERATIONS = [
   "cloudStorageSelect",
   "cloudStorageReopeningPreview",
   "cloudStorageReopen",
+  "cloudStorageClosingPreview",
+  "cloudStorageClosingPrepare",
+  "cloudStorageClosingConfirm",
+  "cloudStorageClosingCancel",
   "cloudSetProvider",
   "cloudSetDeviceName",
   "cloudMigrationStart",
@@ -928,6 +942,7 @@ export const NATIVE_DOCS_OPERATIONS = [
   "onCloudProject",
   "onCloudApplied",
   "onCloudRemote",
+  "onCloudClosingProgress",
 ] as const satisfies readonly (keyof Bridge)[];
 export type NativeDocsOperation = (typeof NATIVE_DOCS_OPERATIONS)[number];
 export type DocsHost = Omit<Bridge, NativeDocsOperation> & Partial<Pick<Bridge, NativeDocsOperation>>;

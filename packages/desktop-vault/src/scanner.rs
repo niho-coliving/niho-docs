@@ -519,7 +519,7 @@ fn file_identity(metadata: &fs::Metadata) -> FileIdentity {
 
 impl OpenedFileSource {
     /// symlink を辿らず一度だけ開き、その時点の bytes・sha256・identity を固定する。
-    pub(crate) fn capture(root: &Path, relative: &str) -> Result<Option<Self>> {
+    pub fn capture(root: &Path, relative: &str) -> Result<Option<Self>> {
         let path = root.join(relative);
         let Some(mut file) = open_file_no_follow(root, relative)? else {
             return Ok(None);
@@ -631,7 +631,8 @@ impl OpenedFileSource {
         Ok(())
     }
 
-    pub(crate) fn write_atomic(&mut self, root: &Path, relative: &str) -> Result<()> {
+    /// 検証済み FD から安全な相対 path へ fsync/rename する。closing の隔離 staging にも使う。
+    pub fn write_atomic(&mut self, root: &Path, relative: &str) -> Result<()> {
         let mut output = AtomicFileWriter::new(root, relative)?;
         self.copy_verified(output.file_mut())?;
         let temporary = output.into_temporary()?;
