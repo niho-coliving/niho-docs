@@ -128,6 +128,7 @@ export function viewRecording(project: Project, entry: Pick<PageEntry, "id" | "r
 
 /** 参考の文書の本文（読めない文書は空として読む。空の文書は工程の入力に入らない）。 */
 export async function readRefBodies(bridge: Bridge, projectId: ProjectId, refs: readonly string[]): Promise<Record<string, string>> {
+  if (refs.length > RECORDING_AUTO_REFERENCE_MAX) throw new RangeError("参考文書の件数が上限を超えています。");
   const bodies = await Promise.all(refs.map((pageId) => bridge.readPage(projectId, pageId).catch(() => "")));
   return Object.fromEntries(refs.map((pageId, index) => [pageId, bodies[index] ?? ""]));
 }
@@ -177,8 +178,10 @@ export function buildRecordingView(
       ? transcript
       : artifacts[sourceCandidate.artifactId] ?? "";
   const transcriptSpeakerNames = sourceProblem ? undefined : latestVersionRecord(loaded.runs, SOURCE_STEP_ID, sourceCandidate)?.transcriptSpeakerNames;
-  const refs = frozenRefs ? [...frozenRefs] : promptRefs(projectId === null ? [] : recordingAutoReferencePages(project), refBodies);
-  const executionBlockReason = refs.length > RECORDING_AUTO_REFERENCE_MAX
+  const autoPages = projectId === null ? [] : recordingAutoReferencePages(project);
+  const tooManyPages = !frozenRefs && autoPages.length > RECORDING_AUTO_REFERENCE_MAX;
+  const refs = frozenRefs ? [...frozenRefs] : tooManyPages ? [] : promptRefs(autoPages, refBodies);
+  const executionBlockReason = tooManyPages || refs.length > RECORDING_AUTO_REFERENCE_MAX
     ? `同じフォルダの文書が${RECORDING_AUTO_REFERENCE_MAX}件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。`
     : null;
   const info = recordingInfo(project, recording);
@@ -217,7 +220,8 @@ export async function loadRecordingView(
   const loaded = await bridge.loadRecording(rec);
   viewRecording(project, entry, loaded.recording);
   const autoPageIds = projectId === null ? [] : recordingAutoReferencePages(project).map((page) => page.id);
-  const bodies = frozenRefs ? {} : await readRefBodies(bridge, projectId, autoPageIds);
+  const bodies = frozenRefs || autoPageIds.length > RECORDING_AUTO_REFERENCE_MAX
+    ? {} : await readRefBodies(bridge, projectId, autoPageIds);
   return buildRecordingView(project, entry, loaded, bodies, projectId, frozenRefs);
 }
 

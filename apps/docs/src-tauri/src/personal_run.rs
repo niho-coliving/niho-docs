@@ -15,7 +15,7 @@
 //! 秘密・指示文・本文はログに出さない（このモジュールは何も書き出さない）。
 
 use crate::cloud::{lease_held_error, CapturedOperation, Cloud, OperationIdentity, OwnedLease};
-use crate::store::{self, CandidateWrite, PersonalPublish, PublishOutcome, StoreError};
+use crate::store::{self, CandidateWrite, PersonalPublish, PublishOutcome, StoreError, MAX_REFERENCE_PAGES};
 use crate::{AppState, CommandError, CommandResult, OUTSIDE_LOCK_KEY};
 use niho_desktop_vault::{atomic_write, is_version_id, validate_relative_path, DOCS_ROOT_PROJECT_ID};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,7 +45,6 @@ const MAX_CANDIDATE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_PRIVATE_BYTES: usize = 8 * 1024 * 1024;
 const MAX_AGGREGATE_BYTES: usize = 1024 * 1024;
 const MAX_RECORD_BYTES: usize = 256 * 1024;
-const MAX_REFERENCE_PAGES: usize = 64;
 /// JS の Number で正確に表せる整数の上限（canonical の数値表記を JS と合わせるため、超える整数は断る）。
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 const ID_ALPHABET: &[u8] = b"abcdefghijkmnpqrstuvwxyz23456789";

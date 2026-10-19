@@ -870,10 +870,13 @@ fn prepare(op: &PersonalOperation, head: &Map<String, Value>) -> CommandResult<C
   let synced = |path: &str| synced_file(&vault, &target.working_copy, path);
   // 参考文書の本文は API 側がフォルダ台帳から導出する。送信前に同じ台帳の文書がすべて同期済みか確認し、
   // 手元に届いていない変更やまだ送っていない変更を API が古い本文で処理しないようにする。
-  for reference in store
-    .personal_references(project_id, &rec)
-    .map_err(|_| input_changed())?
-  {
+  for reference in store.personal_references(project_id, &rec).map_err(|error| {
+    if error.code == "personal_references_too_many" {
+      error.into()
+    } else {
+      input_changed()
+    }
+  })? {
     synced(&reference.path)?;
   }
   let prefix = rec.prefix.as_str();

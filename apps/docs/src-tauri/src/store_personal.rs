@@ -14,7 +14,7 @@ use super::versions::{
 };
 use super::{
   new_id, read_json, read_jsonl, validate_id, validate_input_file, validate_run_id, Result, Store, StoreError,
-  WRITE_LOCK,
+  MAX_REFERENCE_PAGES, WRITE_LOCK,
 };
 use super::{ROOT_RECORDING_ID, SOURCE_STEP_ID};
 use serde_json::{json, Value};
@@ -427,6 +427,12 @@ impl Store {
       let Some(page_id) = Self::page_id(&page).map(str::to_string) else {
         continue;
       };
+      if found.len() >= MAX_REFERENCE_PAGES {
+        return Err(StoreError::new(
+          "personal_references_too_many",
+          "同じフォルダの文書が64件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。",
+        ));
+      }
       let file = self.doc_file_at(project_id, &page_id)?;
       let body = match read_plain_file(&file) {
         Some(bytes) => {

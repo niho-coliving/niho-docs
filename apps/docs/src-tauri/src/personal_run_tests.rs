@@ -1683,7 +1683,11 @@ fn transcription_only_does_not_read_or_limit_automatic_reference_pages() {
       new_page_ids.push(json!(page_id));
       fs::write(
         h.root.join(format!("projects/proj1/pages/{page_id}.md")),
-        format!("本文 {index}"),
+        if index % 2 == 0 {
+          format!("本文 {index}")
+        } else {
+          String::new()
+        },
       )
       .unwrap();
     }
