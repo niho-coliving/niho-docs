@@ -43,6 +43,7 @@ export type NihoRunConfirmation = {
   modelLabel: string;
   /** 同意の後に、録音に固定した AI を NIHO の AI へ持ち替える。 */
   swap: boolean;
+  deviceDelivery: boolean;
   sourceVersionLabel: string;
   accept: () => void;
   cancel: () => void;

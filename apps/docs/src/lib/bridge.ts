@@ -33,6 +33,7 @@ export const tauriBridge: Bridge = {
     // 公開クライアントの実装を先に検証する。非公開 API の受付・配備が終わるまで LOCAL の入口を出さない。
     localFolderExport: import.meta.env.VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT === "true",
     cloudClosing: import.meta.env.VITE_NIHO_DOCS_CLOUD_CLOSING === "true",
+    personalDeviceDelivery: import.meta.env.VITE_NIHO_DOCS_DEVICE_DELIVERY === "true",
   }),
   audioSourceUrl: (path) => convertFileSrc(path),
   explicitMediaLoad: true,
@@ -249,4 +250,8 @@ export const tauriBridge: Bridge = {
   personalNihoSubmit: (handle, intentId, snapshotSha256) => invoke("personal_niho_submit", { handle, intentId, snapshotSha256 }),
   personalNihoConfirm: (intentId, action) => invoke("personal_niho_confirm", { intentId, action }),
   personalNihoPending: () => invoke("personal_niho_pending"),
+  personalDeviceGenerate: (handle, snapshotSha256, stepId, versionId) =>
+    invoke("personal_device_generate", { handle, snapshotSha256, stepId, versionId }),
+  personalDeviceAck: (handle, stepId, versionId) => invoke("personal_device_ack", { handle, stepId, versionId }),
+  personalDeviceRecoverAcks: () => invoke("personal_device_recover_acks"),
 };

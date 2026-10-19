@@ -30,6 +30,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::State;
 
+pub(crate) mod device;
+
 /// Gemini の文字起こしのモデルと思考量（apps/docs/src/lib/runner.ts の GEMINI_TRANSCRIPTION_MODEL・EFFORT と同じ。共有 fixture
 /// `test/fixtures/personal-snapshot-derivation.json` の `transcriptionModels` で両方を確かめる）。
 pub(crate) const GEMINI_TRANSCRIPTION_MODEL: &str = "gemini-3.8-flash";
@@ -199,6 +201,7 @@ enum RouteKind {
 enum Executor {
   ThisPc,
   NihoApi,
+  DeviceNihoApi,
 }
 
 /// 文字起こしのエンジン（方式を含む）。Gemini はサブスクリプション（Antigravity CLI）と API キー（Gemini API）を分ける
@@ -231,6 +234,9 @@ impl Route {
       (RouteKind::LocalTranscriptionOnly, _) => json!({ "kind": "local_transcription_only" }),
       (RouteKind::GenerationOnly, Some(Executor::NihoApi)) => {
         json!({ "kind": "generation_only", "executor": "niho_api" })
+      }
+      (RouteKind::GenerationOnly, Some(Executor::DeviceNihoApi)) => {
+        json!({ "kind": "generation_only", "executor": "device_niho_api" })
       }
       (RouteKind::GenerationOnly, _) => json!({ "kind": "generation_only", "executor": "this_pc" }),
     }
@@ -568,6 +574,8 @@ pub(crate) enum SendKind {
   Deepgram,
   /// `personal_niho_submit`（確定した原文から NIHO API への後続だけの受付。personal_niho.rs）
   NihoApi,
+  /// LOCAL の固定入力・結果を本人 Mac と NIHO API の一時置き場の間で運ぶ。
+  DeviceNihoApi,
 }
 
 /// 送信直前の Native guard。operation が開いていて取消されておらず、本人・保存先が捕捉時のまま（`ensure_current`）、経路と
@@ -596,13 +604,19 @@ pub(crate) fn send_guard_now(op: &PersonalOperation, kind: SendKind) -> CommandR
     SendKind::NihoApi => {
       op.cloud_lease && op.route.kind == RouteKind::GenerationOnly && op.route.executor == Some(Executor::NihoApi)
     }
+    SendKind::DeviceNihoApi => {
+      !op.cloud_lease
+        && op.route.kind == RouteKind::GenerationOnly
+        && op.route.executor == Some(Executor::DeviceNihoApi)
+        && op.captured.local_device_api_scope().is_some()
+    }
   };
   if !allowed {
     return Err(guard_failed());
   }
   if matches!(
     kind,
-    SendKind::Turn | SendKind::AudioPart | SendKind::Deepgram | SendKind::NihoApi
+    SendKind::Turn | SendKind::AudioPart | SendKind::Deepgram | SendKind::NihoApi | SendKind::DeviceNihoApi
   ) && !op.st().dispatch_open
   {
     return Err(guard_failed());
@@ -656,6 +670,7 @@ fn parse_route(wire: &RouteWire) -> CommandResult<Route> {
   let executor = match (kind, wire.executor.as_deref()) {
     (RouteKind::GenerationOnly, Some("this_pc")) => Some(Executor::ThisPc),
     (RouteKind::GenerationOnly, Some("niho_api")) => Some(Executor::NihoApi),
+    (RouteKind::GenerationOnly, Some("device_niho_api")) => Some(Executor::DeviceNihoApi),
     (RouteKind::GenerationOnly, _) => return Err(bad_request()),
     (_, None) => None,
     (_, Some(_)) => return Err(bad_request()),
@@ -757,15 +772,22 @@ pub(crate) async fn open(state: &AppState, cloud: &Cloud, request: OpenRequestWi
     release_run_lock(state, captured.store(), project_id.as_deref(), &lock_key);
     Err(error)
   };
-  let cloud_lease = match cloud.acquire_owned_lease(&captured, &lease_project, &lease_id).await {
-    OwnedLease::Acquired => true,
-    OwnedLease::HeldElsewhere(held_by) => return refused(lease_held_error(held_by.as_ref())),
-    OwnedLease::AlreadyHeldHere => return refused(store_busy()),
-    OwnedLease::Unavailable => {
-      if route.kind == RouteKind::LocalTranscriptionOnly && transcription == Some(Transcription::ThisMac) {
-        false
-      } else {
-        return refused(lease_unavailable());
+  let cloud_lease = if route.executor == Some(Executor::DeviceNihoApi) {
+    if captured.local_device_api_scope().is_none() {
+      return refused(guard_failed());
+    }
+    false
+  } else {
+    match cloud.acquire_owned_lease(&captured, &lease_project, &lease_id).await {
+      OwnedLease::Acquired => true,
+      OwnedLease::HeldElsewhere(held_by) => return refused(lease_held_error(held_by.as_ref())),
+      OwnedLease::AlreadyHeldHere => return refused(store_busy()),
+      OwnedLease::Unavailable => {
+        if route.kind == RouteKind::LocalTranscriptionOnly && transcription == Some(Transcription::ThisMac) {
+          false
+        } else {
+          return refused(lease_unavailable());
+        }
       }
     }
   };

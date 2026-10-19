@@ -2300,7 +2300,7 @@ export class FakeBridge implements Bridge {
     const key = personalTranscriptionKey(request);
     const routeOk = local
       ? key !== undefined && key !== null
-      : route.kind === "generation_only" && ["this_pc", "niho_api"].includes(route.executor) && key === null;
+      : route.kind === "generation_only" && ["this_pc", "niho_api", "device_niho_api"].includes(route.executor) && key === null;
     if (!routeOk) throw { code: "personal_bad_request", message: "実行の依頼の形が正しくありません。" };
     if (!this.personalOwner) throw { code: "personal_not_signed_in", message: "NIHO アカウントでログインしてから実行してください。" };
     const owner = this.personalOwner;
@@ -2313,11 +2313,12 @@ export class FakeBridge implements Bridge {
     // 実行のロック（acquireRunLock と同じ鍵）→ lease（フォルダ外も予約の docs-root の lease を取る）
     if (this.locks.has(request.projectId)) throw { code: "store_busy", message: "実行中の録音があります。終わってから、もう一度実行してください。" };
     this.locks.add(request.projectId);
-    if (this.leaseHeldBy !== null) {
+    if (this.leaseHeldBy !== null && !(route.kind === "generation_only" && route.executor === "device_niho_api")) {
       this.locks.delete(request.projectId);
       throw { code: "lease_held", message: `別の Mac（${this.leaseHeldBy}）で実行中です。終わってから実行してください。` };
     }
-    if (this.personalLeaseUnavailable) {
+    if (route.kind === "generation_only" && route.executor === "device_niho_api") draft.cloudLease = false;
+    else if (this.personalLeaseUnavailable) {
       if (!(route.kind === "local_transcription_only" && request.transcriptionProvider === "this-mac")) {
         this.locks.delete(request.projectId);
         throw { code: "personal_lease_unavailable", message: "NIHO に接続できないため、外部の AI を使う工程は始められません。端末内の文字起こしだけ始められます。" };
@@ -2771,7 +2772,9 @@ export class FakeBridge implements Bridge {
   async personalNihoAccess(handle: string, plannedCalls: number): Promise<PersonalNihoAccess> {
     this.personalCalls.push({ name: "personalNihoAccess", args: [handle, plannedCalls] });
     if (!Number.isInteger(plannedCalls) || plannedCalls < 1 || plannedCalls > 32) throw PERSONAL_BAD_REQUEST;
-    const op = this.personalNihoOp(handle);
+    const op = this.personalOp(handle);
+    if (!(op.request.route.kind === "generation_only" &&
+      (op.request.route.executor === "niho_api" || op.request.route.executor === "device_niho_api"))) throw NIHO_ROUTE;
     if (op.cancelled || op.closed || !this.personalCurrentOk(op)) throw PERSONAL_GUARD_FAILED;
     const access = this.personalNihoAccessResult;
     if ("code" in access) throw access;
@@ -3055,6 +3058,27 @@ export class FakeBridge implements Bridge {
       }));
     if (items.length > this.personalNihoPendingCap) truncated = true;
     return { items: items.slice(0, this.personalNihoPendingCap), truncated };
+  }
+
+  personalDeviceText = "NIHO API が作成した文書";
+  personalDeviceAcked: string[] = [];
+
+  async personalDeviceGenerate(handle: string, snapshotSha256: string, stepId: string, versionId: string): Promise<{ text: string; runId: string }> {
+    this.personalCalls.push({ name: "personalDeviceGenerate", args: [handle, snapshotSha256, stepId, versionId] });
+    const op = this.personalOp(handle);
+    if (op.request.route.kind !== "generation_only" || op.request.route.executor !== "device_niho_api" ||
+      !op.dispatchOpen || op.head?.snapshotSha256 !== snapshotSha256 || !op.head.selectedStepIds.includes(stepId)) throw PERSONAL_GUARD_FAILED;
+    return { text: this.personalDeviceText, runId: `device_${stepId}` };
+  }
+
+  async personalDeviceAck(handle: string, stepId: string, versionId: string): Promise<void> {
+    this.personalCalls.push({ name: "personalDeviceAck", args: [handle, stepId, versionId] });
+    const op = this.personalOp(handle);
+    if (!op.receipts.some((receipt) => receipt.stepId === stepId && receipt.version.versionId === versionId)) throw PERSONAL_GUARD_FAILED;
+    this.personalDeviceAcked.push(versionId);
+  }
+  async personalDeviceRecoverAcks(): Promise<{ acknowledged: number; pending: number }> {
+    return { acknowledged: 0, pending: 0 };
   }
 
   /** personal の command の呼び出し（順に）。 */

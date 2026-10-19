@@ -180,6 +180,65 @@ function aggregateOf(bridge: FakeBridge, runId = "run_1"): PersonalRunHistory {
 }
 
 describe("本人 Mac 実行の ports（Native 経由・FakeBridge と実 controller）", () => {
+  it("LOCAL の後続を NIHO API から受け取り、版と runs.jsonl の公開後に ACK する", async () => {
+    const bridge = setupBridge();
+    const source = await runNativePersonalExecution(deps(bridge), request({
+      route: { kind: "local_transcription_only" }, stepIds: [],
+    }));
+    expect(source.state).toBe("transcription_complete");
+    const fixed = rec(bridge).recording.flowSnapshot;
+    for (const step of fixed.steps) {
+      fixed.models[step.id] = { ...fixed.models[step.id]!, provider: "gemini", model: "gemini-3.8-flash" };
+    }
+    bridge.personalNihoAccessResult = {
+      available: true, reasonCode: null, provider: "GOOGLE", model: "gemini-3.8-flash",
+      consentVersion: "2026-10-17-v2", maxRunCostMicrousd: "120000", executorReasonCode: null,
+    };
+    const publish = vi.spyOn(bridge, "personalPublish");
+    const ack = vi.spyOn(bridge, "personalDeviceAck");
+    const result = await runNativePersonalExecution(deps(bridge, {
+      confirmNihoExecution: async () => undefined,
+    }), request({
+      runId: "run_device", intentId: "intent_device",
+      route: { kind: "generation_only", executor: "device_niho_api" },
+      transcriptionProvider: null, continuationOfRunId: source.runId,
+      stepIds: ["fix", "insight"], consentVersion: "pending-v1",
+    }));
+    expect(result).toMatchObject({ state: "completed", localSaved: true, cloudAcked: false });
+    expect(rec(bridge).artifacts).toEqual({ fix: bridge.personalDeviceText, insight: bridge.personalDeviceText });
+    expect(bridge.turnRequests).toHaveLength(0);
+    expect(bridge.personalCalls.some((call) => call.name === "personalSwapModels")).toBe(false);
+    expect(ack).toHaveBeenCalledTimes(2);
+    expect(bridge.personalDeviceAcked).toHaveLength(2);
+    expect(publish).toHaveBeenCalledTimes(2);
+    expect(publish.mock.invocationCallOrder[0]).toBeLessThan(ack.mock.invocationCallOrder[0]!);
+  });
+
+  it("LOCAL の ACK 応答が失われても公開済みの版を残し、未確認を画面へ返す", async () => {
+    const bridge = setupBridge();
+    const source = await runNativePersonalExecution(deps(bridge), request({
+      route: { kind: "local_transcription_only" }, stepIds: [],
+    }));
+    const fixed = rec(bridge).recording.flowSnapshot;
+    fixed.models.fix = { ...fixed.models.fix!, provider: "gemini", model: "gemini-3.8-flash" };
+    bridge.personalNihoAccessResult = {
+      available: true, reasonCode: null, provider: "GOOGLE", model: "gemini-3.8-flash",
+      consentVersion: "2026-10-17-v2", maxRunCostMicrousd: "120000", executorReasonCode: null,
+    };
+    const ack = vi.spyOn(bridge, "personalDeviceAck").mockRejectedValue(new Error("ack response lost"));
+    const result = await runNativePersonalExecution(deps(bridge, {
+      confirmNihoExecution: async () => undefined,
+    }), request({
+      runId: "run_device_lost_ack", intentId: "intent_device_lost_ack",
+      route: { kind: "generation_only", executor: "device_niho_api" },
+      transcriptionProvider: null, continuationOfRunId: source.runId,
+      stepIds: ["fix"], consentVersion: "pending-v1",
+    }));
+    expect(result).toMatchObject({ state: "completed", localSaved: true, deliveryAckPending: true });
+    expect(rec(bridge).artifacts.fix).toBe(bridge.personalDeviceText);
+    expect(ack).toHaveBeenCalledTimes(2);
+  });
+
   it("端末内の文字起こし → 修正 → インサイトが全部進み、各工程の prompt に直前の確定本文と固定した素材だけが入る", async () => {
     const bridge = setupBridge();
     const publish = vi.spyOn(bridge, "personalPublish");

@@ -366,6 +366,36 @@ impl Store {
     )
   }
 
+  /// 別案を含む公開済み版の行。版の置き場は artifactId、runs.jsonl の論理工程は stepId。
+  pub(crate) fn personal_published_version_row(
+    &self,
+    rec: &PersonalRecording,
+    step_id: &str,
+    artifact_id: &str,
+    path: &str,
+  ) -> Result<Option<Value>> {
+    validate_id(step_id)?;
+    validate_id(artifact_id)?;
+    let Some(name) = personal_existing_version_name(path, &rec.prefix, artifact_id) else {
+      return Ok(None);
+    };
+    let rows = read_jsonl(&self.under(&rec.base, &["runs.jsonl"])?)?;
+    Ok(
+      rows
+        .into_iter()
+        .filter(|row| {
+          row_step(row) == Some(step_id)
+            && row.get("artifactId").and_then(Value::as_str).unwrap_or(step_id) == artifact_id
+            && row
+              .get("versionPath")
+              .and_then(Value::as_str)
+              .and_then(|row_path| personal_existing_version_name(row_path, &rec.prefix, artifact_id))
+              == Some(name)
+        })
+        .max_by(row_order),
+    )
+  }
+
   /// 版ファイルの中身（path はその録音のその工程の版だけ。移行前の頭の無い path も読む。無い・リンクなら None）。
   pub(crate) fn personal_read_version(
     &self,

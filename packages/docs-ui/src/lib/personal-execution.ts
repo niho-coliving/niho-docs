@@ -3,7 +3,7 @@ import { personalReportedModelMatches } from "./personal-provider-readiness";
 import { DEEPGRAM_MODEL, GEMINI_TRANSCRIPTION_EFFORT, GEMINI_TRANSCRIPTION_MODEL } from "./runner";
 
 export type PersonalContainerRef = { kind: "root" } | { kind: "folder"; projectId: string };
-export type PersonalExecutor = "this_pc" | "niho_api";
+export type PersonalExecutor = "this_pc" | "niho_api" | "device_niho_api";
 export type PersonalTranscriptionModel =
   | { provider: "this-mac"; model: "niho-speech" }
   | { provider: "gemini"; model: string; effort: Effort; connection?: "subscription" | "apiKey" }
@@ -437,7 +437,7 @@ function validateRoute(route: PersonalRoute): void {
   if (!route || !["local_full", "local_transcription_only", "generation_only"].includes(route.kind)) {
     throw new PersonalExecutionError("UNKNOWN_ROUTE", "未対応の実行経路です。");
   }
-  if (route.kind === "generation_only" && !["this_pc", "niho_api"].includes(route.executor)) {
+  if (route.kind === "generation_only" && !["this_pc", "niho_api", "device_niho_api"].includes(route.executor)) {
     throw new PersonalExecutionError("UNKNOWN_EXECUTOR", "未対応の実行先です。");
   }
 }
