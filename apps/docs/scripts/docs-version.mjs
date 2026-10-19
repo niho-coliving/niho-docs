@@ -339,6 +339,7 @@ export function shippedChanged(repoRoot, from, to) {
     DOCS_CORE_REL,
     DOCS_UI_REL,
     VAULT_REL,
+    "packages/article-style-sample-core",
     "packages/ui",
     "packages/desktop-account",
   ]);
@@ -449,6 +450,7 @@ function selfTest() {
     put(`${DOCS_REL}/README.md`, "# docs\n");
     put(`${VAULT_REL}/src/engine.rs`, "pub fn sync() {}\n");
     put(`${VAULT_REL}/tests/provider_http.rs`, "#[test] fn t() {}\n");
+    put("packages/article-style-sample-core/index.ts", "export const sample = 1;\n");
     put("packages/ui/src/styles/tokens.css", "/* baseline */\n");
     put("packages/ui/src/fonts/nunito-latin-variable.woff2", "font-v1\n");
     put("packages/desktop-account/ts/src/use-niho-account.ts", "export const account = 1;\n");
@@ -536,6 +538,14 @@ function selfTest() {
     put("packages/ui/src/styles/tokens.css", "/* baseline */\n");
     put("packages/ui/src/fonts/nunito-latin-variable.woff2", "font-v1\n");
     put("packages/desktop-account/ts/src/use-niho-account.ts", "export const account = 1;\n");
+
+    put("packages/article-style-sample-core/index.ts", "export const sample = 2;\n");
+    const articleCoreChanged = shippedChanged(root, docsOnly);
+    assert(
+      articleCoreChanged.length === 1 && articleCoreChanged[0] === "packages/article-style-sample-core/index.ts",
+      `shipped-changed lists article sample core changes: ${articleCoreChanged.join(", ")}`,
+    );
+    put("packages/article-style-sample-core/index.ts", "export const sample = 1;\n");
 
     put(`${VAULT_REL}/src/engine.rs`, "pub fn sync() { let _ = 1; }\n");
     put(`${DOCS_CORE_REL}/src/prompt.ts`, "export const p = 2;\n");
