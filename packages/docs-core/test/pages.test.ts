@@ -10,6 +10,7 @@ import {
   folderRecordingPage,
   pageTitle,
   projectPages,
+  recordingAutoReferencePages,
   projectWithRootRecording,
   recordingChildren,
   recordingInfo,
@@ -79,6 +80,17 @@ describe("projectPages", () => {
     } } };
     expect(projectPages(project)[1]).toMatchObject({ id: "d2", title: "新文書", derivation });
     expect(projectPages(project)[1]?.derivation).not.toHaveProperty("language");
+  });
+
+  it("自動参考はフォルダの台帳順を保ち、録音と録音由来の文書を除く", () => {
+    const derivation = { operationId: "op1", sourceProjectId: "p2", sourceKind: "artifact" as const,
+      sourcePageId: "r1", sourceHash: "source", instructionHash: "instruction", titleHash: "title", outputHash: "output" };
+    const project: Project = { ...paged, pages: { version: 1, order: ["d2", "r1", "d1"], items: {
+      d1: { kind: "document", title: "独立メモ", createdAt: paged.createdAt },
+      d2: { kind: "document", title: "録音の成果物", createdAt: paged.createdAt, derivation },
+      r1: { kind: "recording", recordingId: "rec1", title: "取材", createdAt: paged.createdAt },
+    } } };
+    expect(recordingAutoReferencePages(project).map((page) => page.id)).toEqual(["d1"]);
   });
 });
 
