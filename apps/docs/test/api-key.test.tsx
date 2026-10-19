@@ -111,25 +111,27 @@ function apiDone(text: string, model = "claude-sonnet-4-6"): TurnEvent {
 }
 
 describe("接続方式の切り替え", () => {
-  it("サブスクリプション／API キーの 1 択。切り替えても案件とフローはそのまま、方式ごとの行になる。実行中は切り替えられない", async () => {
+  it("モデルの方式はサブスクリプション／API キーの 1 択（モデルの見出し）。切り替えても案件とフロー・接続設定の登録はそのまま。実行中は切り替えられない", async () => {
     const { bridge, flow, stored } = await bridgeWith(settingsWithProviders(["claude"]));
     const snapshot = structuredClone(stored.project.flowSnapshot);
     screen = await renderApp(bridge);
     const { container } = screen;
     await click(button(container, "設定"));
     expect(modeButton(container, "サブスクリプション").getAttribute("aria-pressed")).toBe("true");
-    expect(container.textContent).toContain(
-      "この Mac でログイン済みの AI を使います。契約の範囲・利用上限・追加クレジットは各社の契約画面で確認してください。",
-    );
+    // 方式の切替はモデルの見出しにある（接続設定は登録だけ。owner 2026-10-19）
+    expect(modeButton(container, "API キー").closest(".card")?.querySelector("h2")?.textContent).toBe("モデル");
+    expect(container.textContent).toContain("文字起こし修正以降の工程と「AIと作る」を、この Mac でログイン済みの AI で作ります。方式は文字起こしに効きません。");
+    expect(container.textContent).toContain("この Mac でログイン済みの AI。契約の範囲・利用上限・追加クレジットは各社の契約画面で確認してください。");
     // 動かない「端末間引継ぎ（準備中）」は出さない
     expect(container.textContent).not.toContain("端末間引継ぎ");
     expect(container.textContent).not.toContain("同期機能との接続待ち");
     expect(row(container, "Claude Code")).toBeTruthy();
     await click(modeButton(container, "API キー"));
     expect(normalizeSettings(bridge.settings).connection).toBe("apiKey");
-    expect(container.textContent).toContain("API キーで使います。使った分だけ各社から請求されます。");
-    expect(row(container, "Claude Code")).toBeUndefined();
-    expect(container.textContent).toContain("「＋ 追加」で AI を選び");
+    expect(container.textContent).toContain("文字起こし修正以降の工程と「AIと作る」を、API キーで登録した AI で作ります。使った分だけ各社から請求されます。");
+    // 接続設定は登録なので、方式を切り替えてもサブスクリプションの行は残る
+    expect(row(container, "Claude Code")).toBeTruthy();
+    expect(container.textContent).toContain("API キーを登録すると、ここでモデルと思考量を選べて、工程を実行できます");
     // 案件とフローは変わらない
     expect(bridge.flow).toEqual(flow);
     expect(stored.project.flowSnapshot).toEqual(snapshot);
@@ -211,37 +213,59 @@ describe("API キーの行", () => {
     expect(anthropic().textContent).toContain("保存済み · ••••WXYZ · 確認済み");
   });
 
-  it("「＋ 追加」は API キーの選択肢で、Deepgram は API キー方式だけに出る（行・文字起こしのエンジンも）", async () => {
+  it("「＋ 追加」はサブスクリプションと API キーの 2 群。Deepgram と API キーの Gemini はモデルの方式に依らず登録でき、文字起こしのエンジンに出る（owner 2026-10-19）", async () => {
     const { bridge } = await bridgeWith(settingsWithProviders(["claude"]));
     screen = await renderApp(bridge);
     const { container } = screen;
     await click(button(container, "設定"));
+    const addCard = async (text: string) => {
+      await click(container.querySelectorAll<HTMLButtonElement>(".addrow")[0]!);
+      await click([...container.querySelectorAll<HTMLButtonElement>(".add-ai .vcard")].find((card) => card.textContent === text)!);
+      await click(button(container.querySelector(".dlg")!, "追加"));
+    };
     await click(container.querySelectorAll<HTMLButtonElement>(".addrow")[0]!);
-    expect(container.querySelector(".vgrid")?.textContent).not.toContain("Deepgram");
-    expect(container.querySelector(".vgrid")?.textContent).toContain("Codex CLI でログイン");
+    const groups = [...container.querySelectorAll<HTMLElement>(".add-ai .vgroup")];
+    expect(groups.map((group) => group.querySelector(".vgroup-h b")?.textContent)).toEqual(["サブスクリプション", "API キー"]);
+    expect(groups[0]!.textContent).toContain("Codex CLI でログイン");
+    expect([...groups[1]!.querySelectorAll(".vcard")].map((card) => card.textContent)).toEqual([
+      "ClaudeAnthropic の API キー",
+      "GPTOpenAI の API キー",
+      "GeminiGoogle Gemini の API キー",
+      "Deepgram文字起こしだけに使います",
+    ]);
     await click(button(container, "キャンセル"));
-    await click(modeButton(container, "API キー"));
-    // API キー方式でまだ AI が無い間は、列の無いモデルの表の代わりに案内を出す
-    expect(container.textContent).toContain("接続設定で AI を追加すると、ここでモデルと思考量を選べます。");
-    expect(container.querySelector(".pr.hd")).toBeNull();
-    await click(container.querySelectorAll<HTMLButtonElement>(".addrow")[0]!);
-    const cards = [...container.querySelectorAll(".vgrid .vcard")].map((card) => card.textContent);
-    expect(cards).toEqual(["ClaudeAnthropic の API キー", "GPTOpenAI の API キー", "GeminiGoogle Gemini の API キー", "Deepgram文字起こし · API キー"]);
-    await click([...container.querySelectorAll<HTMLButtonElement>(".vgrid .vcard")].find((card) => card.textContent?.startsWith("Deepgram"))!);
-    await click(button(container.querySelector(".dlg")!, "追加"));
+
+    // モデルの方式はサブスクリプションのまま Deepgram を登録する
+    await addCard("Deepgram文字起こしだけに使います");
+    expect(normalizeSettings(bridge.settings).connection).toBe("subscription");
     expect(row(container, "Deepgram")?.textContent).toContain("文字起こしだけに使います");
-    const engines = () => [...container.querySelectorAll('[aria-label="既定のエンジン"] button')].map((item) => item.textContent);
+    const engines = () => [...container.querySelectorAll('[aria-label="既定のエンジン"] button')].map((item) => item.querySelector("b")?.textContent);
+    const chosen = () => container.querySelector('[aria-label="既定のエンジン"] button[aria-pressed="true"] b')?.textContent;
     expect(engines()).toEqual(["この Mac", "Deepgram"]);
-    // Gemini を足すと Gemini → この Mac → Deepgram の順
-    await click(container.querySelectorAll<HTMLButtonElement>(".addrow")[0]!);
-    await click([...container.querySelectorAll<HTMLButtonElement>(".vgrid .vcard")].find((card) => card.textContent?.startsWith("Gemini"))!);
-    await click(button(container.querySelector(".dlg")!, "追加"));
-    expect(engines()).toEqual(["Gemini", "この Mac", "Deepgram"]);
-    expect(row(container, "Google Gemini")?.textContent).toContain("未設定");
-    // サブスクリプションに戻すと Deepgram はどこにも出ない
+    // 従量課金は自動では選ばない（既定はこの Mac のまま）。料金の種類を行に出す
+    expect(chosen()).toBe("この Mac");
+    expect([...container.querySelectorAll('[aria-label="既定のエンジン"] button')][1]!.textContent).toContain("従量課金");
+
+    // API キー方式で AI が Deepgram だけの間は、列の無いモデルの表の代わりに案内を出す（文字起こしのエンジンは変わらない）
+    await click(modeButton(container, "API キー"));
+    expect(container.textContent).toContain("API キーを登録すると、ここでモデルと思考量を選べて、工程を実行できます（Deepgram は文字起こしだけに使います）");
+    expect(container.querySelector(".pr.hd")).toBeNull();
+    expect(engines()).toEqual(["この Mac", "Deepgram"]);
     await click(modeButton(container, "サブスクリプション"));
-    expect(container.textContent).not.toContain("Deepgram");
-    expect(engines()).toEqual(["この Mac"]);
+    // サブスクリプションに戻しても Deepgram の登録と文字起こしのエンジンはそのまま
+    expect(row(container, "Deepgram")).toBeTruthy();
+    expect(engines()).toEqual(["この Mac", "Deepgram"]);
+
+    // API キーの Gemini も登録できる（モデルの方式はサブスクリプションのまま。工程の AI は増えない）
+    await addCard("GeminiGoogle Gemini の API キー");
+    expect(row(container, "Google Gemini")?.textContent).toContain("未設定");
+    expect(engines()).toEqual(["Gemini", "この Mac", "Deepgram"]);
+    expect(activeProviders(normalizeSettings(bridge.settings))).toEqual(["claude"]);
+    // サブスクリプションの Gemini も足すと、Gemini は方式を添えて 2 つ並ぶ
+    await addCard("GeminiAntigravity CLI でログイン");
+    expect(engines()).toEqual(["Gemini（サブスクリプション）", "Gemini（API キー）", "この Mac", "Deepgram"]);
+    expect(chosen()).toBe("Gemini（サブスクリプション）");
+    expect(normalizeSettings(bridge.settings).transcription).toMatchObject({ deepgram: true });
   });
 });
 
@@ -281,7 +305,9 @@ describe("使用量（API キー方式は見込み金額）", () => {
     expect(container.querySelector(".urow.hd")?.textContent).not.toContain("見込み");
     expect(usage("Claude")).toContain("1 回");
     expect(usage("Claude")).toContain("2 分");
-    expect(container.textContent).not.toContain("$");
+    expect(usage("Claude")).not.toContain("$");
+    // 文字起こしはエンジンの方式に依らないので、従量課金（Deepgram）を使った月はサブスクリプションでも見込みを出す
+    expect(usage("文字起こし")).toContain("見込み $0.26");
   });
 });
 
@@ -351,7 +377,8 @@ describe("API キー方式の AIと作る と工程の実行", () => {
 
   it("GPT だけ（API キー方式）なら、初回・レール・案件情報・工程設計・設定・AIと作る に他社の名前・行・選択肢が出ない", async () => {
     const bridge = new FakeBridge();
-    bridge.settings = apiKeySettings(["gpt"]);
+    // 登録は GPT（API キー）だけ（接続設定はサブスクリプションの登録も並べるので、サブスクリプションの表も空にする）
+    bridge.settings = settingsWithProviders([], apiKeySettings(["gpt"]));
     bridge.keychain.set("openai", GOOD_OPENAI);
     screen = await renderApp(bridge);
     const { container } = screen;
@@ -415,7 +442,9 @@ describe("鍵はこの Mac の保存先にだけ（画面が書くファイル�
     await saveKey(container, "Google Gemini", GOOD_GEMINI);
     await saveKey(container, "Deepgram", GOOD_DEEPGRAM);
     expect([...bridge.keychain.keys()].sort()).toEqual(["anthropic", "deepgram", "gemini"]);
-    // 音声の案件: 既定のエンジンは Gemini（API）
+    // 音声の案件: 既定のエンジンに Gemini（API キー）を選ぶ（従量課金は選んだときだけ使う）
+    const engine = (name: string) => [...container.querySelectorAll<HTMLButtonElement>('[aria-label="既定のエンジン"] button')].find((item) => item.querySelector("b")?.textContent === name)!;
+    await click(engine("Gemini"));
     await openAudio(container, "運営会議");
     await click(button(container, "文書作成を開始"));
     const meeting = bridge.byName("運営会議");
@@ -423,7 +452,7 @@ describe("鍵はこの Mac の保存先にだけ（画面が書くファイル�
     expect(bridge.audioPartRequests.every((call) => call.request.provider === "GeminiApi")).toBe(true);
     // Deepgram に切り替えてもう一度（文字起こしの子ページの ⋯ →「作り直す」）
     await click(button(container, "設定"));
-    await click([...container.querySelectorAll<HTMLButtonElement>('[aria-label="既定のエンジン"] button')].find((item) => item.textContent === "Deepgram")!);
+    await click(engine("Deepgram"));
     await click(railItem(container, "文字起こし"));
     await rebuild(container);
     await until(() => meeting.runs.some((run) => run.provider === "deepgram"));

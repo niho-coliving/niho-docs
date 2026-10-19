@@ -201,10 +201,15 @@ enum Executor {
   NihoApi,
 }
 
+/// 文字起こしのエンジン（方式を含む）。Gemini はサブスクリプション（Antigravity CLI）と API キー（Gemini API）を分ける
+/// （owner 2026-10-19。文字起こしのエンジンはモデルの方式に依らない）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Transcription {
   ThisMac,
+  /// サブスクリプションの Gemini（固定値に connection を持たない。以前と同じ）。
   Gemini,
+  /// API キーの Gemini（固定値に `connection: "apiKey"` を持つ）。
+  GeminiApi,
   Deepgram,
 }
 
@@ -242,6 +247,12 @@ impl Transcription {
         "model": GEMINI_TRANSCRIPTION_MODEL,
         "effort": GEMINI_TRANSCRIPTION_EFFORT,
       }),
+      Transcription::GeminiApi => json!({
+        "provider": "gemini",
+        "model": GEMINI_TRANSCRIPTION_MODEL,
+        "effort": GEMINI_TRANSCRIPTION_EFFORT,
+        "connection": "apiKey",
+      }),
       Transcription::Deepgram => json!({ "provider": "deepgram", "model": "nova-3", "connection": "apiKey" }),
     }
   }
@@ -258,6 +269,9 @@ pub struct OpenRequestWire {
   run_id: String,
   route: RouteWire,
   transcription_provider: Option<String>,
+  /// 文字起こしのエンジンの方式（Gemini の `subscription`／`apiKey`。Deepgram は `apiKey`、この Mac は無し）。
+  #[serde(default)]
+  transcription_connection: Option<String>,
   output_target: Option<Value>,
 }
 
@@ -573,7 +587,9 @@ pub(crate) fn send_guard_now(op: &PersonalOperation, kind: SendKind) -> CommandR
           || (op.route.kind == RouteKind::GenerationOnly && op.route.executor == Some(Executor::ThisPc)))
     }
     SendKind::AudioPrepare | SendKind::AudioPart => {
-      op.cloud_lease && op.route.local() && op.transcription == Some(Transcription::Gemini)
+      op.cloud_lease
+        && op.route.local()
+        && matches!(op.transcription, Some(Transcription::Gemini | Transcription::GeminiApi))
     }
     SendKind::Deepgram => op.cloud_lease && op.route.local() && op.transcription == Some(Transcription::Deepgram),
     SendKind::ThisMacTranscribe => op.route.local() && op.transcription == Some(Transcription::ThisMac),
@@ -647,14 +663,30 @@ fn parse_route(wire: &RouteWire) -> CommandResult<Route> {
   Ok(Route { kind, executor })
 }
 
-fn parse_transcription(route: Route, value: Option<&str>) -> CommandResult<Option<Transcription>> {
-  match (route.local(), value) {
-    (true, Some("this-mac")) => Ok(Some(Transcription::ThisMac)),
-    (true, Some("gemini")) => Ok(Some(Transcription::Gemini)),
-    (true, Some("deepgram")) => Ok(Some(Transcription::Deepgram)),
-    (false, None) => Ok(None),
+/// 文字起こしのエンジンと方式。Gemini は方式が無ければサブスクリプション、Deepgram は API キーだけ、この Mac は方式を持たない。
+fn parse_transcription(
+  route: Route,
+  value: Option<&str>,
+  connection: Option<&str>,
+) -> CommandResult<Option<Transcription>> {
+  match (route.local(), value, connection) {
+    (true, Some("this-mac"), None) => Ok(Some(Transcription::ThisMac)),
+    (true, Some("gemini"), None | Some("subscription")) => Ok(Some(Transcription::Gemini)),
+    (true, Some("gemini"), Some("apiKey")) => Ok(Some(Transcription::GeminiApi)),
+    (true, Some("deepgram"), None | Some("apiKey")) => Ok(Some(Transcription::Deepgram)),
+    (false, None, None) => Ok(None),
     _ => Err(bad_request()),
   }
+}
+
+/// Gemini の区切りの送信が、固定した文字起こしの方式と同じ提供元か（サブスクリプションは Antigravity CLI、API キーは Gemini API）。
+pub(crate) fn gemini_transcription_matches(op: &PersonalOperation, api_key: bool) -> bool {
+  op.transcription
+    == Some(if api_key {
+      Transcription::GeminiApi
+    } else {
+      Transcription::Gemini
+    })
 }
 
 fn release_run_lock(state: &AppState, op_store: &store::Store, project_id: Option<&str>, key: &str) -> bool {
@@ -668,7 +700,11 @@ fn release_run_lock(state: &AppState, op_store: &store::Store, project_id: Optio
 /// 捕捉した Store で戻す。
 pub(crate) async fn open(state: &AppState, cloud: &Cloud, request: OpenRequestWire) -> CommandResult<OpenResult> {
   let route = parse_route(&request.route)?;
-  let transcription = parse_transcription(route, request.transcription_provider.as_deref())?;
+  let transcription = parse_transcription(
+    route,
+    request.transcription_provider.as_deref(),
+    request.transcription_connection.as_deref(),
+  )?;
   for id in [
     &request.recording_page_id,
     &request.recording_id,

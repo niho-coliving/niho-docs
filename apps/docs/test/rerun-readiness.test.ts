@@ -39,7 +39,7 @@ describe("この Mac で動かない文字起こし（#18753）", () => {
     runSetupReason({ queue, flow, settings, statuses: { providers: {}, speech: { ...speech, available: false, unsupported } } });
 
   it("音声認識を使えない Mac で「この Mac」なら、音声モデルより先に理由と代わりの手段を返す", () => {
-    expect(reason(defaultSettings(), "engine")).toBe("この Mac では音声認識を使えません。Gemini か Deepgram（API キー方式）を登録すると実行できます");
+    expect(reason(defaultSettings(), "engine")).toBe("この Mac では音声認識を使えません。Gemini を登録するか、Deepgram を既定のエンジンに選ぶと実行できます");
   });
 
   afterEach(() => rememberSpeechSupport(null));
@@ -50,7 +50,7 @@ describe("この Mac で動かない文字起こし（#18753）", () => {
     expect(runSetupReason(statusWith(null))).toBeNull();
     expect(runSetupReason(statusWith(undefined))).toBeNull();
     rememberSpeechSupport("engine");
-    const expected = "この Mac では音声認識を使えません。Gemini か Deepgram（API キー方式）を登録すると実行できます";
+    const expected = "この Mac では音声認識を使えません。Gemini を登録するか、Deepgram を既定のエンジンに選ぶと実行できます";
     expect(runSetupReason(statusWith(null))).toBe(expected);
     expect(runSetupReason(statusWith(undefined))).toBe(expected);
     // 確かめた結果が「動く」なら、前に覚えていた結果ではなく今の結果に従う
@@ -62,14 +62,41 @@ describe("この Mac で動かない文字起こし（#18753）", () => {
   it("Gemini を登録していれば音声認識が無くても止めない。macOS 26 より前なら Gemini も音声を準備できないので止める", () => {
     const settings = addProvider(defaultSettings(), "gemini");
     expect(reason(settings, "engine")).toBeNull();
-    expect(reason(settings, "os")).toBe("この macOS では音声を処理できません。Deepgram（API キー方式）を登録すると実行できます");
+    expect(reason(settings, "os")).toBe("この macOS では音声を処理できません。Deepgram を登録して既定のエンジンに選ぶと実行できます");
   });
 
-  it("Deepgram は文字起こしの部品を使わないので、macOS 26 より前でも止めない。文章の録音も止めない", () => {
-    let settings = setConnection(defaultSettings(), "apiKey");
-    settings = setDeepgram(addProvider(settings, "claude"), true);
-    expect(reason(settings, "os")).toBeNull();
+  it("Deepgram は文字起こしの部品を使わないので、macOS 26 より前でも止めない（従量課金なので選んだときだけ）。文章の録音も止めない", () => {
+    // モデルの方式はサブスクリプションのまま Deepgram を登録できる。登録しただけでは自動で使わず、理由を出す
+    const registered = setDeepgram(defaultSettings(), true);
+    expect(reason(registered, "os")).toBe("この macOS では音声を処理できません。Deepgram を登録して既定のエンジンに選ぶと実行できます");
+    expect(reason(setEngine(registered, "deepgram"), "os")).toBeNull();
+    // API キー方式でも同じ（方式はエンジンに効かない）
+    const apiKey = setEngine(setDeepgram(addProvider(setConnection(defaultSettings(), "apiKey"), "claude"), true), "deepgram");
+    expect(reason(apiKey, "os")).toBeNull();
     const textQueue = rerunQueueOf(completedView({ kind: "text" } as never));
     expect(runSetupReason({ queue: textQueue, flow, settings: defaultSettings(), statuses: { providers: {}, speech: { ...speech, available: false, unsupported: "engine" } } })).toBeNull();
+  });
+});
+
+describe("サブスクリプションの Gemini の文字起こし（モデルの方式に依らない。owner 2026-10-19）", () => {
+  const cli = {
+    installed: true,
+    authenticated: false,
+    version: "1.4.0",
+    login_method: null,
+    reason: "auth_required",
+    missing_cli_flags: [],
+    models: [],
+    capabilities: { resume: true, effort: true, tools_off_proven: true },
+  };
+
+  it("モデルの方式が API キーでも、Antigravity CLI が未ログインなら文字起こしの前に理由を出す", () => {
+    const settings = setConnection(addProvider(defaultSettings(), "gemini"), "apiKey");
+    expect(effectiveEngine(settings)).toBe("gemini-subscription");
+    const statuses = { providers: { GeminiCli: cli }, speech: { ...speech, needsDownload: false } } as never;
+    expect(runSetupReason({ queue: [SOURCE_STEP_ID], flow, settings, statuses })).toBe("Antigravity CLI にログインすると実行できます");
+    // ログイン済みなら止めない
+    const ready = { providers: { GeminiCli: { ...cli, authenticated: true, reason: null } }, speech: { ...speech, needsDownload: false } } as never;
+    expect(runSetupReason({ queue: [SOURCE_STEP_ID], flow, settings, statuses: ready })).toBeNull();
   });
 });

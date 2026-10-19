@@ -206,6 +206,13 @@ describe("共有 fixture（TS と Native の派生が一致する）", () => {
   it("canonical と generationSnapshot・nextStepSnapshot の結果が fixture と一致し、改ざんした派生は hash が違う", async () => {
     for (const sample of fixture.canonicalSamples) expect(canonical(sample.value)).toBe(sample.canonical);
     expect(fixture.transcriptionModels.gemini).toEqual({ provider: "gemini", model: GEMINI_TRANSCRIPTION_MODEL, effort: GEMINI_TRANSCRIPTION_EFFORT });
+    // API キーの Gemini だけ固定値に connection を持つ（サブスクリプションは以前と同じ形のまま）
+    expect(fixture.transcriptionModels["gemini-api"]).toEqual({
+      provider: "gemini",
+      model: GEMINI_TRANSCRIPTION_MODEL,
+      effort: GEMINI_TRANSCRIPTION_EFFORT,
+      connection: "apiKey",
+    });
     const original = fixture.original;
     const { snapshotSha256, ...rest } = original;
     expect(await sha256Text(canonical(rest))).toBe(snapshotSha256);

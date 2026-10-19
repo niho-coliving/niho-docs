@@ -2707,13 +2707,103 @@
   font-size: 12.5px;
   color: var(--niho-text-muted);
 }
-/* Deepgram（文字起こしだけ。API キー方式の「＋ 追加」に横長で出す。モック v8） */
+/* Deepgram（文字起こしだけ。「＋ 追加」の API キーの群に横長で出す。モック v8） */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .vcard.dg {
   grid-column: 1 / -1;
   min-height: 0;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
+}
+/* 「＋ 追加」の群（サブスクリプション／API キー。登録は両方を同時に持てる。owner 2026-10-19） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vgroup + .vgroup {
+  margin-top: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vgroup-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 12px 0 8px;
+  font-size: 12.5px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .vgroup-h b {
+  font-size: 13px;
+  color: var(--niho-text-sub);
+}
+/* 接続設定・文字起こしの群の見出し（モック idea/mock/niho-docs-transcription-engines-v2.html） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pgroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 12px 12px 4px;
+  font-size: 12px;
+  color: var(--niho-text-muted);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .pgroup b {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--niho-text-sub);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .prow + .pgroup {
+  border-top: 1px solid var(--docs-line);
+  margin-top: 4px;
+}
+/* 既定のエンジン（登録したエンジン全部。名前・方式・料金の種類。押せるのは行全体） */
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engines {
+  display: grid;
+  padding-bottom: 4px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 12px;
+  text-align: left;
+  border-radius: 12px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine:hover:not(:disabled) {
+  background: var(--docs-hover);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine .rd {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--docs-ctl-line);
+  display: grid;
+  place-items: center;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine[aria-pressed="true"] .rd {
+  border-color: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine[aria-pressed="true"] .rd::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--niho-dark);
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine .ename {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engine .ename b {
+  font-size: 14px;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .engines + .prow {
+  border-top: 1px solid var(--docs-line);
+  border-radius: 0;
 }
 /* API キーの入力欄（鍵は画面に残さない。保存できたら空にする） */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .prow .inp.key {

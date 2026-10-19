@@ -1904,6 +1904,12 @@ async fn transcribe_audio_part_with(
       "音声を読ませる文字起こしは Gemini だけで使えます。",
     ));
   }
+  // 本人 Mac の実行は、開始時に固定した文字起こしの方式（サブスクリプション／API キー）の Gemini でだけ送る
+  if let Some(op) = &personal {
+    if !personal_run::gemini_transcription_matches(op, request.provider == Provider::GeminiApi) {
+      return Err(personal_run::guard_failed());
+    }
+  }
   if request.system_prompt.len() > MAX_SYSTEM_PROMPT_BYTES || request.user_prompt.len() > MAX_USER_PROMPT_BYTES {
     return Err(CommandError::new("turn_too_large", "送る量が多すぎます。"));
   }

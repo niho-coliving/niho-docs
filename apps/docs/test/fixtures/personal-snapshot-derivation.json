@@ -9,6 +9,12 @@
       "provider": "gemini",
       "model": "gemini-3.8-flash",
       "effort": "low"
+    },
+    "gemini-api": {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effort": "low",
+      "connection": "apiKey"
     }
   },
   "canonicalSamples": [

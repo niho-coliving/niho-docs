@@ -50,7 +50,7 @@ import { FlowStepInstructionField, FlowStepNameField } from "../flow/flow-step-f
 import { errorMessage, terminalEvent, type Bridge } from "../lib/bridge";
 import { importSampleUrl } from "../lib/sample-url";
 import { formatChars, formatNumber, newId, newStepId } from "../lib/format";
-import { activeProfiles, activeProviders, effectiveEngine, engineLabel, type AppSettings } from "../lib/settings";
+import { activeProfiles, activeProviders, effectiveEngine, engineIdLabel, type AppSettings } from "../lib/settings";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Glossary } from "./Glossary";
 import { useFitHeight } from "./useFitHeight";
@@ -1005,7 +1005,7 @@ export function FlowDesign(props: {
             <span className="label">エンジン</span>
             <div className="row">
               <span>
-                {settings ? `${engineLabel(effectiveEngine(settings))} · ${languageLabel(settings.transcription.language)}` : "録音するときの設定を使います"}
+                {settings ? `${engineIdLabel(settings, effectiveEngine(settings))} · ${languageLabel(settings.transcription.language)}` : "録音するときの設定を使います"}
               </span>
               {settings && props.onOpenSettings && <button type="button" className="link" onClick={props.onOpenSettings}>
                 設定で変更

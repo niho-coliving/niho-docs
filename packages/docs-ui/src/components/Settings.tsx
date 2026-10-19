@@ -44,7 +44,10 @@ import {
   alignProviderModels,
   canRemoveProvider,
   effectiveEngine,
-  engineLabel,
+  engineBillingLabel,
+  engineIdLabel,
+  engineMeansLabel,
+  engineMetered,
   engineRunsHere,
   hasDeepgram,
   removeProvider,
@@ -67,18 +70,21 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { usePopover } from "./usePopover";
 
 /**
- * 設定（spec §7・モック v8）: あなたについて（先頭のカード。呼び名・パーソナライズ。AboutCard）・接続設定（方式の 1 択・登録した AI の行だけ＋「＋ 追加」・この Mac の音声認識）・モデル（プロファイル
- * × 登録した AI の モデル／思考量）・文字起こし（既定のエンジン＝Gemini → この Mac → Deepgram の順で登録した分だけ・言語）・
- * 保存先・使用量・アプリが毎回添える決まり（読むだけ）。
+ * 設定（spec §7・モック idea/mock/niho-docs-transcription-engines-v2.html）: あなたについて（先頭のカード。呼び名・パーソナライズ。
+ * AboutCard）・接続設定（登録。サブスクリプションの AI と API キーの AI・Deepgram を同時に並べ、「＋ 追加」・この Mac の音声認識）・
+ * モデル（見出しに方式の切替。プロファイル × その方式で登録した AI の モデル／思考量）・文字起こし（既定のエンジン＝登録したもの全部を
+ * Gemini → この Mac → Deepgram の順で、方式と料金の種類つき・言語）・残りの工程・保存先・使用量・アプリが毎回添える決まり（読むだけ）。
  *
- * 方式（サブスクリプション／API キー）は全体で 1 つ。上限・失敗でも自動で切り替えず、実行中（工程・会話・文字起こし）は切り替え
- * られない。方式ごとに 登録した AI・プロファイルの表・文字起こしのエンジンを持つ（案件とフローはそのまま）。
+ * 登録と利用を分ける（owner 2026-10-19）。方式（サブスクリプション／API キー）はモデルの方式＝文字起こし修正以降の工程と「AIと作る」
+ * で使う方式で、全体で 1 つ。上限・失敗でも自動で切り替えず、実行中（工程・会話・文字起こし）は切り替えられない。方式ごとに 登録した
+ * AI・プロファイルの表を持つ（案件とフローはそのまま）。文字起こしのエンジンは方式に依らない。
  *
  * サブスクリプション: AI の行は CLI 実行基盤（crate）の状態（入っているか・ログイン・版・ログインの方法）を出し、状態に合わせた
  * 操作を 1 つ出す（Claude Code は 導入／ログイン／更新、Codex CLI は このアプリ用のログイン、Antigravity CLI はターミナルでの
  * ログインの案内と確認）。API キー: 行は鍵の状態（未設定・保存済み〔末尾 4 文字〕・無効）と、鍵の入力欄と 保存（1 回の軽い
- * 呼び出しで確かめてからこの Mac へ。#18769）／確認。鍵は画面に戻らない。Deepgram は API キー方式だけ（文字起こしだけ）。
- * 行の ⋯ に 確認・解除（最後の 1 つは解除できない）。登録していない AI の名前はどこにも出さない（追加のダイアログだけ）。
+ * 呼び出しで確かめてからこの Mac へ。#18769）／確認。鍵は画面に戻らない。Deepgram は文字起こしだけ。
+ * 行の ⋯ に 確認・解除（モデルで使っている方式の最後の 1 つは解除できない）。登録していない AI の名前はどこにも出さない（追加の
+ * ダイアログだけ）。
  */
 
 type RowAction = "install" | "auth" | "update" | "check";
@@ -165,7 +171,8 @@ function guidance(provider: ProviderId, status: ProviderStatus): { text: string;
 
 /**
  * 月の使用量。`tokenRuns` はトークン数を提供元が返した実行の数（実行の数と違えば推測せず「取得できません」）。
- * `costUsd` は API キー方式の見込み金額の和（どれか 1 つでも出せなければ null＝「取得できません」）。
+ * `costUsd` は API キー方式の見込み金額の和（どれか 1 つでも出せなければ null＝「取得できません」）。`meteredRuns` は文字起こしの
+ * 行で、従量課金（API キー）のエンジンで実行した数。
  */
 export type Usage = {
   runs: number;
@@ -175,10 +182,11 @@ export type Usage = {
   durationMs: number;
   audioSec: number;
   costUsd: number | null;
+  meteredRuns: number;
 };
 
 function emptyUsage(): Usage {
-  return { runs: 0, tokenRuns: 0, input: 0, output: 0, durationMs: 0, audioSec: 0, costUsd: 0 };
+  return { runs: 0, tokenRuns: 0, input: 0, output: 0, durationMs: 0, audioSec: 0, costUsd: 0, meteredRuns: 0 };
 }
 
 const UNAVAILABLE = "取得できません";
@@ -187,9 +195,10 @@ const UNAVAILABLE = "取得できません";
 export type UsageRow = Usage & { models: string[] };
 
 /**
- * 今月の使用量（runs.jsonl から。`connection` の方式の記録だけ。方式の無い古い記録はサブスクリプション）。AI ごとの行は工程の実行と
- * 「AIと作る」の依頼 1 回の記録だけを数え、文字起こしの実行はエンジン（Gemini・この Mac・Deepgram）に依らず「文字起こし」の行
- * だけに数える（同じ実行を 2 つの行に数えない）。
+ * 今月の使用量（runs.jsonl から）。AI ごとの行は `connection` の方式の記録だけ（方式の無い古い記録はサブスクリプション）で、工程の実行と
+ * 「AIと作る」の依頼 1 回の記録だけを数える。文字起こしの実行はエンジン（Gemini・この Mac・Deepgram）とその方式に依らず「文字起こし」の
+ * 行だけに数える（同じ実行を 2 つの行に数えない。文字起こしのエンジンはモデルの方式に依らないため、方式でも分けない）。文字起こしの
+ * 見込み金額は従量課金（API キー）の記録だけを足す（サブスクリプション・この Mac は請求されないので 0）。
  */
 export function summarizeUsage(
   runs: readonly RunRecord[],
@@ -201,7 +210,7 @@ export function summarizeUsage(
     UsageRow
   >;
   const speech: UsageRow = { ...emptyUsage(), models: [] };
-  const add = (target: UsageRow, run: RunRecord) => {
+  const add = (target: UsageRow, run: RunRecord, cost: number | null) => {
     target.runs++;
     if (run.tokensKnown !== false && run.inputTokens !== undefined) {
       target.tokenRuns++;
@@ -210,7 +219,6 @@ export function summarizeUsage(
     }
     target.durationMs += run.durationMs ?? 0;
     target.audioSec += run.audioSec ?? 0;
-    const cost = estimateRunCostUsd(run);
     target.costUsd = target.costUsd === null || cost === null ? null : target.costUsd + cost;
     // この Mac の音声認識はモデルの名前を持たない
     const used = run.provider === "this-mac" ? null : (run.modelUsed ?? run.model);
@@ -219,15 +227,19 @@ export function summarizeUsage(
   for (const run of runs) {
     // 工程の実行と、「AIと作る」の依頼 1 回の記録（AI が書き換えた版の記録は同じ依頼なので数えない）
     if (run.kind !== "run" && !(run.kind === "agent" && run.turnRecord)) continue;
-    if ((run.connection ?? "subscription") !== connection) continue;
     const at = new Date(run.at);
     if (at.getFullYear() !== month.getFullYear() || at.getMonth() !== month.getMonth()) continue;
     if (run.stepId === SOURCE_STEP_ID) {
-      if (run.provider === "this-mac" || run.provider === "gemini" || run.provider === "deepgram") add(speech, run);
+      if (run.provider === "this-mac" || run.provider === "gemini" || run.provider === "deepgram") {
+        const metered = run.connection === "apiKey" && run.provider !== "this-mac";
+        if (metered) speech.meteredRuns++;
+        add(speech, run, metered ? estimateRunCostUsd(run) : 0);
+      }
       continue;
     }
+    if ((run.connection ?? "subscription") !== connection) continue;
     if (!run.provider || run.provider === "this-mac" || run.provider === "deepgram") continue;
-    add(providers[run.provider], run);
+    add(providers[run.provider], run, estimateRunCostUsd(run));
   }
   return { providers, speech };
 }
@@ -254,6 +266,9 @@ function geminiRemaining(usage: ProviderUsage): string | null {
 // 接続設定の行
 
 type RowNote = { kind: "help" | "err"; text: string };
+
+/** 解除できない AI の行の補足（モデルで使っている方式の最後の 1 つ）。 */
+const LAST_PROVIDER_NOTE = "モデルで使っている方式の最後の 1 つは解除できません。AI が無いと工程を実行できないためです。";
 
 function ProviderRow(props: {
   provider: ProviderId;
@@ -332,7 +347,7 @@ function ProviderRow(props: {
             <button type="button" className="mi danger" role="menuitem" disabled={!props.removable} onClick={pick(props.onRemove)}>
               解除
             </button>
-            {!props.removable && <p className="help menu-note">最後の 1 つは解除できません。AI が無いと工程を実行できないためです。</p>}
+            {!props.removable && <p className="help menu-note">{LAST_PROVIDER_NOTE}</p>}
           </div>
         )}
       </span>
@@ -341,7 +356,7 @@ function ProviderRow(props: {
 }
 
 // ---------------------------------------------------------------------------
-// API キーの行（API キー方式）
+// API キーの行
 
 type KeyAction = "save" | "check" | "delete";
 
@@ -463,7 +478,7 @@ function ApiKeyRow(props: {
             <button type="button" className="mi danger" role="menuitem" disabled={!props.removable} onClick={pick(props.onRemove)}>
               解除
             </button>
-            {!props.removable && <p className="help menu-note">最後の 1 つは解除できません。AI が無いと工程を実行できないためです。</p>}
+            {!props.removable && <p className="help menu-note">{LAST_PROVIDER_NOTE}</p>}
           </div>
         )}
       </span>
@@ -471,11 +486,23 @@ function ApiKeyRow(props: {
   );
 }
 
-/** 追加のダイアログの候補（API キー方式では Deepgram も出る）。 */
-type AddCandidate = ProviderId | "deepgram";
+/**
+ * 追加のダイアログの候補・解除の対象。同じ AI でもサブスクリプションと API キーは別の登録（owner 2026-10-19）。Deepgram は
+ * API キーで、文字起こしだけに使う。
+ */
+type AddCandidate = { kind: "subscription" | "apiKey"; provider: ProviderId } | { kind: "deepgram" };
+
+function candidateKey(candidate: AddCandidate): string {
+  return candidate.kind === "deepgram" ? "deepgram" : `${candidate.kind}:${candidate.provider}`;
+}
+
+/** 候補の名前（解除の確認の見出し）: CLI の名前、API キーのサービスの名前、Deepgram。 */
+function candidateLabel(candidate: AddCandidate): string {
+  if (candidate.kind === "deepgram") return "Deepgram";
+  return candidate.kind === "apiKey" ? apiServiceLabel(apiKeyAccount(candidate.provider)) : cliLabel(candidate.provider);
+}
 
 function AddProviderDialog(props: {
-  connection: Connection;
   candidates: readonly AddCandidate[];
   adding: boolean;
   error: string | null;
@@ -484,6 +511,13 @@ function AddProviderDialog(props: {
 }) {
   const titleId = useId();
   const [picked, setPicked] = useState<AddCandidate | null>(null);
+  // サブスクリプション（この Mac でログイン）と API キー（Deepgram を含む）の 2 群に分けて並べる
+  const groups = [
+    { kind: "subscription", title: "サブスクリプション", note: "この Mac でログインして使います" },
+    { kind: "apiKey", title: "API キー", note: "使った分だけ各社から請求されます" },
+  ] as const;
+  const inGroup = (kind: "subscription" | "apiKey") =>
+    props.candidates.filter((candidate) => (kind === "apiKey" ? candidate.kind !== "subscription" : candidate.kind === "subscription"));
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCancelRef = useRef(props.onCancel);
   onCancelRef.current = props.onCancel;
@@ -521,27 +555,39 @@ function AddProviderDialog(props: {
     <div className="veil" role="presentation">
       <div ref={dialogRef} className="dlg add-ai" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>AI を追加</h2>
-        <div className="vgrid" role="group" aria-label="追加する AI">
-          {props.candidates.map((candidate) => (
-            <button
-              key={candidate}
-              type="button"
-              className={candidate === "deepgram" ? "vcard dg" : "vcard"}
-              aria-pressed={picked === candidate}
-              disabled={props.adding}
-              onClick={() => setPicked(candidate)}
-            >
-              <b>{candidate === "deepgram" ? "Deepgram" : providerLabel(candidate)}</b>
-              <span>
-                {candidate === "deepgram"
-                  ? "文字起こし · API キー"
-                  : props.connection === "apiKey"
-                    ? `${apiServiceLabel(apiKeyAccount(candidate))} の API キー`
-                    : `${cliLabel(candidate)} でログイン`}
-              </span>
-            </button>
-          ))}
-        </div>
+        {groups.map((group) => {
+          const candidates = inGroup(group.kind);
+          if (candidates.length === 0) return null;
+          return (
+            <div key={group.kind} className="vgroup">
+              <p className="vgroup-h">
+                <b>{group.title}</b>
+                <span>{group.note}</span>
+              </p>
+              <div className="vgrid" role="group" aria-label={`${group.title}で追加する AI`}>
+                {candidates.map((candidate) => (
+                  <button
+                    key={candidateKey(candidate)}
+                    type="button"
+                    className={candidate.kind === "deepgram" ? "vcard dg" : "vcard"}
+                    aria-pressed={picked !== null && candidateKey(picked) === candidateKey(candidate)}
+                    disabled={props.adding}
+                    onClick={() => setPicked(candidate)}
+                  >
+                    <b>{candidate.kind === "deepgram" ? "Deepgram" : providerLabel(candidate.provider)}</b>
+                    <span>
+                      {candidate.kind === "deepgram"
+                        ? "文字起こしだけに使います"
+                        : candidate.kind === "apiKey"
+                          ? `${apiServiceLabel(apiKeyAccount(candidate.provider))} の API キー`
+                          : `${cliLabel(candidate.provider)} でログイン`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
         {props.error && (
           <p className="err" role="alert">
             {props.error}
@@ -757,8 +803,12 @@ export function Settings(props: {
   const { bridge, settings } = props;
   const connection = settings.connection;
   const apiMode = connection === "apiKey";
+  /** モデルの方式で登録した AI（モデルの表・使用量）。 */
   const providers = activeProviders(settings);
   const profiles = activeProfiles(settings);
+  /** 接続設定は登録なので、両方の方式の AI を方式に依らず並べる。 */
+  const subscriptionProviders = settings.connections.subscription.providers;
+  const apiKeyProviders = settings.connections.apiKey.providers;
   const deepgram = hasDeepgram(settings);
   /** CLI の状態（undefined は確認中、null は確かめられなかった）。 */
   const [statuses, setStatuses] = useState<Partial<Record<ProviderId, ProviderStatus | null>>>({});
@@ -800,17 +850,16 @@ export function Settings(props: {
     [bridge],
   );
 
-  /** 確かめに行った AI（登録した AI が増えたときだけ、増えた分を確かめる）。 */
+  /** 確かめに行った AI（サブスクリプションで登録した AI が増えたときだけ、増えた分を確かめる。モデルの方式に依らない）。 */
   const checkedRef = useRef(new Set<ProviderId>());
-  const providersKey = providers.join(",");
+  const providersKey = subscriptionProviders.join(",");
   useEffect(() => {
-    if (apiMode) return;
     for (const provider of providersKey.split(",").filter(Boolean) as ProviderId[]) {
       if (checkedRef.current.has(provider)) continue;
       checkedRef.current.add(provider);
       void check(provider);
     }
-  }, [check, providersKey, apiMode]);
+  }, [check, providersKey]);
 
   /** 鍵の行の状態（保存済みか・末尾 4 文字。呼び出しはしない）。 */
   const readKey = useCallback(
@@ -827,7 +876,7 @@ export function Settings(props: {
     },
     [bridge],
   );
-  const accountsKey = apiMode ? [...providers.map(apiKeyAccount), ...(deepgram ? ["deepgram" as const] : [])].join(",") : "";
+  const accountsKey = [...apiKeyProviders.map(apiKeyAccount), ...(deepgram ? ["deepgram" as const] : [])].join(",");
   const readKeysRef = useRef(new Set<ApiKeyAccount>());
   useEffect(() => {
     for (const account of accountsKey.split(",").filter(Boolean) as ApiKeyAccount[]) {
@@ -869,10 +918,10 @@ export function Settings(props: {
     }
   };
 
-  /** ログイン・確認の後、CLI が返したモデルの一覧にプロファイルを合わせる（一覧が無ければ何もしない）。 */
+  /** ログイン・確認の後、CLI が返したモデルの一覧にサブスクリプションのプロファイルを合わせる（一覧が無ければ何もしない）。 */
   const alignModels = (provider: ProviderId, status: ProviderStatus | null) => {
     if (!status || status.models.length === 0) return;
-    const next = alignProviderModels(settingsRef.current, provider, status.models);
+    const next = alignProviderModels(settingsRef.current, provider, status.models, "subscription");
     if (next !== settingsRef.current) props.onChange(next);
   };
 
@@ -932,8 +981,8 @@ export function Settings(props: {
   useEffect(() => {
     bridge.listAllRuns().then(setRuns, () => setRuns([]));
   }, [bridge]);
-  // Antigravity CLI の週の残り（サブスクリプションの Gemini だけ）
-  const hasGemini = providers.includes("gemini") && !apiMode;
+  // Antigravity CLI の週の残り（サブスクリプションの Gemini だけ。使用量の行はモデルの方式の AI なので、サブスクリプションのときだけ）
+  const hasGemini = subscriptionProviders.includes("gemini") && !apiMode;
   // ログイン（行の「ログイン」「確認」）で認証の状態が変わったら取り直す（未ログインで開いたときの「取得できません」を残さない）
   const geminiAuthenticated = statuses.gemini?.authenticated === true;
   useEffect(() => {
@@ -995,29 +1044,28 @@ export function Settings(props: {
   };
 
   const add = async (candidate: AddCandidate) => {
-    if (candidate === "deepgram") {
+    if (candidate.kind === "deepgram") {
       props.onChange(setDeepgram(settingsRef.current, true));
       setAdding(null);
       return;
     }
-    if (apiMode) {
+    if (candidate.kind === "apiKey") {
       // 行を足す（鍵はその行に入れて、確かめてから保存する）
-      props.onChange(addProvider(settingsRef.current, candidate, apiModels[apiKeyAccount(candidate)] ?? []));
+      props.onChange(addProvider(settingsRef.current, candidate.provider, apiModels[apiKeyAccount(candidate.provider)] ?? [], "apiKey"));
       setAdding(null);
       return;
     }
     setAdding({ busy: true, error: null });
-    checkedRef.current.add(candidate);
-    const status = await check(candidate);
-    props.onChange(addProvider(settingsRef.current, candidate, status?.models ?? []));
+    checkedRef.current.add(candidate.provider);
+    const status = await check(candidate.provider);
+    props.onChange(addProvider(settingsRef.current, candidate.provider, status?.models ?? [], "subscription"));
     setAdding(null);
   };
 
-  /** 解除（API キー方式は鍵もこの Mac から消す）。 */
+  /** 解除（API キーの行は鍵もこの Mac から消す）。 */
   const remove = async (candidate: AddCandidate) => {
-    const current = settingsRef.current;
-    if (current.connection === "apiKey") {
-      const account = candidate === "deepgram" ? "deepgram" : apiKeyAccount(candidate);
+    if (candidate.kind !== "subscription") {
+      const account = candidate.kind === "deepgram" ? "deepgram" : apiKeyAccount(candidate.provider);
       try {
         await bridge.deleteApiKey(account);
       } catch (error) {
@@ -1028,8 +1076,9 @@ export function Settings(props: {
       setKeys((all) => ({ ...all, [account]: undefined }));
       setKeyNotes((all) => ({ ...all, [account]: undefined }));
     }
-    props.onChange(candidate === "deepgram" ? setDeepgram(current, false) : removeProvider(current, candidate));
-    if (candidate !== "deepgram") setNotes((all) => ({ ...all, [candidate]: undefined }));
+    const current = settingsRef.current;
+    props.onChange(candidate.kind === "deepgram" ? setDeepgram(current, false) : removeProvider(current, candidate.provider, candidate.kind));
+    if (candidate.kind === "subscription") setNotes((all) => ({ ...all, [candidate.provider]: undefined }));
   };
 
   const download = async () => {
@@ -1073,8 +1122,9 @@ export function Settings(props: {
       ? "未導入"
       : `${languageLabel(language)} · ${unsupported ? "使えません" : speechReady ? "準備済み" : speech.diarization.state === "corrupt" ? "要再取得" : speech.needsDownload ? "未取得" : "使えません"}${speech.fake ? "（偽物）" : ""}`;
   const candidates: AddCandidate[] = [
-    ...PROVIDER_IDS.filter((provider) => !providers.includes(provider)),
-    ...(apiMode && !deepgram ? (["deepgram"] as const) : []),
+    ...PROVIDER_IDS.filter((provider) => !subscriptionProviders.includes(provider)).map((provider) => ({ kind: "subscription" as const, provider })),
+    ...PROVIDER_IDS.filter((provider) => !apiKeyProviders.includes(provider)).map((provider) => ({ kind: "apiKey" as const, provider })),
+    ...(deepgram ? [] : [{ kind: "deepgram" as const }]),
   ];
   const engines = transcriptionEngines(settings);
   const engine = effectiveEngine(settings, unsupported);
@@ -1082,6 +1132,13 @@ export function Settings(props: {
   const running = props.running ?? false;
   const usageValue = (row: UsageRow, kind: "duration" | "cost") =>
     row.runs === 0 ? "—" : kind === "duration" ? formatDuration(row.durationMs) : row.costUsd === null ? UNAVAILABLE : formatUsd(row.costUsd);
+  // 文字起こしの行: 従量課金のエンジンを使った月は、サブスクリプションの方式でも見込みの金額を出す（エンジンは方式に依らない）
+  const speechValue =
+    usage.speech.runs > 0 && !apiMode && usage.speech.meteredRuns > 0
+      ? usage.speech.costUsd === null
+        ? `見込み ${UNAVAILABLE}`
+        : `見込み ${formatUsd(usage.speech.costUsd)}`
+      : usageValue(usage.speech, apiMode ? "cost" : "duration");
 
   return (
     <div className="page">
@@ -1102,65 +1159,57 @@ export function Settings(props: {
           <div className="ch">
             <h2>接続設定</h2>
             <div className="sp" />
-            <div className="seg" role="group" aria-label="接続の方式">
-              {(["subscription", "apiKey"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={connection === mode}
-                  disabled={running && connection !== mode}
-                  onClick={() => connection !== mode && !running && props.onChange(setConnection(settingsRef.current, mode))}
-                >
-                  {mode === "subscription" ? "サブスクリプション" : "API キー"}
-                </button>
-              ))}
-            </div>
+            <span className="help">登録しただけでは料金はかかりません</span>
           </div>
           {props.accountAvailable && <AccountConnection account={props.account} />}
           <div className="cb">
-            <p className="help">
-              {apiMode
-                ? "API キーで使います。使った分だけ各社から請求されます。"
-                : "この Mac でログイン済みの AI を使います。契約の範囲・利用上限・追加クレジットは各社の契約画面で確認してください。"}
-            </p>
-            {running && <p className="help">実行が終わってから方式を切り替えられます。</p>}
-            {apiMode && providers.length === 0 && <p className="help">「＋ 追加」で AI を選び、その行に API キーを保存すると工程を実行できます。</p>}
+            <p className="help">この Mac で使う AI と文字起こしのサービスを登録します。どれを使うかは「モデル」と「文字起こし」で選びます。</p>
           </div>
           <div className="cb flush">
-            {!apiMode &&
-              providers.map((provider) => (
-                <ProviderRow
+            {subscriptionProviders.length > 0 && (
+              <p className="pgroup">
+                <b>サブスクリプション</b>
+                <span>この Mac でログイン済みの AI。契約の範囲・利用上限・追加クレジットは各社の契約画面で確認してください。</span>
+              </p>
+            )}
+            {subscriptionProviders.map((provider) => (
+              <ProviderRow
+                key={provider}
+                provider={provider}
+                status={statuses[provider]}
+                busy={busy[provider] ?? null}
+                note={notes[provider] ?? null}
+                running={running}
+                removable={canRemoveProvider(settings, provider, "subscription")}
+                onAction={(action) => void runAction(provider, action)}
+                onRemove={() => setRemoving({ kind: "subscription", provider })}
+                onCopy={copy}
+              />
+            ))}
+            {(apiKeyProviders.length > 0 || deepgram) && (
+              <p className="pgroup">
+                <b>API キー</b>
+                <span>使った分だけ各社から請求されます。</span>
+              </p>
+            )}
+            {apiKeyProviders.map((provider) => {
+              const account = apiKeyAccount(provider);
+              return (
+                <ApiKeyRow
                   key={provider}
-                  provider={provider}
-                  status={statuses[provider]}
-                  busy={busy[provider] ?? null}
-                  note={notes[provider] ?? null}
-                  running={running}
-                  removable={canRemoveProvider(settings, provider)}
-                  onAction={(action) => void runAction(provider, action)}
-                  onRemove={() => setRemoving(provider)}
-                  onCopy={copy}
+                  account={account}
+                  status={keys[account]}
+                  busy={keyBusy[account] ?? null}
+                  note={keyNotes[account] ?? null}
+                  removable={canRemoveProvider(settings, provider, "apiKey")}
+                  onSave={(key) => keyAction(account, "save", key)}
+                  onCheck={() => void keyAction(account, "check")}
+                  onDelete={() => setDeletingKey(account)}
+                  onRemove={() => setRemoving({ kind: "apiKey", provider })}
                 />
-              ))}
-            {apiMode &&
-              providers.map((provider) => {
-                const account = apiKeyAccount(provider);
-                return (
-                  <ApiKeyRow
-                    key={provider}
-                    account={account}
-                    status={keys[account]}
-                    busy={keyBusy[account] ?? null}
-                    note={keyNotes[account] ?? null}
-                    removable={canRemoveProvider(settings, provider)}
-                    onSave={(key) => keyAction(account, "save", key)}
-                    onCheck={() => void keyAction(account, "check")}
-                    onDelete={() => setDeletingKey(account)}
-                    onRemove={() => setRemoving(provider)}
-                  />
-                );
-              })}
-            {apiMode && deepgram && (
+              );
+            })}
+            {deepgram && (
               <ApiKeyRow
                 account="deepgram"
                 hint="文字起こしだけに使います"
@@ -1171,7 +1220,7 @@ export function Settings(props: {
                 onSave={(key) => keyAction("deepgram", "save", key)}
                 onCheck={() => void keyAction("deepgram", "check")}
                 onDelete={() => setDeletingKey("deepgram")}
-                onRemove={() => setRemoving("deepgram")}
+                onRemove={() => setRemoving({ kind: "deepgram" })}
               />
             )}
             <div className="prow">
@@ -1200,24 +1249,41 @@ export function Settings(props: {
           </div>
         </div>
 
-        {props.accountAvailable && <GoogleDocsConnectionCard googleDocs={props.googleDocs} />}
-
-        {props.accountAvailable && bridge.capabilities?.localExecution !== false && (
-          <PcRunnerSettings
-            bridge={bridge}
-            signedIn={props.account.state?.kind === "signedIn" || props.account.state?.kind === "offline"}
-          />
-        )}
-
         <div className="card">
           <div className="ch">
             <h2>モデル</h2>
             <div className="sp" />
-            <span className="help">モデル × 思考量</span>
+            {/* モデルの方式（文字起こし修正以降の工程と「AIと作る」）。文字起こしには効かない（owner 2026-10-19） */}
+            <div className="seg" role="group" aria-label="接続の方式">
+              {(["subscription", "apiKey"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={connection === mode}
+                  disabled={running && connection !== mode}
+                  onClick={() => connection !== mode && !running && props.onChange(setConnection(settingsRef.current, mode))}
+                >
+                  {mode === "subscription" ? "サブスクリプション" : "API キー"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="cb">
+            <p className="help">
+              {apiMode
+                ? "文字起こし修正以降の工程と「AIと作る」を、API キーで登録した AI で作ります。使った分だけ各社から請求されます。"
+                : "文字起こし修正以降の工程と「AIと作る」を、この Mac でログイン済みの AI で作ります。"}
+              方式は文字起こしに効きません。
+            </p>
+            {running && <p className="help">実行が終わってから方式を切り替えられます。</p>}
           </div>
           {providers.length === 0 ? (
             <div className="cb">
-              <p className="help">接続設定で AI を追加すると、ここでモデルと思考量を選べます。</p>
+              <p className="help">
+                {apiMode
+                  ? "接続設定の「＋ 追加」で Claude・GPT・Gemini の API キーを登録すると、ここでモデルと思考量を選べて、工程を実行できます（Deepgram は文字起こしだけに使います）。"
+                  : "接続設定で AI を追加すると、ここでモデルと思考量を選べます。"}
+              </p>
             </div>
           ) : (
             <div className="cb flush" style={columns}>
@@ -1254,6 +1320,8 @@ export function Settings(props: {
         <div className="card">
           <div className="ch">
             <h2>文字起こし</h2>
+            <div className="sp" />
+            <span className="help">登録したエンジンはすべて使えます</span>
           </div>
           {unsupported && (
             <div className="cb">
@@ -1261,22 +1329,29 @@ export function Settings(props: {
             </div>
           )}
           <div className="cb flush">
-            <div className="prow">
+            <p className="pgroup">
               <b>既定のエンジン</b>
-              <div className="seg sm" role="group" aria-label="既定のエンジン">
-                {engines.map((candidate) => (
-                  <button
-                    key={candidate}
-                    type="button"
-                    aria-pressed={candidate === engine}
-                    disabled={!engineRunsHere(candidate, unsupported)}
-                    onClick={() => props.onChange(setEngine(settingsRef.current, candidate))}
-                  >
-                    {engineLabel(candidate)}
-                  </button>
-                ))}
-              </div>
-              <span />
+              <span>モデルの方式に関係なく選べます。</span>
+            </p>
+            {/* 登録したエンジン全部（方式を含む。Gemini → この Mac → Deepgram の順）。従量課金は選んだときだけ使う */}
+            <div className="engines" role="group" aria-label="既定のエンジン">
+              {engines.map((candidate) => (
+                <button
+                  key={candidate}
+                  type="button"
+                  className="engine"
+                  aria-pressed={candidate === engine}
+                  disabled={!engineRunsHere(candidate, unsupported)}
+                  onClick={() => props.onChange(setEngine(settingsRef.current, candidate))}
+                >
+                  <span className="rd" aria-hidden="true" />
+                  <span className="ename">
+                    <b>{engineIdLabel(settings, candidate)}</b>
+                    <span className="help">{engineMeansLabel(candidate)}</span>
+                  </span>
+                  <span className={engineMetered(candidate) ? "pill warn" : "pill mute"}>{engineBillingLabel(candidate)}</span>
+                </button>
+              ))}
             </div>
             <div className="prow">
               <b>言語</b>
@@ -1340,6 +1415,15 @@ export function Settings(props: {
             </div>
           </div>
         </div>
+
+        {props.accountAvailable && bridge.capabilities?.localExecution !== false && (
+          <PcRunnerSettings
+            bridge={bridge}
+            signedIn={props.account.state?.kind === "signedIn" || props.account.state?.kind === "offline"}
+          />
+        )}
+
+        {props.accountAvailable && <GoogleDocsConnectionCard googleDocs={props.googleDocs} />}
 
         <div className="card">
           <div className="ch">
@@ -1421,14 +1505,13 @@ export function Settings(props: {
               </span>
               <span className="num">{usage.speech.runs} 回</span>
               <span className="num">{usage.speech.runs > 0 ? formatDuration(usage.speech.audioSec * 1000) : "—"}</span>
-              <span className="num">{usageValue(usage.speech, apiMode ? "cost" : "duration")}</span>
+              <span className="num">{speechValue}</span>
             </div>
           </div>
         </div>
       </div>
       {adding && (
         <AddProviderDialog
-          connection={connection}
           candidates={candidates}
           adding={adding.busy}
           error={adding.error}
@@ -1438,9 +1521,7 @@ export function Settings(props: {
       )}
       {removing && (
         <ConfirmDialog
-          title={`${
-            removing === "deepgram" ? "Deepgram" : apiMode ? apiServiceLabel(apiKeyAccount(removing)) : cliLabel(removing)
-          } の登録を解除しますか`}
+          title={`${candidateLabel(removing)} の登録を解除しますか`}
           confirmLabel="解除する"
           danger
           onConfirm={() => {
@@ -1450,13 +1531,16 @@ export function Settings(props: {
           }}
           onCancel={() => setRemoving(null)}
         >
-          {removing === "deepgram" ? (
+          {removing.kind === "deepgram" ? (
             <p className="msg">文字起こしのエンジンから Deepgram が外れます。API キーもこの Mac から削除します。</p>
           ) : (
             <p className="msg">
-              {providerLabel(removing)} を選んだ工程は、登録した AI の先頭で実行します。作成済みの録音で {providerLabel(removing)}{" "}
-              を使う工程は、録音のページの「この録音の工程を今の設計に更新」まで実行しません。モデルの設定は残ります。
-              {apiMode ? "API キーもこの Mac から削除します。" : ""}
+              {removing.kind === connection
+                ? `${providerLabel(removing.provider)} を選んだ工程は、登録した AI の先頭で実行します。作成済みの録音で ${providerLabel(removing.provider)} を使う工程は、録音のページの「この録音の工程を今の設計に更新」まで実行しません。`
+                : `モデルの方式は${connection === "apiKey" ? " API キー" : "サブスクリプション"}なので、工程の実行は変わりません。`}
+              {removing.provider === "gemini" ? "文字起こしのエンジンからもこの Gemini が外れます。" : ""}
+              モデルの設定は残ります。
+              {removing.kind === "apiKey" ? "API キーもこの Mac から削除します。" : ""}
             </p>
           )}
         </ConfirmDialog>

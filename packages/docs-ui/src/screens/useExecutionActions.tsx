@@ -16,7 +16,7 @@ import { candidateChoiceReason } from "../lib/run-gate";
 import { startRouteOf } from "../lib/run-start";
 import { type ActiveRun, type RunNotice } from "../lib/run-state";
 import { type RunProgress } from "../lib/runner";
-import { activeProviders, effectiveEngine, engineLabel, type AppSettings } from "../lib/settings";
+import { activeProviders, effectiveEngine, engineConnection, engineIdLabel, engineProvider, type AppSettings } from "../lib/settings";
 import { draftKey, LIVE_FLUSH_MS, versionKey, type Draft, type NihoRunConfirmation, type RebuildRequest, type RebuildUndo, type ToastAction } from "./workspace-model";
 
 type Context = {
@@ -146,6 +146,7 @@ export function useExecutionActions(context: Context) {
     const rec = recordingRef(captured);
     const stepIds = route.kind === "local_transcription_only" ? [] : queue.filter((stepIdToRun) => stepIdToRun !== SOURCE_STEP_ID);
     const engine = route.kind === "generation_only" ? null : effectiveEngine(settingsRef.current);
+    const engineName = engine ? engineIdLabel(settingsRef.current, engine) : "";
     const targetIndex = fixedTarget ? captured.flow.steps.findIndex((step) => step.id === fixedTarget.stepId) : -1;
     const request: NativePersonalRequest = {
       runId: newPersonalId("run"),
@@ -154,7 +155,9 @@ export function useExecutionActions(context: Context) {
       recordingPageId: captured.page.id,
       recordingId: rec.recordingId,
       route,
-      transcriptionProvider: engine,
+      // エンジンの方式（Gemini のサブスクリプション／API キー）も開始時に固定する。モデルの方式（connection）とは別
+      transcriptionProvider: engine ? engineProvider(engine) : null,
+      transcriptionConnection: engine ? engineConnection(engine) : null,
       // controller がflush/pull後にNative素材の確定原文版から束縛する。画面の古いruns行を使わない。
       continuationOfRunId: null,
       consentVersion,
@@ -203,9 +206,9 @@ export function useExecutionActions(context: Context) {
             ...runRef.current,
             stepId: progressStepId,
             stepName: fixedTarget?.stepId === progressStepId ? fixedTarget.name : stepName(captured, progressStepId),
-            modelLabel: isSource ? engineLabel(engine ?? "this-mac") : model ? `${providerLabel(model.provider)} ${snapshotModelLabel(model)}` : "",
+            modelLabel: isSource ? engineName : model ? `${providerLabel(model.provider)} ${snapshotModelLabel(model)}` : "",
             note: isSource
-              ? engineLabel(engine ?? "this-mac")
+              ? engineName
               : model?.redirected
                 ? redirectedNote(model.provider)
                 : model

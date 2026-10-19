@@ -6,11 +6,18 @@ import {
   type FlowSnapshot,
   type ProviderId,
   type ProviderStatus,
-  type TranscriptionEngine,
 } from "@niho/docs-core";
 import type { SpeechStatus } from "./bridge";
 import { stepModel } from "./runner";
-import { activeProviders, effectiveEngine, engineRunsHere, rememberedSpeechSupport, type AppSettings, type SpeechUnsupported } from "./settings";
+import {
+  activeProviders,
+  effectiveEngine,
+  engineRunsHere,
+  rememberedSpeechSupport,
+  type AppSettings,
+  type SpeechUnsupported,
+  type TranscriptionEngineId,
+} from "./settings";
 
 /** 実行の前に確かめた準備の状態（undefined はまだ確かめていない、null は確かめられなかった）。 */
 export type RunReadinessStatuses = {
@@ -25,12 +32,15 @@ function providerReason(provider: ProviderId, status: ProviderStatus | null | un
   return null;
 }
 
-/** この Mac で動かない文字起こしのエンジンのときの理由（代わりの手段まで 1 行で）。 */
-function unsupportedReason(engine: TranscriptionEngine, unsupported: SpeechUnsupported | null | undefined): string | null {
+/**
+ * この Mac で動かない文字起こしのエンジンのときの理由（代わりの手段まで 1 行で）。従量課金の Deepgram は自動では選ばないので、
+ * 既定のエンジンに選ぶことまで案内する。
+ */
+function unsupportedReason(engine: TranscriptionEngineId, unsupported: SpeechUnsupported | null | undefined): string | null {
   if (!unsupported || engineRunsHere(engine, unsupported)) return null;
   return unsupported === "os"
-    ? "この macOS では音声を処理できません。Deepgram（API キー方式）を登録すると実行できます"
-    : "この Mac では音声認識を使えません。Gemini か Deepgram（API キー方式）を登録すると実行できます";
+    ? "この macOS では音声を処理できません。Deepgram を登録して既定のエンジンに選ぶと実行できます"
+    : "この Mac では音声認識を使えません。Gemini を登録するか、Deepgram を既定のエンジンに選ぶと実行できます";
 }
 
 /**
@@ -60,8 +70,9 @@ export function runSetupReason(input: {
       if (speech?.found && (speech.needsDownload || speech.diarization.state === "corrupt")) {
         return "この Mac の音声モデルを取得すると実行できます";
       }
-    } else if (engine === "gemini" && subscription) {
-      const reason = providerReason("gemini", statuses.providers[contractProvider("gemini")]);
+    } else if (engine === "gemini-subscription") {
+      // Antigravity CLI の準備はモデルの方式に依らず見る（API キー方式のまま、サブスクリプションの Gemini で文字起こしできる）
+      const reason = providerReason("gemini", statuses.providers[contractProvider("gemini", "subscription")]);
       if (reason) return reason;
     }
   }

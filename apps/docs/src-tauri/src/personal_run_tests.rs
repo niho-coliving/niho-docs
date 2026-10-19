@@ -637,6 +637,7 @@ fn request(intent: &str, route: &str, transcription: Option<&str>) -> OpenReques
       executor: (route == "generation_only").then(|| "this_pc".to_string()),
     },
     transcription_provider: transcription.map(str::to_string),
+    transcription_connection: None,
     output_target: None,
   }
 }
@@ -1373,6 +1374,51 @@ fn intents_are_reserved_once_survive_a_restart_and_never_resend_an_unknown_resul
 }
 
 #[test]
+fn transcription_engine_fixes_the_gemini_connection_apart_from_the_model_connection() {
+  let local = Route {
+    kind: RouteKind::LocalFull,
+    executor: None,
+  };
+  let generation = Route {
+    kind: RouteKind::GenerationOnly,
+    executor: Some(Executor::ThisPc),
+  };
+  // Gemini は方式が無ければサブスクリプション（以前と同じ固定値）、API キーだけ別のエンジン
+  assert_eq!(
+    parse_transcription(local, Some("gemini"), None).unwrap(),
+    Some(Transcription::Gemini)
+  );
+  assert_eq!(
+    parse_transcription(local, Some("gemini"), Some("subscription")).unwrap(),
+    Some(Transcription::Gemini)
+  );
+  assert_eq!(
+    parse_transcription(local, Some("gemini"), Some("apiKey")).unwrap(),
+    Some(Transcription::GeminiApi)
+  );
+  assert_eq!(
+    parse_transcription(local, Some("deepgram"), Some("apiKey")).unwrap(),
+    Some(Transcription::Deepgram)
+  );
+  assert_eq!(
+    parse_transcription(local, Some("this-mac"), None).unwrap(),
+    Some(Transcription::ThisMac)
+  );
+  assert_eq!(parse_transcription(generation, None, None).unwrap(), None);
+  // 方式の食い違いは受け付けない（Deepgram のサブスクリプション・この Mac の方式・知らない方式・後続だけの方式）
+  for (provider, connection) in [
+    (Some("deepgram"), Some("subscription")),
+    (Some("this-mac"), Some("apiKey")),
+    (Some("gemini"), Some("other")),
+  ] {
+    assert!(parse_transcription(local, provider, connection).is_err());
+  }
+  assert!(parse_transcription(generation, None, Some("apiKey")).is_err());
+  assert_eq!(Transcription::GeminiApi.model_json()["connection"], "apiKey");
+  assert!(Transcription::Gemini.model_json().get("connection").is_none());
+}
+
+#[test]
 fn rust_derivations_match_the_shared_typescript_fixture() {
   let fixture: Value =
     serde_json::from_str(include_str!("../../test/fixtures/personal-snapshot-derivation.json")).unwrap();
@@ -1389,6 +1435,10 @@ fn rust_derivations_match_the_shared_typescript_fixture() {
   assert_eq!(
     fixture["transcriptionModels"]["gemini"],
     Transcription::Gemini.model_json()
+  );
+  assert_eq!(
+    fixture["transcriptionModels"]["gemini-api"],
+    Transcription::GeminiApi.model_json()
   );
   let original = fixture["original"].as_object().unwrap().clone();
   assert_eq!(
