@@ -2,17 +2,6 @@ name: Client packages CI
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/docs-core-ci.yml"
-      - "packages/docs-core/**"
-      - "packages/docs-ui/**"
-      - "packages/ui/**"
-      - "packages/desktop-account/**"
-      - "packages/desktop-vault/**"
-      - "apps/docs/fixtures/flow-shape/**"
-      - "apps/docs/fixtures/turn-events/**"
-      - "apps/docs/**"
-      - "packages/apple-speech/**"
   push:
     branches: [main]
     paths:
@@ -29,6 +18,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   docs-core:
