@@ -286,8 +286,8 @@ describe("設定の保存先のクラウド", () => {
     });
 
     it.each([
-      ["needs_login", "ログインが必要です。ログインしてから、もう一度「この Mac」を選んでください。"],
-      ["offline", "クラウドに接続できません。接続を確かめてから、もう一度「この Mac」を選んでください。"],
+      ["needs_login", "NIHO アカウントでのログインが必要です。ログインしてから、もう一度「この Mac」を選んでください。"],
+      ["offline", "NIHO に接続できません。接続を確かめてから、もう一度「この Mac」を選んでください。"],
     ] as const)("ID が無く、状態が %s なら、その状態に合った案内にする", async (state, expected) => {
       const bridge = await openSettingsOnCloud({ enabled: true, state, label: null, runnerId: null });
       await click(button(executionRow(), "この Mac"));
