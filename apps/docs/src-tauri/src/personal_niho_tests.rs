@@ -1041,6 +1041,7 @@ fn a_definite_rejection_is_recorded_with_its_reason_and_not_sent_again() {
       let error = submit_with(&h, &opened, intent, &snapshot_sha).await.err().unwrap();
       assert_eq!(error.code, "personal_niho_rejected", "{intent}");
       assert!(!error.message.contains("raw server text") && !error.message.contains(reason));
+      assert!(!error.message.contains("NIHO API") && !error.message.contains("NIHO アカウント"));
       let record = h.record(intent);
       assert_eq!(record["phase"], json!("rejected"));
       assert_eq!(record["reasonCode"], json!(reason));
@@ -1320,7 +1321,7 @@ fn the_current_access_must_be_available_with_the_same_consent_and_model() {
       (
         "a-provider",
         (|api: &mut Value| api["provider"] = json!("OPENAI")) as fn(&mut Value),
-        "NIHO API を今は使えません",
+        "クラウドの AI は今は使えません",
       ),
       // 以前の NIHO の AI（Anthropic）は、工程を動かせない提供元（#18816 から Vertex AI の Gemini だけ）
       (
@@ -1329,7 +1330,7 @@ fn the_current_access_must_be_available_with_the_same_consent_and_model() {
           api["provider"] = json!("ANTHROPIC");
           api["model"] = json!("claude-sonnet-5");
         }) as fn(&mut Value),
-        "NIHO API を今は使えません",
+        "クラウドの AI は今は使えません",
       ),
       (
         "a-budget",
