@@ -83,10 +83,7 @@ const PHASES: [&str; 5] = ["prepared", "sent", "accepted", "rejected", "absent"]
 // 失敗（送信前に止めたものと、送信後のもの〔rejected・result_unknown〕を code で分ける）
 
 fn route_refused() -> CommandError {
-  failure(
-    "personal_niho_route",
-    "この実行方法ではクラウドを使えません。",
-  )
+  failure("personal_niho_route", "この実行方法ではクラウドを使えません。")
 }
 
 fn legacy_recording() -> CommandError {
@@ -152,10 +149,7 @@ fn not_ready(message: &str) -> CommandError {
 }
 
 fn auth_required() -> CommandError {
-  failure(
-    "personal_niho_auth_required",
-    "ログインし直してから実行してください。",
-  )
+  failure("personal_niho_auth_required", "ログインし直してから実行してください。")
 }
 
 /// 停止スイッチ（#18892・spec D-18）: `APP_CONNECT_ENABLED` が OFF の間、API の認証が接続つき token を 401（`details.reason` は
