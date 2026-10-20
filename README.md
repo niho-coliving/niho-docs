@@ -1,14 +1,14 @@
 # NIHO docs
 
-NIHO docs の公開クライアントコードです。認証・認可、個人情報、AI 予算、API・DB、署名と配布の権限は非公開の `niho-app` に置きます。公式サービスの利用には NIHO ログインが必要です。
+NIHO Docs の公開クライアントコードと、NIHO Photo と共有するクラウド contract を管理します。クライアント、共通 UI / Core、ローカル保存とクラウド共有 client contract は原則公開し、認証・認可の最終権限、実データ、API / DB / storage 実装、運用秘密は非公開側に置きます。公式サービスの利用には NIHO ログインが必要です。
 
-## コードの利用条件
+## 公開境界と利用条件
 
-NIHO が著作権を持つコードに、第三者による利用・改変・再配布の許諾は付けていません。第三者が権利を持つ素材や依存ライブラリには、それぞれのライセンスが適用されます。公開前に素材と履歴を別途監査します。
+公開は自由な再利用の許諾を意味しません。NIHO 保有コード・素材は all rights reserved です。GitHub 上の閲覧・fork と第三者資産・依存ライブラリには各適用条件があります。詳細は [`LICENSE`](LICENSE)、[`ASSET_LICENSE.md`](ASSET_LICENSE.md)、[`TRADEMARKS.md`](TRADEMARKS.md)、[`CONTRIBUTING.md`](CONTRIBUTING.md) を参照してください。
 
-公開コードと非公開サービスの接続条件は [`docs/security/publication-gates.md`](docs/security/publication-gates.md) に記録しています。Photo は別の段階で扱います。
+公開側と非公開側の境界、CI、脆弱性報告は [`docs/security/publication-gates.md`](docs/security/publication-gates.md) に記録しています。Docs / Photo が共有するクラウド contract は [`packages/niho-cloud-contract`](packages/niho-cloud-contract/) が versioned SSOT です。
 
-公開開発から非公開の本番配布までの現在地と接続方針は [`docs/architecture/release-boundary.md`](docs/architecture/release-boundary.md) に記録しています。公開 `main` の更新だけでは公式サービスは更新されません。
+公開開発から非公開の本番配布までの現在地と接続方針は [`docs/architecture/release-boundary.md`](docs/architecture/release-boundary.md) に記録しています。公開 `main` の更新だけでは公式サービスは更新されません。security vulnerability の詳細は public issue に書かず [`SECURITY.md`](SECURITY.md) の手順を使ってください。
 
 ## 現在の抽出範囲
 
@@ -17,6 +17,7 @@ NIHO が著作権を持つコードに、第三者による利用・改変・再
 - `packages/ui`: Docs / Photo / Web で共通の画面部品。
 - `packages/desktop-account`: 既存の NIHO 接続 API を使う Mac 側の PKCE・token 更新・状態の実装。ログイン判定を行う API / DB はこのリポジトリに含めない。
 - `packages/desktop-vault`: Docs の端末内保存と本人保管庫との同期クライアント。本人・所有権の判定は API 側で行う。
+- `packages/niho-cloud-contract`: Docs / Photo 共通の versioned cloud API 型と security test vector。private API の認証・認可実装は含めない。
 - `apps/docs`: NIHO docs の Mac アプリ本体。API・DB・アカウント発行側は含めず、署名・配布 workflow はこの段階では有効化しない。
 - `packages/apple-speech`: Mac の音声文字起こしに使う共有 Swift 実装。
 - `packages/article-style-sample-core`: Mac と非公開 API が参照する、ネットワーク取得を含まない記事お手本の抽出ロジック。API 側の参照切り替えは統合 PR で行う。

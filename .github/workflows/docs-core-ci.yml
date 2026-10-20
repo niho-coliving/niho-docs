@@ -11,6 +11,15 @@ on:
       - "packages/ui/**"
       - "packages/desktop-account/**"
       - "packages/desktop-vault/**"
+      - "packages/niho-cloud-contract/**"
+      - "docs/security/**"
+      - "CONTRIBUTING.md"
+      - "ASSET_LICENSE.md"
+      - "TRADEMARKS.md"
+      - "SECURITY.md"
+      - "LICENSE"
+      - "scripts/ci/public-boundary-guard.mjs"
+      - "scripts/ci/public-boundary-guard.test.mjs"
       - "apps/docs/fixtures/flow-shape/**"
       - "apps/docs/fixtures/turn-events/**"
       - "apps/docs/**"
@@ -119,6 +128,8 @@ jobs:
       - run: npm -C apps/docs run typecheck
       - run: npm -C apps/docs test
       - run: npm -C apps/docs run build
+      - run: node --test scripts/ci/public-boundary-guard.test.mjs
+      - run: node scripts/ci/public-boundary-guard.mjs
 
   docs-mac-native:
     runs-on: macos-26
