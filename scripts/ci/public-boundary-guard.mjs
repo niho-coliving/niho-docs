@@ -1,4 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,7 +15,7 @@ const textExtensions = new Set([
 
 const secretPatterns = [
   ["private-key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
-  ["github-token", /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/],
+  ["github-token", /\b(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}\b/],
   ["aws-access-key", /\bAKIA[0-9A-Z]{16}\b/],
   ["stripe-live-key", /\b(?:sk|rk)_live_[A-Za-z0-9]{12,}\b/],
   ["google-access-token", /\bya29\.[A-Za-z0-9_-]{20,}\b/],
@@ -47,6 +48,13 @@ function patternsForFile(relativePath) {
   return patterns;
 }
 
+export function trackedFixturePaths(paths) {
+  return [...new Set(paths.filter((relativePath) =>
+    /(?:^|\/)fixtures(?:\/|$)/.test(relativePath)
+      && textExtensions.has(path.extname(relativePath).toLowerCase()),
+  ))].sort();
+}
+
 export function findFindings(relativePath, content) {
   return patternsForFile(relativePath)
     .filter(([, pattern]) => pattern.test(content))
@@ -74,11 +82,18 @@ async function filesUnder(relativePath) {
 
 async function main() {
   const findings = [];
+  const pathsToScan = new Set();
   for (const scanRoot of scanRoots) {
-    for (const relativePath of await filesUnder(scanRoot)) {
-      const content = await readFile(path.join(root, relativePath), "utf8");
-      for (const rule of findFindings(relativePath, content)) findings.push({ path: relativePath, rule });
-    }
+    for (const relativePath of await filesUnder(scanRoot)) pathsToScan.add(relativePath);
+  }
+  const trackedPaths = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" }).split("\0").filter(Boolean);
+  for (const relativePath of trackedFixturePaths(trackedPaths)) {
+    const info = await lstat(path.join(root, relativePath));
+    if (info.isFile()) pathsToScan.add(relativePath);
+  }
+  for (const relativePath of pathsToScan) {
+    const content = await readFile(path.join(root, relativePath), "utf8");
+    for (const rule of findFindings(relativePath, content)) findings.push({ path: relativePath, rule });
   }
 
   if (findings.length > 0) {
@@ -86,7 +101,7 @@ async function main() {
     process.stderr.write(`public-boundary-guard: ${findings.length} finding(s); values were not printed\n`);
     process.exitCode = 1;
   } else {
-    process.stdout.write("public-boundary-guard: scanned public workflows, artifacts, logs, and contract fixtures; no findings\n");
+    process.stdout.write(`public-boundary-guard: scanned ${pathsToScan.size} public workflows, artifacts, logs, and tracked fixture files; no findings\n`);
   }
 }
 

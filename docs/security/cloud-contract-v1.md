@@ -18,7 +18,7 @@ API request は TLS 上で NIHO access token を送ります。private server �
 
 ## Operations
 
-各 endpoint は `/api/cloud/v1` を prefix とします。mutation は `Idempotency-Key` header を含め、retry では同じ key と同一 payload を再利用します。`packages/niho-cloud-contract/src/v1.ts` の `CloudOperationMap` は body と mutation header を分けて型付けします。
+各 endpoint は `/api/cloud/v1` を prefix とします。mutation は `Idempotency-Key` header を含め、retry では同じ key と同一 payload を再利用します。`packages/niho-cloud-contract/src/v1.ts` の `CloudOperationMap` は request shape と mutation header を分け、HTTPでの配置は `CLOUD_OPERATION_TRANSPORTS` で明示します。
 
 | Operation | Method / path | 要点 |
 | --- | --- | --- |
@@ -27,9 +27,9 @@ API request は TLS 上で NIHO access token を送ります。private server �
 | Download capability 発行 | `POST /downloads` | resource ownership を再検証し、対象 object と `GET` のみに拘束した短命 capability を返す |
 | Share 作成 | `POST /shares` | owner 権限を検証し、許可された read-only scope と有効期限を持つ share を作る |
 | Share 失効 | `DELETE /shares/{shareId}` | caller の revoke 権限を検証し、繰り返し実行しても同じ最終状態にする |
-| Share 一覧 | `GET /shares` | caller が所有する resource のみをページ単位で返す。cursor は opaque とする |
+| Share 一覧 | `GET /shares?resourceType=…&resourceId=…&cursor=…&limit=…` | request fields はURL queryだけで渡し、GET bodyを送らない。serverが認可contextとresource recordからownerを検証し、callerが管理できるresourceだけを返す。cursorはopaqueとする |
 
-Request / response の field と TypeScript type は `packages/niho-cloud-contract/src/v1.ts` に定義します。値の形を変えるときは同ファイル、仕様、test vector を一緒に更新します。
+`ShareListRequest` は `resourceType` と `resourceId` をselectorとして受け取り、`cursor` と `limit` を任意queryにします。owner、tenant、workspaceはqueryから受け付けず、serverの認証済みcontextとresource recordから判断します。Request / response のfieldとTypeScript typeは `packages/niho-cloud-contract/src/v1.ts` に定義します。値の形やHTTPでの配置を変えるときは同ファイル、仕様、test vectorを一緒に更新します。
 
 ## Capability と idempotency
 

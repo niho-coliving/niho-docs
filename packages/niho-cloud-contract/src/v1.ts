@@ -113,7 +113,9 @@ export interface ShareRevokeResponse {
 }
 
 export interface ShareListRequest {
-  readonly resource: CloudResourceRef;
+  /** Selector only; ownership is always derived from the verified server context. */
+  readonly resourceType: ResourceType;
+  readonly resourceId: string;
   readonly cursor?: string;
   readonly limit?: number;
 }
@@ -154,6 +156,11 @@ export interface CloudOperationMap {
   readonly "share.revoke": { readonly headers: MutationHeaders; readonly request: ShareRevokeRequest; readonly response: ShareRevokeResponse };
   readonly "share.list": { readonly request: ShareListRequest; readonly response: ShareListResponse };
 }
+
+/** share.list is GET /shares and its request fields are URL query parameters, never a GET body. */
+export const CLOUD_OPERATION_TRANSPORTS = {
+  "share.list": { method: "GET", path: "/shares", requestLocation: "query" },
+} as const;
 
 export type CloudResult<T> =
   | { readonly ok: true; readonly value: T }

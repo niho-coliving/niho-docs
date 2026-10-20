@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CLOUD_CONTRACT_VERSION, CLOUD_ERROR_CODES, type CloudOperationMap } from "../../niho-cloud-contract/src/v1.js";
+import { CLOUD_CONTRACT_VERSION, CLOUD_ERROR_CODES, CLOUD_OPERATION_TRANSPORTS, type CloudOperationMap } from "../../niho-cloud-contract/src/v1.js";
 import { createCloudMockClient } from "../../niho-cloud-contract/src/mock.js";
 import { authorizeOwnedResource, checkIdempotency, validateCapability, validateUploadContent } from "../../niho-cloud-contract/test-support/reference-model.js";
 
@@ -45,6 +45,9 @@ describe("Docs / Photo cloud contract v1", () => {
       "share.list",
     ]);
     expect(CLOUD_ERROR_CODES).toEqual(requiredErrorCodes);
+    expect(CLOUD_OPERATION_TRANSPORTS["share.list"]).toEqual({ method: "GET", path: "/shares", requestLocation: "query" });
+    const query = { resourceType: "photo", resourceId: "photo-test" } satisfies CloudOperationMap["share.list"]["request"];
+    expect(query).not.toHaveProperty("resource");
   });
 
   it("keeps an adversarial case for each public authorization and replay boundary", () => {
@@ -112,14 +115,8 @@ describe("Docs / Photo cloud contract v1", () => {
   it("provides the same deterministic mock adapter shape for client tests", async () => {
     const client = createCloudMockClient();
     await expect(client["share.list"]({
-      resource: {
-        resourceType: "photo",
-        resourceId: "photo-test",
-        ownerType: "user",
-        ownerId: "user-test",
-        tenantId: "tenant-test",
-        workspaceId: null,
-      },
+      resourceType: "photo",
+      resourceId: "photo-test",
     })).resolves.toEqual({
       ok: false,
       error: {
