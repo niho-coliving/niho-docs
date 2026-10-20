@@ -902,7 +902,21 @@
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid section { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid select { align-self: flex-start; min-width: 0; max-width: 100%; }
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-col-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-candidate-details { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--niho-text-muted); font-size: 12px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-audio { display: flex; flex-direction: column; gap: 6px; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-audio .help { margin: 0; }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-mobile-side { display: none; }
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-document { flex: 1; overflow: auto; border: 1px solid var(--docs-line-firm); border-radius: 14px; padding: 24px; background: var(--docs-inset); }
+
+@media (max-width: 760px) {
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .candidate-compare { width: calc(100vw - 24px); height: calc(100dvh - 24px); }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-mobile-side { display: flex; gap: 8px; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid { grid-template-columns: minmax(0, 1fr); }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid section { display: none; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid[data-mobile-side="left"] section[data-side="left"],
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-grid[data-mobile-side="right"] section[data-side="right"] { display: flex; }
+  :where([data-docs-app-root]):where([data-docs-shared-ui]) .compare-document { padding: 16px; }
+}
 
 /* ===== 工程を選ぶ（フローがまだ無いとき。「新しい案件」のダイアログと工程設計の画面） ===== */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .pick {

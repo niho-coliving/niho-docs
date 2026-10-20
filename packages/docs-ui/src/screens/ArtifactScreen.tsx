@@ -281,7 +281,7 @@ export function ArtifactScreen(props: Props) {
             target={selectedTarget}
             onCandidateNameChange={selectedTarget ? (name) => setCandidateNameEdits((all) => ({ ...all, [selectedTarget.candidateId]: name })) : undefined}
             onCandidateNameCommit={selectedTarget ? (name) => void commitCandidateName(selectedTarget, name) : undefined}
-            onCompare={selectedTarget && stepId !== SOURCE_STEP_ID && candidatesFor(view.recording, stepId).length > 1 ? () => setCompareOpen(true) : undefined}
+            onCompare={selectedTarget && candidatesFor(view.recording, stepId).length > 1 ? () => setCompareOpen(true) : undefined}
             sourceUse={sourceUseOf({ view, stepId, target: selectedTarget, sourceSwitch, disabled: activeRun !== null || saving, choose: chooseSourceCandidate })}
             showTimestamps={settings.transcription.showTimestamps}
             onShowTimestampsChange={(showTimestamps) =>

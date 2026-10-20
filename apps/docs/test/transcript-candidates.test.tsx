@@ -152,6 +152,28 @@ describe("文字起こしの別案（#19108）", () => {
     expect(container.querySelector(".cloud-banner")?.textContent).toBe("後工程には「この Mac」を使っています。この文字起こしを後工程に使う");
   });
 
+  it("文字起こしの別案から、音声付きの比較を開ける", async () => {
+    const setup = await transcribedRecording();
+    screen = setup.rendered;
+    const { container } = screen;
+    const { bridge, stored } = setup;
+    bridge.transcribeResult = transcriptLines("比較用の別案");
+    await click(addButton(container));
+    await click(engineItems(container)[2]!);
+    await until(() => Object.keys(stored.recording.candidateSets?.[SOURCE_STEP_ID]?.items ?? {}).length === 2);
+    const set = stored.recording.candidateSets![SOURCE_STEP_ID]!;
+    const added = set.items[set.order[1]!]!;
+    await until(() => (stored.artifacts[added.artifactId] ?? "").includes("比較用の別案"));
+    await until(() => bridge.locks.size === 0);
+
+    await click(button(container, "比較"));
+    await until(() => container.querySelector('[role="dialog"][aria-label="文字起こしの別案の比較"]') !== null);
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"][aria-label="文字起こしの別案の比較"]')!;
+    expect(dialog.textContent).toContain("比較用の別案");
+    expect(dialog.querySelector(".audio-playback")).not.toBeNull();
+    expect(dialog.querySelectorAll("[data-transcript-seek-seconds]").length).toBeGreaterThan(0);
+  });
+
   it("「この文字起こしを後工程に使う」だけで後工程の入力が変わり、作成済みのページは消さずに「元の文字起こしが変わりました。」を出す。元に戻せる", async () => {
     const setup = await transcribedRecording();
     screen = setup.rendered;

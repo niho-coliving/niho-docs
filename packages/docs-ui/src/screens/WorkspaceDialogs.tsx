@@ -1,7 +1,7 @@
 "use client";
 
 import type { Step } from "@niho/docs-core";
-import { NIHO_API_MODEL_SWAP_NOTE, candidatesFor, diffFlowDesign, type Flow, type PageEntry } from "@niho/docs-core";
+import { NIHO_API_MODEL_SWAP_NOTE, SOURCE_STEP_ID, candidatesFor, diffFlowDesign, type Flow, type PageEntry } from "@niho/docs-core";
 import { CandidateComparison } from "../components/CandidateComparison";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ConflictDialog } from "../components/ConflictDialog";
@@ -14,7 +14,8 @@ import { type Bridge, type ProjectId, type RecordedAudio } from "../lib/bridge";
 import { type ChatTarget } from "../lib/chat";
 import { conflictLabel, readCurrentText, type ConflictNames } from "../lib/cloud";
 import { formatRecordingLength } from "../lib/format";
-import { stepName, type RecordingView } from "../lib/project-view";
+import { recordingRef, stepName, type RecordingView } from "../lib/project-view";
+import type { ActiveRun } from "../lib/run-state";
 import type { GoogleDocsController } from "../lib/use-google-docs";
 import type { GoogleDocsFolderExportController } from "../lib/use-google-docs-folder-export";
 import { KEEPS_ARTIFACTS, draftKey, flowDiffLines, type CandidateDialogState, type Draft, type NihoRunConfirmation, type RecordingThen, type ToastAction } from "./workspace-model";
@@ -74,6 +75,7 @@ type Props = {
   setFailure: React.Dispatch<React.SetStateAction<Failure | null>>;
   compareOpen: boolean;
   selectedTarget: ChatTarget | null;
+  activeRun: ActiveRun | null;
   drafts: Record<string, Draft>;
   setCompareOpen: React.Dispatch<React.SetStateAction<boolean>>;
   selectPage: (pageId: string, stepId?: string | null, candidateId?: string | null, shouldApply?: () => boolean) => Promise<void>;
@@ -100,7 +102,7 @@ export function WorkspaceDialogs(props: Props) {
     bridge, conflictNames, onConflictResolved, setConflictReview,
     nihoRunConfirmation, viewRef, cloudContextRef, showFailure,
     candidateDialog, candidateBusy, createCandidate, setCandidateDialog,
-    failure, setFailure, compareOpen, selectedTarget,
+    failure, setFailure, compareOpen, selectedTarget, activeRun,
     drafts, setCompareOpen, selectPage, toast,
     clearToast, discardingCapture, capture, setDiscardingCapture,
     stopRecordingAndClose,
@@ -287,7 +289,15 @@ export function WorkspaceDialogs(props: Props) {
             }),
           )}
           currentId={selectedTarget.candidateId}
-          stepName={stepName(view, selectedTarget.stepId)}
+          stepName={selectedTarget.stepId === SOURCE_STEP_ID ? "文字起こしの別案" : stepName(view, selectedTarget.stepId)}
+          transcript={selectedTarget.stepId === SOURCE_STEP_ID ? {
+            bridge,
+            recording: recordingRef(view),
+            audio: view.recording.source.kind === "audio" ? view.recording.source.audio : [],
+            missingInputs: view.missingInputs,
+            runs: view.runs,
+            activeRun,
+          } : undefined}
           onOpen={(candidateId) => {
             // レールの案の行と同じ（書きかけを書き残してから、その案を選択案として開く）
             setCompareOpen(false);
