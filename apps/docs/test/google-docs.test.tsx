@@ -113,7 +113,7 @@ describe("Google ドキュメント接続", () => {
     const account = new FakeAccount({ kind: "signedOut" });
     screen = await renderApp(bridge, account.transport);
     await click(button(screen.container, "設定"));
-    expect(screen.container.textContent).toContain("利用するには、上の「NIHO アカウント」からログインしてください");
+    expect(screen.container.textContent).toContain("利用するには、上の「アカウント」からログインしてください");
     expect(bridge.docsDriveConnectionCalls).toBe(0);
 
     await act(async () => account.change({ kind: "signedIn", profile }));
@@ -133,7 +133,7 @@ describe("Google ドキュメント接続", () => {
     expect(bridge.docsDriveDisconnectCalls).toBe(1);
     await act(async () => account.change({ kind: "expired", profile, reason: "connectionRevoked" }));
     expect(bridge.docsDriveConnectionCalls).toBe(2);
-    expect(screen.container.querySelector(".google-docs-card")?.textContent).toContain("NIHO アカウント");
+    expect(screen.container.querySelector(".google-docs-card")?.textContent).toContain("アカウント");
   });
 
   it("初回ログイン後も書き出しダイアログの入力と復帰先を保持する", async () => {

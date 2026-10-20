@@ -19,7 +19,7 @@ import "../styles/cloud.css";
 function syncLine(state: CloudState): { dot: "" | "off" | "none"; text: string } {
   switch (state.status) {
     case "active":
-      return state.message ? { dot: "off", text: "NIHO に接続できません" } : { dot: "", text: "同期しています" };
+      return state.message ? { dot: "off", text: "クラウドに接続できません" } : { dot: "", text: "同期しています" };
     case "signedOut":
     case "expired":
       return { dot: "off", text: "ログインが必要です" };
@@ -207,7 +207,7 @@ export function CloudSettings(props: {
     try {
       cloud.putState(await bridge.cloudStorageReopen());
       setReopeningPreview(null);
-      props.onNotice("NIHO クラウドで開けるようになりました");
+      props.onNotice("クラウドで開けるようになりました");
     } catch (failure) {
       setError(asError(failure, "クラウドへ移せませんでした。もう一度お試しください。"));
       setReopeningPreview(null);
@@ -275,15 +275,15 @@ export function CloudSettings(props: {
       <div className="prow">
         <b>保存先</b>
         <span className="stc">
-          <span className="st">{state?.storage?.mode === "CLOSING" ? "NIHO クラウドから移行中" : niho ? "NIHO クラウド" : state?.storage?.mode === "LOCAL" ? "この Mac だけ" : "この Mac だけ（開発版）"}</span>
+          <span className="st">{state?.storage?.mode === "CLOSING" ? "クラウドから移行中" : niho ? "クラウド" : state?.storage?.mode === "LOCAL" ? "この Mac だけ" : "この Mac だけ（開発版）"}</span>
           <span className="help">
             {state?.storage?.mode === "CLOSING"
               ? "この Mac へ受信するまで同期を止めています。受信を再開できます。"
               : niho
-              ? "ページとフォルダはこの Mac と NIHO クラウドの両方に保存され、別の Mac やスマホからも開けます。録音の音声もクラウドに保存されます（クラウドでは 30 日で消え、この Mac には残ります）。"
+              ? "ページとフォルダはこの Mac とクラウドの両方に保存され、別の Mac やスマホからも開けます。録音の音声もクラウドに保存されます（クラウドでは 30 日で消え、この Mac には残ります）。"
               : state?.storage?.mode === "LOCAL"
                 ? "ページと音声はこの Mac に保存します。Web やほかの Mac とは同期しません。"
-                : "開発版では NIHO クラウドに保存しません。NIHO_DOCS_CLOUD=1 を付けて起動したときだけ同期します。"}
+                : "開発版ではクラウドに保存しません。この Mac に保存されます。"}
           </span>
           {error && (
             <span className="err" role="alert">
@@ -482,21 +482,21 @@ export function CloudSettings(props: {
           onCancel={() => setConfirmRebind(false)}
         >
           <p className="msg">
-            この保存先は別の NIHO アカウントと同期していました。これからは今ログインしているアカウントのクラウドに保存します。手元のページとフォルダはそのまま使えます。
+            この保存先は別のアカウントと同期していました。これからは今ログインしているアカウントのクラウドに保存します。手元のページとフォルダはそのまま使えます。
           </p>
         </ConfirmDialog>
       )}
 
       {reopeningPreview && (
         <ConfirmDialog
-          title="NIHO クラウドに保存する"
+          title="クラウドに保存する"
           confirmLabel={reopeningBusy ? "クラウドに移しています…" : "クラウドに移す"}
           busy={reopeningBusy}
           onConfirm={() => void reopen()}
           onCancel={() => setReopeningPreview(null)}
         >
           <p className="msg">
-            この Mac のページと音声を NIHO クラウドへ移します。完了すると、ほかの Mac やスマホからも開けます。
+            この Mac のページと音声をクラウドへ移します。完了すると、ほかの Mac やスマホからも開けます。
             移行中はこの Mac での編集を一時停止します。
           </p>
           <p className="msg">

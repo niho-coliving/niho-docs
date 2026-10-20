@@ -60,9 +60,9 @@ describe("この Mac で続きを受ける（設定の行）", () => {
     act(() => bridge.emitPcRunner({ enabled: true, state: "running", label: "文字起こしの修正", runnerId: "runner_mac_1" }));
     expect(container.querySelector('[role="status"]')?.textContent).toBe("処理中: 文字起こしの修正");
     act(() => bridge.emitPcRunner({ enabled: true, state: "needs_login", label: null, runnerId: "runner_mac_1" }));
-    expect(container.querySelector('[role="status"]')?.textContent).toBe("NIHO アカウントでのログインが必要です");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("ログインが必要です");
     act(() => bridge.emitPcRunner({ enabled: true, state: "storage_unavailable", label: null, runnerId: "runner_mac_1" }));
-    expect(container.querySelector('[role="status"]')?.textContent).toBe("保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("クラウドの保存先を確認できません。設定の保存先を確認してください。");
 
     await act(async () => toggle().click());
     await settle();
@@ -75,14 +75,14 @@ describe("この Mac で続きを受ける（設定の行）", () => {
     const bridge = new FakeBridge();
     await render(bridge, false);
     expect(toggle().disabled).toBe(true);
-    expect(text()).toContain("NIHO アカウントでログインすると使えます");
+    expect(text()).toContain("ログインすると使えます");
 
     const on = new FakeBridge();
     on.pcRunner = { enabled: true, state: "needs_login", label: null, runnerId: "runner_mac_1" };
     await render(on, false);
     expect(toggle().disabled).toBe(false);
-    expect(text()).not.toContain("NIHO アカウントでログインすると使えます");
-    expect(container.querySelector('[role="status"]')?.textContent).toBe("NIHO アカウントでのログインが必要です");
+    expect(text()).not.toContain("ログインすると使えます");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("ログインが必要です");
   });
 
   it("失敗はスイッチの近くに 1 行で出し、Rust の文を素通ししない", async () => {
@@ -92,7 +92,7 @@ describe("この Mac で続きを受ける（設定の行）", () => {
     await act(async () => toggle().click());
     await settle();
     const alert = container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toBe("NIHO に接続できません。接続を確かめてから、もう一度お試しください。");
+    expect(alert?.textContent).toBe("クラウドに接続できません。接続を確かめてから、もう一度お試しください。");
     expect(toggle().getAttribute("aria-checked")).toBe("false");
 
     bridge.pcRunnerFailure = { code: "something_new", message: "lease generation 3" };
@@ -132,8 +132,8 @@ describe("スマホからの依頼の実行中", () => {
   it("状態の 1 行はメニューバーと同じ文", () => {
     expect(pcRunnerStatusLine({ enabled: true, state: "starting", label: null, runnerId: "runner_mac_1" })).toBe("準備中");
     expect(pcRunnerStatusLine({ enabled: true, state: "idle", label: null, runnerId: "runner_mac_1" })).toBe("待機中");
-    expect(pcRunnerStatusLine({ enabled: true, state: "offline", label: null, runnerId: "runner_mac_1" })).toBe("NIHO に接続できません");
-    expect(pcRunnerStatusLine({ enabled: true, state: "storage_unavailable", label: null, runnerId: "runner_mac_1" })).toBe("保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。");
+    expect(pcRunnerStatusLine({ enabled: true, state: "offline", label: null, runnerId: "runner_mac_1" })).toBe("クラウドに接続できません");
+    expect(pcRunnerStatusLine({ enabled: true, state: "storage_unavailable", label: null, runnerId: "runner_mac_1" })).toBe("クラウドの保存先を確認できません。設定の保存先を確認してください。");
   });
 });
 
@@ -155,11 +155,11 @@ describe("残りの工程でこの Mac を選べるか（#19107）", () => {
     expect(of("idle")).toMatchObject({ ok: false, reason: expect.stringContaining("登録しています") });
     expect(of("needs_login")).toEqual({
       ok: false,
-      reason: "NIHO アカウントでのログインが必要です。ログインしてから、もう一度「この Mac」を選んでください。",
+      reason: "ログインが必要です。ログインしてから、もう一度「この Mac」を選んでください。",
     });
     expect(of("offline")).toEqual({
       ok: false,
-      reason: "NIHO に接続できません。接続を確かめてから、もう一度「この Mac」を選んでください。",
+      reason: "クラウドに接続できません。接続を確かめてから、もう一度「この Mac」を選んでください。",
     });
     for (const state of ["starting", "idle", "running", "needs_login", "offline"] as const) {
       expect(of(state)).toMatchObject({ ok: false, reason: expect.not.stringContaining("オンにしてください") });

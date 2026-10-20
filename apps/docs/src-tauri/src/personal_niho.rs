@@ -83,16 +83,13 @@ const PHASES: [&str; 5] = ["prepared", "sent", "accepted", "rejected", "absent"]
 // 失敗（送信前に止めたものと、送信後のもの〔rejected・result_unknown〕を code で分ける）
 
 fn route_refused() -> CommandError {
-  failure(
-    "personal_niho_route",
-    "この実行は NIHO API に任せる実行ではありません。",
-  )
+  failure("personal_niho_route", "この実行方法ではクラウドを使えません。")
 }
 
 fn legacy_recording() -> CommandError {
   failure(
     "personal_niho_legacy_recording",
-    "この録音は以前の形式のため、NIHO API には渡せません。この Mac で続けてください。",
+    "この録音は古い形式のため、クラウドでは実行できません。この Mac で続けてください。",
   )
 }
 
@@ -122,14 +119,14 @@ fn source_candidate_not_supported() -> CommandError {
 fn partial_saved() -> CommandError {
   failure(
     "personal_niho_partial_saved",
-    "途中までの工程が保存済みのため、NIHO API には渡せません。この Mac で続けてください。",
+    "途中までの工程が保存済みのため、クラウドでは実行できません。この Mac で続けてください。",
   )
 }
 
 fn steps_mismatch() -> CommandError {
   failure(
     "personal_niho_steps_mismatch",
-    "NIHO API に任せられるのは、この録音の工程を全部まとめて実行するときだけです。",
+    "クラウドで実行するには、この録音の工程をまとめて実行してください。",
   )
 }
 
@@ -143,7 +140,7 @@ fn input_changed() -> CommandError {
 fn too_large() -> CommandError {
   failure(
     "personal_niho_too_large",
-    "工程か参考ページが多すぎるため、NIHO API には渡せません。この Mac で続けてください。",
+    "工程か参考ページが多すぎるため、クラウドでは実行できません。この Mac で続けてください。",
   )
 }
 
@@ -152,10 +149,7 @@ fn not_ready(message: &str) -> CommandError {
 }
 
 fn auth_required() -> CommandError {
-  failure(
-    "personal_niho_auth_required",
-    "NIHO アカウントにもう一度ログインしてから実行してください。",
-  )
+  failure("personal_niho_auth_required", "ログインし直してから実行してください。")
 }
 
 /// 停止スイッチ（#18892・spec D-18）: `APP_CONNECT_ENABLED` が OFF の間、API の認証が接続つき token を 401（`details.reason` は
@@ -163,21 +157,21 @@ fn auth_required() -> CommandError {
 fn paused() -> CommandError {
   failure(
     "personal_niho_unavailable",
-    "NIHO への接続は今、一時停止しています。この Mac で続けられます。再開すると、ログインし直さずに使えます。",
+    "クラウドの利用は一時停止中です。この Mac で続けられます。再開すると、ログインし直さずに使えます。",
   )
 }
 
 fn offline() -> CommandError {
   failure(
     "personal_niho_offline",
-    "NIHO に接続できません。接続を確かめてから、もう一度実行してください。",
+    "クラウドに接続できません。接続を確かめてから、もう一度実行してください。",
   )
 }
 
 fn unavailable() -> CommandError {
   failure(
     "personal_niho_unavailable",
-    "NIHO API の利用条件を確認できませんでした。少し待ってから、もう一度実行してください。",
+    "クラウドの利用条件を確認できませんでした。少し待ってから、もう一度実行してください。",
   )
 }
 
@@ -195,7 +189,7 @@ fn prepare_failed() -> CommandError {
 fn result_unknown() -> CommandError {
   failure(
     "personal_niho_result_unknown",
-    "NIHO API へ送信しましたが、受付結果を確認できません。自動では送り直しません。",
+    "クラウドへ送信しましたが、受付結果を確認できません。自動では送り直しません。",
   )
 }
 
@@ -232,14 +226,14 @@ fn pending_exists() -> CommandError {
 fn record_unreadable() -> CommandError {
   failure(
     "personal_niho_pending_exists",
-    "前の依頼の記録を読めないため、受付結果を確かめられません。記録を確かめるまで NIHO API には頼まず、この Mac で続けてください。",
+    "前の依頼の記録を読めないため、受付結果を確かめられません。記録を確かめるまでクラウドには依頼せず、この Mac で続けてください。",
   )
 }
 
 fn run_active() -> CommandError {
   failure(
     "personal_niho_run_active",
-    "この録音は NIHO で実行中です。終わってから、もう一度実行してください。",
+    "この録音はクラウドで実行中です。終わってから、もう一度実行してください。",
   )
 }
 
@@ -262,10 +256,10 @@ fn in_flight() -> CommandError {
 fn rejection_message(reason: &str) -> &'static str {
   match reason {
     "input_revision_changed" => {
-      "保存先が更新されたため、NIHO API が受け付けませんでした。同期を確かめて、もう一度実行してください。"
+      "保存先が更新されたため、クラウドが受け付けませんでした。同期を確かめて、もう一度実行してください。"
     }
-    "recording_run_active" => "この録音は NIHO で実行中です。終わってから、新しく実行してください。",
-    "api_model_unavailable" => "この録音に固定された AI モデルは NIHO API では使えません。この Mac で続けてください。",
+    "recording_run_active" => "この録音はクラウドで実行中です。終わってから、新しく実行してください。",
+    "api_model_unavailable" => "この録音に固定された AI モデルはクラウドで使えません。この Mac で続けてください。",
     "flow_snapshot_mismatch"
     | "reference_set_mismatch"
     | "confirmed_transcript_version_required"
@@ -274,24 +268,24 @@ fn rejection_message(reason: &str) -> &'static str {
     | "recording_path_invalid"
     | "blob_missing"
     | "metadata_hash_mismatch" => {
-      "録音・工程・参考ページ・原文が NIHO の記録と一致しないため、受け付けられませんでした。同期を確かめて、もう一度実行してください。"
+      "録音・工程・参考ページ・原文がクラウドの記録と一致しないため、受け付けられませんでした。同期を確かめて、もう一度実行してください。"
     }
     "api_budget_exhausted" | "api_budget_unavailable" | "api_price_changed" => {
-      "NIHO API の上限に達しているため、受け付けられませんでした。この Mac で続けられます。"
+      "クラウドの利用上限に達しているため、受け付けられませんでした。この Mac で続けられます。"
     }
     "rate_limited" | "user_queue_full" | "global_queue_full" => {
       "混み合っているため、受け付けられませんでした。少し待ってから、新しく実行してください。"
     }
     "not_authenticated" => {
-      "NIHO アカウントを確かめられなかったため、受け付けられませんでした。もう一度ログインしてから、新しく実行してください。"
+      "ログイン状態を確認できなかったため、受け付けられませんでした。ログインし直してから、新しく実行してください。"
     }
     "app_connect_disabled" => {
-      "NIHO への接続が一時停止しているため、受け付けられませんでした。この Mac で続けられます。再開したあとに、新しく実行してください。"
+      "クラウドの利用が一時停止中のため、受け付けられませんでした。この Mac で続けられます。再開したあとに、新しく実行してください。"
     }
     reason if reason.starts_with("api_") || reason == "permission_revoked" => {
-      "NIHO API を今は使えないため、受け付けられませんでした。この Mac で続けられます。"
+      "クラウドでは今は実行できないため、受け付けられませんでした。この Mac で続けられます。"
     }
-    _ => "NIHO API が依頼を受け付けませんでした。",
+    _ => "クラウドが依頼を受け付けませんでした。",
   }
 }
 
@@ -1146,14 +1140,14 @@ async fn fetch_access(
 fn check_access(access: &NihoAccessWire, body: &CreateBody) -> CommandResult<()> {
   if !access.available {
     return Err(not_ready(match access.reason_code.as_deref() {
-      Some("BUDGET_EXHAUSTED") => "NIHO API の上限に達しています。この Mac で続けられます。",
-      Some("PERMISSION_DENIED") => "NIHO API の利用が許可されていません。この Mac で続けられます。",
-      _ => "NIHO API を今は使えません。この Mac で続けられます。",
+      Some("BUDGET_EXHAUSTED") => "クラウドの利用上限に達しています。この Mac で続けられます。",
+      Some("PERMISSION_DENIED") => "クラウドの利用が許可されていません。この Mac で続けられます。",
+      _ => "クラウドの AI は今は使えません。この Mac で続けられます。",
     }));
   }
   if access.consent_version.as_deref() != Some(body.consent_version.as_str()) {
     return Err(not_ready(
-      "NIHO API の利用条件が更新されました。内容を確かめてから、もう一度実行してください。",
+      "クラウドの利用条件が更新されました。内容を確かめてから、もう一度実行してください。",
     ));
   }
   let step_provider = access.provider.as_deref().and_then(niho_api_step_provider);
@@ -1163,7 +1157,7 @@ fn check_access(access: &NihoAccessWire, body: &CreateBody) -> CommandResult<()>
     });
   if !models_match {
     return Err(not_ready(
-      "この録音に固定された AI モデルが NIHO の AI と違うため、この Mac で続けてください。",
+      "この録音に固定された AI モデルはクラウドで使えないため、この Mac で続けてください。",
     ));
   }
   Ok(())

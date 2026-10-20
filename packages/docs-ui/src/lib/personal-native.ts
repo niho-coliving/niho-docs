@@ -204,15 +204,15 @@ function syncVerdict(snapshot: ProjectSyncSnapshot | null, syncedBefore: string 
     return { complete: false, final: true, reason: "確かめが要る競合があります。競合を解決してから実行してください。" };
   }
   if (snapshot.tombstone !== null) return { complete: false, final: true, reason: "別の Mac で削除されたフォルダです。どうするか選んでから実行してください。" };
-  if (snapshot.lastError?.kind === "authRequired") return { complete: false, final: true, reason: "NIHO にログインし直してから実行してください。" };
+  if (snapshot.lastError?.kind === "authRequired") return { complete: false, final: true, reason: "ログインし直してから実行してください。" };
   const pending =
     snapshot.syncing ||
     snapshot.pendingMutation ||
     Object.keys(snapshot.dirty).length > 0 ||
     snapshot.acknowledgedGeneration < snapshot.localGeneration;
-  if (pending) return { complete: false, final: false, reason: "まだ NIHO に送っていない変更があります。同期が終わってから実行してください。" };
+  if (pending) return { complete: false, final: false, reason: "まだクラウドに送っていない変更があります。同期が終わってから実行してください。" };
   if (snapshot.lastError !== null || snapshot.lastSyncedAt === null || snapshot.lastSyncedAt === syncedBefore) {
-    return { complete: false, final: false, reason: "NIHO との同期が終わっていません。少し待ってから、もう一度実行してください。" };
+    return { complete: false, final: false, reason: "クラウドとの同期が終わっていません。少し待ってから、もう一度実行してください。" };
   }
   return { complete: true };
 }
@@ -490,7 +490,7 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
     const timeoutMs = deps.syncWait?.timeoutMs ?? PERSONAL_SYNC_TIMEOUT_MS;
     const intervalMs = Math.max(1, deps.syncWait?.intervalMs ?? PERSONAL_SYNC_POLL_MS);
     const attempts = Math.max(1, Math.ceil(timeoutMs / intervalMs));
-    let reason = "NIHO との同期が終わっていません。少し待ってから、もう一度実行してください。";
+    let reason = "クラウドとの同期が終わっていません。少し待ってから、もう一度実行してください。";
     for (let attempt = 0; attempt < attempts; attempt++) {
       if (stopRequested) throw new PersonalCancellationError();
       if (attempt > 0) await sleep(intervalMs);
@@ -604,13 +604,13 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
       // 録音に固定した AI が NIHO の AI と違う工程は、同意の後に NIHO の AI へ持ち替える（docs-core の nihoApiModelSwap。Web と同じ規則）
       const plan = personalNihoModelPlan(access, fixedMaterial.flow, prepared.stepIds);
       if (!plan.ready || !access.consentVersion) {
-        throw new PersonalExecutionError("NIHO_API_NOT_READY", plan.ready ? "NIHO API の利用条件を確認できませんでした。" : plan.reason);
+        throw new PersonalExecutionError("NIHO_API_NOT_READY", plan.ready ? "クラウドの利用条件を確認できませんでした。" : plan.reason);
       }
       const consentVersion = access.consentVersion;
       const swap = Object.keys(plan.swap).length > 0;
       // 以前の形式の録音（root）は NIHO API へ渡せない（Native も送る前に断る）。持ち替えて書く前に、書かずに止める
       if (swap && (rec.recordingId === ROOT_RECORDING_ID || request.recordingPageId === ROOT_RECORDING_ID)) {
-        throw new PersonalExecutionError("NIHO_API_NOT_READY", "この録音は以前の形式のため、NIHO API には渡せません。この Mac で続けてください。");
+        throw new PersonalExecutionError("NIHO_API_NOT_READY", "この録音は古い形式のため、クラウドでは実行できません。この Mac で続けてください。");
       }
       if (deps.signal?.aborted) throw new PersonalCancellationError();
       await deps.confirmNihoExecution?.({ access, models: plan.models, swap, sourceVersion: fixedMaterial.sourceVersion });
@@ -627,7 +627,7 @@ export function createNativePersonalPorts(deps: NativePersonalDeps, opened: Pers
         if (!swapped) throw inputChanged();
       } catch (error) {
         if (error instanceof PersonalExecutionError) throw error;
-        throw new PersonalExecutionError("NIHO_API_MODEL_SWAP_FAILED", "録音の AI を NIHO の AI に持ち替えられませんでした。もう一度実行するか、この Mac で続けてください。");
+        throw new PersonalExecutionError("NIHO_API_MODEL_SWAP_FAILED", "録音の AI をクラウドの AI に切り替えられませんでした。もう一度実行するか、この Mac で続けてください。");
       }
       // 書いた録音を NIHO へ届けてから、同じ operation で素材を読み直す（API は NIHO に届いた録音の固定モデルと照らす）
       const synced = await syncNow();
