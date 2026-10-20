@@ -55,8 +55,8 @@ export const PERSONAL_NIHO_NOT_SENT_CODES: ReadonlySet<string> = new Set([
   "personal_niho_closed",
 ]);
 
-const UNKNOWN_MESSAGE = "NIHO APIの受付結果を確認できません。自動では送り直しません。";
-const MODEL_MISMATCH = "この録音に固定された AI モデルが NIHO の AI と違うため、この Mac で続けてください。";
+const UNKNOWN_MESSAGE = "クラウドの受付結果を確認できません。自動では送り直しません。";
+const MODEL_MISMATCH = "この録音に固定された AI モデルはクラウドで使えないため、この Mac で続けてください。";
 /** API の受付の上限（apps/api の plannedCalls 1..32）。 */
 const MAX_PLANNED_CALLS = 32;
 
@@ -74,9 +74,9 @@ export function personalNihoModelsReadiness(
   models: readonly (ResolvedStepModel | undefined)[],
 ): { ready: boolean; reason?: string } {
   if (!access.available) {
-    if (access.reasonCode === "BUDGET_EXHAUSTED") return { ready: false, reason: "NIHO API の上限に達しています。この Mac で続けられます。" };
-    if (access.reasonCode === "PERMISSION_DENIED") return { ready: false, reason: "NIHO API の利用が許可されていません。この Mac で続けられます。" };
-    return { ready: false, reason: "NIHO API を今は使えません。この Mac で続けられます。" };
+    if (access.reasonCode === "BUDGET_EXHAUSTED") return { ready: false, reason: "クラウドの利用上限に達しています。この Mac で続けられます。" };
+    if (access.reasonCode === "PERMISSION_DENIED") return { ready: false, reason: "クラウドの利用が許可されていません。この Mac で続けられます。" };
+    return { ready: false, reason: "クラウドの AI は今は使えません。この Mac で続けられます。" };
   }
   const descriptor = nihoApiDescriptor(access);
   if (!descriptor || !nihoApiProvider(descriptor.provider) || models.some((model) => !matchesNihoApi(model, descriptor))) {
@@ -134,7 +134,7 @@ export function personalNihoReadiness(access: PersonalNihoAccess, snapshot: Pers
   const modelsReady = personalNihoModelsReadiness(access, models);
   if (!modelsReady.ready) return modelsReady;
   if (access.consentVersion !== snapshot.consentVersion) {
-    return { ready: false, reason: "NIHO API の利用条件が更新されました。内容を確かめてから、もう一度実行してください。" };
+    return { ready: false, reason: "クラウドの利用条件が更新されました。内容を確かめてから、もう一度実行してください。" };
   }
   return { ready: true };
 }
@@ -155,12 +155,12 @@ export function createPersonalNihoPorts(
   return {
     async nihoApiReadiness({ snapshot }) {
       const planned = snapshot.selectedStepIds.length;
-      if (planned < 1 || planned > MAX_PLANNED_CALLS) return { ready: false, reason: "NIHO API に任せる工程がありません。" };
+      if (planned < 1 || planned > MAX_PLANNED_CALLS) return { ready: false, reason: "クラウドで実行する工程がありません。" };
       let access: PersonalNihoAccess;
       try {
         access = await bridge.personalNihoAccess(handle, planned);
       } catch (error) {
-        return { ready: false, reason: isCommandError(error) ? error.message : "NIHO API の利用条件を確認できませんでした。" };
+        return { ready: false, reason: isCommandError(error) ? error.message : "クラウドの利用条件を確認できませんでした。" };
       }
       return personalNihoReadiness(access, snapshot);
     },

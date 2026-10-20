@@ -192,7 +192,7 @@ describe("サーバーが NIHO アカウントの接続を閉じている間", (
     screen = await renderApp(bridge, new FakeAccount({ kind: "signedIn", profile }).transport);
     const { container } = screen;
     await click(button(container, "設定"));
-    expect(container.querySelector(".docs-account")?.textContent).toContain("NIHO アカウント");
+    expect(container.querySelector(".docs-account h3")?.textContent).toBe("アカウント");
     expect(container.querySelector(".google-docs-card")).not.toBeNull();
   });
 
@@ -201,7 +201,7 @@ describe("サーバーが NIHO アカウントの接続を閉じている間", (
     screen = await renderApp(bridge, new FakeAccount({ kind: "signedOut" }).transport);
     const { container } = screen;
     await click(button(container, "設定"));
-    expect(container.querySelector(".docs-account")?.textContent).toContain("NIHO アカウント");
+    expect(container.querySelector(".docs-account h3")?.textContent).toBe("アカウント");
     expect(container.querySelector(".google-docs-card")).not.toBeNull();
   });
 });

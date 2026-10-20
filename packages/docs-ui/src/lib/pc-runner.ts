@@ -20,7 +20,7 @@ export const PC_RUNNER_STATE_EVENT = "pc-runner://state";
 export const PC_RUNNER_TITLE = "この Mac で続きを受ける";
 export const PC_RUNNER_HELP =
   "スマホで「自分の Mac で続ける」を選んだ録音の修正・整理を、この Mac の AI で実行します。ON の間はメニューバーに常駐し、Mac へのログイン時に起動します。";
-export const PC_RUNNER_SIGNED_OUT = "NIHO アカウントでログインすると使えます";
+export const PC_RUNNER_SIGNED_OUT = "ログインすると使えます";
 /** 手元で実行しようとしたときに、スマホからの依頼を実行していた（Rust の `pc_runner_busy`）。 */
 export const PC_RUNNER_BUSY_MESSAGE = "スマホから依頼された工程をこの Mac で実行しています。終わってからもう一度お試しください。";
 const UNKNOWN_ERROR = "うまくいきませんでした。時間をおいてもう一度お試しください。";
@@ -33,11 +33,11 @@ export function pcRunnerStatusLine(status: PcRunnerStatus): string {
     case "running":
       return status.label ? `処理中: ${status.label}` : "処理中";
     case "needs_login":
-      return "NIHO アカウントでのログインが必要です";
+      return "ログインが必要です";
     case "offline":
-      return "NIHO に接続できません";
+      return "クラウドに接続できません";
     case "storage_unavailable":
-      return "保存先が NIHO クラウドであることを確認できません。設定の保存先を確認してください。";
+      return "クラウドの保存先を確認できません。設定の保存先を確認してください。";
     default:
       return "準備中";
   }
@@ -69,11 +69,11 @@ export const THIS_MAC_STATUS_UNAVAILABLE = "この Mac の状態を確認でき�
 
 const ERROR_TEXT: Record<string, string> = {
   pc_runner_not_signed_in: PC_RUNNER_SIGNED_OUT,
-  pc_runner_offline: "NIHO に接続できません。接続を確かめてから、もう一度お試しください。",
+  pc_runner_offline: "クラウドに接続できません。接続を確かめてから、もう一度お試しください。",
   pc_runner_save_failed: "設定を保存できませんでした。もう一度お試しください。",
   pc_runner_login_item_failed: "ログイン時に起動する設定を保存できませんでした。もう一度お試しください。",
   pc_runner_busy: PC_RUNNER_BUSY_MESSAGE,
-  pc_runner_storage_local: "NIHO クラウドの保存先を選ぶと使えます。",
+  pc_runner_storage_local: "クラウドの保存先を選ぶと使えます。",
 };
 
 /** ON/OFF の失敗の文（対応の無いコードは決まった文。Rust の文は素通ししない）。 */

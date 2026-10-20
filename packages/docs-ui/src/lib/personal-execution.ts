@@ -1135,9 +1135,9 @@ export function createPersonalExecutionController(ports: PersonalExecutionPorts)
       if (!sourceVersion) throw new PersonalExecutionError("SOURCE_VERSION_REQUIRED", "確定原文が無いため後続工程を開始できません。");
       if (request.route.kind === "generation_only" && request.route.executor === "niho_api") {
         if (!material.sourceVersion?.synced) throw new PersonalExecutionError("SOURCE_NOT_SYNCED", "確定原文の同期が終わっていません。");
-        if (sourceVersion.origin !== "this_pc") throw new PersonalExecutionError("SOURCE_ORIGIN_NOT_ALLOWED", "NIHO APIへ渡せるのは本人Macで確定した原文だけです。");
+        if (sourceVersion.origin !== "this_pc") throw new PersonalExecutionError("SOURCE_ORIGIN_NOT_ALLOWED", "クラウドへ送れるのは、この Mac で確定した文字起こしだけです。");
         const readiness = await ports.nihoApiReadiness({ snapshot });
-        if (!readiness.ready) throw new PersonalExecutionError("NIHO_API_NOT_READY", readiness.reason ?? "NIHO APIの許可・同意・上限を確認できません。");
+        if (!readiness.ready) throw new PersonalExecutionError("NIHO_API_NOT_READY", readiness.reason ?? "クラウドの利用設定を確認できません。");
         await guard(ports, request, snapshot, leaseId, "before_dispatch");
         remoteDispatchStarted = true;
         const accepted = await ports.submitNihoContinuation({
@@ -1162,14 +1162,14 @@ export function createPersonalExecutionController(ports: PersonalExecutionPorts)
           snapshotSha256: snapshot.snapshotSha256,
         }).catch((error: unknown) => {
           if (error instanceof PersonalRemoteRejectionError || error instanceof PersonalDispatchError) throw error;
-          throw new PersonalDispatchError(true, "NIHO APIの受付結果を確認できません。自動では送り直しません。");
+          throw new PersonalDispatchError(true, "クラウドの受付結果を確認できません。自動では送り直しません。");
         });
         try {
           safeId(accepted.runId, "remoteRunId");
-          if (!REMOTE_STATES.has(accepted.state)) throw new PersonalExecutionError("INVALID_REMOTE_STATE", "NIHO APIから未対応の受付状態が返りました。");
+          if (!REMOTE_STATES.has(accepted.state)) throw new PersonalExecutionError("INVALID_REMOTE_STATE", "クラウドから処理状況を確認できませんでした。");
         } catch {
           // 受付送信後なので、応答が壊れていても未受付とは断定せず同intentの再送を止める。
-          throw new PersonalDispatchError(true, "NIHO APIへ送信しましたが、受付結果を確認できません。自動では送り直しません。");
+          throw new PersonalDispatchError(true, "クラウドへ送信しましたが、受付結果を確認できません。自動では送り直しません。");
         }
         history.remoteRunId = accepted.runId;
         history.remoteState = accepted.state;
