@@ -154,3 +154,19 @@ export interface CloudOperationMap {
   readonly "share.revoke": { readonly headers: MutationHeaders; readonly request: ShareRevokeRequest; readonly response: ShareRevokeResponse };
   readonly "share.list": { readonly request: ShareListRequest; readonly response: ShareListResponse };
 }
+
+export type CloudResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly error: CloudError };
+
+/** Shared adapter shape for production clients and UI/test mocks. */
+export type CloudClient = {
+  readonly [K in keyof CloudOperationMap]: CloudOperationMap[K] extends { readonly headers: MutationHeaders }
+    ? (
+        request: CloudOperationMap[K]["request"],
+        headers: MutationHeaders,
+      ) => Promise<CloudResult<CloudOperationMap[K]["response"]>>
+    : (
+        request: CloudOperationMap[K]["request"],
+      ) => Promise<CloudResult<CloudOperationMap[K]["response"]>>;
+};

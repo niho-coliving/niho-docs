@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CLOUD_CONTRACT_VERSION, CLOUD_ERROR_CODES, type CloudOperationMap } from "../../niho-cloud-contract/src/v1.js";
+import { createCloudMockClient } from "../../niho-cloud-contract/src/mock.js";
 import { authorizeOwnedResource, checkIdempotency, validateCapability, validateUploadContent } from "../../niho-cloud-contract/test-support/reference-model.js";
 
 const securityCases = JSON.parse(readFileSync(
@@ -106,5 +107,26 @@ describe("Docs / Photo cloud contract v1", () => {
       sizeBytes: 101,
       maximumSizeBytes: 100,
     })).toBe("content_rejected");
+  });
+
+  it("provides the same deterministic mock adapter shape for client tests", async () => {
+    const client = createCloudMockClient();
+    await expect(client["share.list"]({
+      resource: {
+        resourceType: "photo",
+        resourceId: "photo-test",
+        ownerType: "user",
+        ownerId: "user-test",
+        tenantId: "tenant-test",
+        workspaceId: null,
+      },
+    })).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "temporarily_unavailable",
+        requestId: "mock-unconfigured",
+        retryable: false,
+      },
+    });
   });
 });
