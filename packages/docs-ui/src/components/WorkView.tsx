@@ -587,7 +587,7 @@ export function WorkView(props: WorkViewProps) {
                 {(props.target ? candidateStale : progress?.stale) && !runningHere && <span className="pill warn">{STALE_LABELS.stale}</span>}
                 {props.sourceUse?.selected && <span className="pill used-later">後工程に使用</span>}
                 <span className="sp" />
-                {props.onCompare && <button type="button" className="btn ghost sm" onClick={props.onCompare}>比較</button>}
+                {props.onCompare && <button type="button" className="btn ghost sm" onClick={() => { playbackRef.current?.pause(); props.onCompare?.(); }}>比較</button>}
                 {rerunnable && !runningHere && (
                   <button type="button" className="btn ghost sm" disabled={runBlocked} onClick={() => props.onRunStep(stepId)}>
                     再実行
