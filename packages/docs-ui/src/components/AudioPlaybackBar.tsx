@@ -15,7 +15,7 @@ import type { AudioFilePath, Bridge, RecordingRef } from "../lib/bridge";
 import { formatPlaybackTime, locateTimelineSecond, timelineDuration, timelineStarts } from "../lib/audio-playback";
 
 export type AudioPlaybackState = { positionSec: number; playing: boolean; follow: boolean };
-export type AudioPlaybackHandle = { seek: (second: number) => void };
+export type AudioPlaybackHandle = { seek: (second: number) => void; pause: () => void };
 
 type PlaybackTrack = AudioInput & { path: string | null };
 
@@ -133,7 +133,12 @@ export const AudioPlaybackBar = forwardRef<AudioPlaybackHandle, {
     setError(null);
     startAt(location.index, location.offsetSec, playingRef.current);
   }, [startAt]);
-  useImperativeHandle(ref, () => ({ seek }), [seek]);
+  const pause = useCallback(() => {
+    playbackAttemptRef.current++;
+    mediaRef.current.forEach((media) => media?.pause());
+    setPlayback(false);
+  }, [setPlayback]);
+  useImperativeHandle(ref, () => ({ seek, pause }), [pause, seek]);
 
   useEffect(() => {
     let current = true;
