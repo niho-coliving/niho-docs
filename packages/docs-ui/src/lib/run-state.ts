@@ -40,7 +40,7 @@ export type ActiveRun = {
 
 /** 直近の失敗・停止（録音のページの実行の帯の下と、会話の欄に出す。記録は runs.jsonl にもある）。 */
 export type RunNotice = { projectId: ProjectId; recordingId: string; stepId: string; kind: "failed" | "stopped" | "submitted"; message: string };
-export const DELIVERY_ACK_PENDING_NOTICE = "結果はこの Mac に保存しました。NIHO への受領通知は未確認です。接続を確認してください。";
+export const DELIVERY_ACK_PENDING_NOTICE = "結果はこの Mac に保存しました。クラウドへの受領通知は未確認です。接続を確認してください。";
 
 /** この録音の実行か。 */
 export function runIsOn(

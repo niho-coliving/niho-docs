@@ -94,7 +94,7 @@ describe("この Mac だけのフォルダ書き出し", () => {
       await act(async () => { root.render(<Harness />); });
       await act(async () => { controller!.open({ projectId, folderName: "取材" }); });
       expect(controller!.state.planStatus).toBe("loaded");
-      expect(container.textContent?.split("書き出しのため、選んだページを")).toHaveLength(2);
+      expect(container.textContent?.split("書き出しの間、選んだページをクラウドに一時的に置きます")).toHaveLength(2);
       expect(container.textContent).not.toContain("クラウドに保存しているフォルダだけ");
       await act(async () => { controller!.toggle("doc:second", false); });
       await act(async () => { await controller!.submit(); });

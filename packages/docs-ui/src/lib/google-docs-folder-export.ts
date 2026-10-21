@@ -18,7 +18,7 @@ export const FOLDER_EXPORT_TEXT = {
   description: "このフォルダのページを、タブに分けた 1 つの Google ドキュメントにします。元のページは変わりません。",
   unsaved: "保存が終わってから書き出せます。",
   localUnsaved: "この Mac に保存が終わってから書き出せます。確定後は選んだ本文を一時的に送って書き出せます。",
-  localTransitNotice: "書き出しのため、選んだページを NIHO のサーバーに一時的に置きます。完了後はすぐ削除し、再開できる失敗では最長24時間保持してから削除します。",
+  localTransitNotice: "書き出しの間、選んだページをクラウドに一時的に置きます。完了後はすぐ削除し、再開できる失敗では最長24時間保持してから削除します。",
   /** Mac だけ: NIHO クラウドに保存していないフォルダ（この Mac だけ・別のアカウント・ログアウト）。 */
   notInCloud: "クラウドに保存しているフォルダだけ書き出せます。",
   unavailable: "今は書き出せません。時間をおいてもう一度お試しください。",
@@ -39,7 +39,7 @@ export const FOLDER_EXPORT_TEXT = {
   /** 対応の無い失敗（design-guide-docs.md §7）。 */
   unknownFailure: "うまくいきませんでした。時間をおいてもう一度お試しください。",
   // 以下は 1 ページの書き出しと同じ文（Mac の 1 ページの書き出しのダイアログ・Web の接続の案内）
-  signedOut: "NIHO にログインしてから書き出してください。",
+  signedOut: "ログインしてから書き出してください。",
   notConnected: "本人の Google アカウントへ接続すると、文書やページを書き出せます。",
   connectionLost: "Google への接続が切れています。もう一度接続してください。",
   connectionCheckFailed: "Google との接続を確認できませんでした。",

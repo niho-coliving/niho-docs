@@ -204,7 +204,7 @@ describe("フォルダの ⋯ からの入口", () => {
 
     const { bridge, container } = await setup({ account: new FakeAccount({ kind: "signedOut" }), cloud: "local" });
     const dialog = await openExport(container);
-    expect(dialog.textContent).toContain("NIHO にログインしてから書き出してください。");
+    expect(dialog.textContent).toContain("ログインしてから書き出してください。");
     expect(button(dialog, "設定へ進む")).toBeTruthy();
     expect(bridge.folderExportPlanCalls).toEqual([]);
     await click(button(dialog, "閉じる"));

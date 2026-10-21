@@ -395,7 +395,7 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     if (cloud.state?.storage?.mode !== "LOCAL" || bridge.capabilities?.personalDeviceDelivery !== true) return;
     let cancelled = false;
     let running = false;
-    const pendingMessage = "結果はこの Mac に保存済みですが、NIHO への受領通知を確認できません。接続を確認してから、この画面に戻ってください。";
+    const pendingMessage = "結果はこの Mac に保存済みですが、クラウドへの受領通知を確認できません。接続を確認してから、この画面に戻ってください。";
     const recover = () => {
       if (running) return;
       running = true;

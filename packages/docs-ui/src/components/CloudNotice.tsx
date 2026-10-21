@@ -87,7 +87,7 @@ export function CloudNotice(props: {
                 </button>
               ),
             }
-          : { key: "login", text: "いまは NIHO にログインできないため、同期していません" },
+          : { key: "login", text: "いまはログインできないため、同期していません" },
       );
     } else if (state.status === "otherAccount") {
       items.push({
@@ -106,7 +106,7 @@ export function CloudNotice(props: {
     } else if (state.status === "active" && state.message) {
       items.push({
         key: "offline",
-        text: "NIHO に接続できません",
+        text: "クラウドに接続できません",
         actions: (
           <button type="button" className="btn outline sm" onClick={props.onOpenSettings}>
             設定を開く

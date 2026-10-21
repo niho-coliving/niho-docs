@@ -218,7 +218,7 @@ export function WorkScreen(props: Props) {
         : null;
       const start: RecordingControlsProps["start"] = {
         placeLine: localDeviceDelivery
-          ? sourceDone ? "続きは NIHO API で作り、この Mac に保存します" : "文字起こしはこの Mac、続きは NIHO API で作り、この Mac に保存します"
+          ? sourceDone ? "続きはクラウドで作り、この Mac に保存します" : "文字起こしはこの Mac、続きはクラウドで作り、この Mac に保存します"
           : runPlaceLine({ transcription: "this_device", continuation: continuation === "niho_api" ? "cloud" : "this_device", sourceDone }),
         note: continuation === "niho_api" && !localDeviceDelivery && !personalNihoFixedModels(rv.flow) ? NIHO_API_MODEL_SWAP_NOTE : null,
         reasonFor: (action) => {
@@ -229,7 +229,7 @@ export function WorkScreen(props: Props) {
           if (!localDeviceDelivery && selectedSource && selectedSource.artifactId !== SOURCE_STEP_ID) return { reason: SOURCE_CANDIDATE_CLOUD_REASON, setup: true };
           if (action === "create") return partialReason;
           if (!sourceVersion) return { reason: localDeviceDelivery
-            ? "NIHO API で続きを作るには、この Mac で確定した原文が必要です"
+            ? "クラウドで続きを作るには、この Mac で確定した文字起こしが必要です"
             : "クラウドで続きを作るには、この Mac で確定した原文が必要です", setup: false };
           if (localDeviceDelivery) return null;
           return partialReason ?? (rv.plan.remaining.length > 0 && rv.plan.remaining.length !== rv.flow.steps.length

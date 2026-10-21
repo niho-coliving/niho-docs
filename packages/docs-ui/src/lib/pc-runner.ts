@@ -51,10 +51,16 @@ export type ThisMacSelection = { ok: true; runnerId: string } | { ok: false; rea
  * 理由ごとに次にすることが違う: OFF はスイッチを入れる、ログイン・接続は直す、登録中は待つ。
  */
 export function resolveThisMacSelection(status: PcRunnerStatus): ThisMacSelection {
-  if (status.enabled && status.runnerId) return { ok: true, runnerId: status.runnerId };
   if (!status.enabled) {
     return { ok: false, reason: `「この Mac」を選ぶには、先にこの画面の「${PC_RUNNER_TITLE}」をオンにしてください。` };
   }
+  if (status.state === "storage_unavailable") {
+    return {
+      ok: false,
+      reason: "設定の保存先を NIHO クラウドに変更してから、もう一度「この Mac」を選んでください。",
+    };
+  }
+  if (status.runnerId) return { ok: true, runnerId: status.runnerId };
   if (status.state === "needs_login") {
     return { ok: false, reason: `${pcRunnerStatusLine(status)}。ログインしてから、もう一度「この Mac」を選んでください。` };
   }

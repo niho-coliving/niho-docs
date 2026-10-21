@@ -24,12 +24,12 @@ export function StorageChoice({ bridge, cloud }: { bridge: Bridge; cloud: CloudC
     <div className="app solo">
       <section className="empty storage-choice" aria-labelledby="storage-choice-title">
         <h1 id="storage-choice-title">ページと音声の保存先を選ぶ</h1>
-        <p className="msg">選ぶまでページや音声は NIHO に送りません。後から設定で変更できます。</p>
+        <p className="msg">選ぶまでページや音声をクラウドへ送りません。後から設定で変更できます。</p>
         <div className="storage-choice-options">
           <div className="storage-choice-option">
-            <h2>NIHO クラウド</h2>
+            <h2>クラウド</h2>
             <p>この Mac のページと音声を同期し、ほかの Mac やスマホからも開けます。クラウドの音声は 30 日で消え、この Mac には残ります。</p>
-            <button type="button" className="btn primary" disabled={busy} onClick={() => void choose("CLOUD")}>NIHO クラウドを選ぶ</button>
+            <button type="button" className="btn primary" disabled={busy} onClick={() => void choose("CLOUD")}>クラウドを選ぶ</button>
           </div>
           <div className="storage-choice-option">
             <h2>この Mac だけ</h2>
@@ -37,7 +37,7 @@ export function StorageChoice({ bridge, cloud }: { bridge: Bridge; cloud: CloudC
             <button type="button" className="btn outline" disabled={busy} onClick={() => void choose("LOCAL")}>この Mac だけを選ぶ</button>
           </div>
         </div>
-        <p className="help">ログイン情報などの運用記録は NIHO に残ります。書き出しや AI を使うときは、選んだ内容が一時的に NIHO を通ります。</p>
+        <p className="help">ログイン情報などの運用記録は残ります。書き出しや AI を使うときは、選んだ内容が処理の間だけクラウドを通ります。</p>
         {error && <p className="err" role="alert">{error}</p>}
       </section>
     </div>

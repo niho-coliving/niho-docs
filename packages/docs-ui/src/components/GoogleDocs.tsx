@@ -19,7 +19,7 @@ export function GoogleDocsConnectionCard(props: { googleDocs: GoogleDocsControll
             <div>
               <h3>書き出し先</h3>
               {!googleDocs.signedIn ? (
-                <p className="help">利用するには、上の「NIHO アカウント」からログインしてください。文書の作成と保存はログインなしでも使えます。</p>
+                <p className="help">利用するには、上の「アカウント」からログインしてください。文書の作成と保存はログインなしでも使えます。</p>
               ) : googleDocs.connectionLoading && !googleDocs.connection ? (
                 <p className="help">接続を確認しています…</p>
               ) : connected ? (
@@ -148,7 +148,7 @@ export function GoogleDocsExportDialog({ googleDocs }: { googleDocs: GoogleDocsC
           />
         </div>
         {/* 接続先のアカウントはここに出さない。アカウントの操作は設定だけ（owner 2026-10-18・#18920） */}
-        {!googleDocs.signedIn && <p className="err">NIHO にログインしてから書き出してください。</p>}
+        {!googleDocs.signedIn && <p className="err">ログインしてから書き出してください。</p>}
         {googleDocs.signedIn && needsConnection && <p className="err">設定でGoogleアカウントへ接続してください。入力したタイトルと受付情報はそのまま残ります。</p>}
         {status && <p className="google-export-status" role="status">{status}</p>}
         {state.phase === "success" && <p className="google-export-success" role="status">Google ドキュメントを作成しました。</p>}

@@ -20,16 +20,16 @@ export function LoginRequired({ account, updateNotice, failure, onDismissFailure
   return (
     <div className="app solo">
       <div className="empty login-required">
-        <h1>NIHO アカウントでログイン</h1>
+        <h1>アカウントでログイン</h1>
         <p className="msg">
           {reopeningPending
             ? "保存先の変更が途中です。ログインしてこの Mac の内容を照合し、移行を完了してください。"
-            : "NIHO docs のページと音声を使うには、NIHO アカウントでログインしてください。"}
+            : "NIHO docs のページと音声を使うには、アカウントでログインしてください。"}
         </p>
         <p className="help">
           {reopeningPending
             ? "移行が完了するまで、この Mac の文書は開けません。"
-            : "保存先をまだ選んでいない場合は、ログイン後に「NIHO クラウド」か「この Mac だけ」を選べます。"}
+            : "保存先をまだ選んでいない場合は、ログイン後に「クラウド」か「この Mac だけ」を選べます。"}
         </p>
         <div className="docs-account login-required-account">
           <AccountPopoverContent

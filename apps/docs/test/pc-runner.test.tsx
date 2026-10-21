@@ -161,8 +161,26 @@ describe("残りの工程でこの Mac を選べるか（#19107）", () => {
       ok: false,
       reason: "NIHO に接続できません。接続を確かめてから、もう一度「この Mac」を選んでください。",
     });
+    expect(of("storage_unavailable")).toEqual({
+      ok: false,
+      reason: "設定の保存先を NIHO クラウドに変更してから、もう一度「この Mac」を選んでください。",
+    });
     for (const state of ["starting", "idle", "running", "needs_login", "offline"] as const) {
       expect(of(state)).toMatchObject({ ok: false, reason: expect.not.stringContaining("オンにしてください") });
     }
+  });
+
+  it("保存先が利用できない場合は、runner ID があっても設定変更を案内する", () => {
+    expect(
+      resolveThisMacSelection({
+        enabled: true,
+        state: "storage_unavailable",
+        label: null,
+        runnerId: "runner_mac_1",
+      }),
+    ).toEqual({
+      ok: false,
+      reason: "設定の保存先を NIHO クラウドに変更してから、もう一度「この Mac」を選んでください。",
+    });
   });
 });

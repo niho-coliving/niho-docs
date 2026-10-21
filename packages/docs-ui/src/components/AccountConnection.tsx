@@ -12,7 +12,7 @@ export function AccountConnection({ account }: { account: NihoAccount }) {
     <div className="cb docs-account" ref={setContainer}>
       <div className="docs-account-row">
         <div>
-          <h3>NIHO アカウント</h3>
+          <h3>アカウント</h3>
           <p className="help">NIHO docs はログインして使います。ページとフォルダはクラウドに保存し、別の Mac やスマホからも開けます。</p>
         </div>
         <AccountPopover

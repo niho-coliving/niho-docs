@@ -173,7 +173,7 @@ describe("設定の保存先のクラウド", () => {
     const row = rowOf(screen.container, "残りの工程")!;
     expect(row.closest(".card")?.querySelector("h2")?.textContent).toBe("残りの工程");
     expect(row.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')?.textContent).toBe("この Mac");
-    expect(row.parentElement?.textContent).toContain("NIHO アカウントで共有し、iPhone・Web・Mac の新しい実行に使います");
+    expect(row.parentElement?.textContent).toContain("アカウントで共有し、iPhone・Web・Mac の新しい実行に使います");
     await click(button(row, "クラウド"));
     await until(() => bridge.executionSaves.length === 1);
     expect(bridge.executionSaves).toEqual([{ version: 1, route: "cloud", preferredMacRunnerId: null }]);
@@ -367,7 +367,8 @@ describe("設定の保存先のクラウド", () => {
     let row = rowOf(screen.container, "保存先")!;
     expect(row.closest(".card")?.querySelector("h2")?.textContent).toBe("保存先");
     expect(row.querySelector(".st")?.textContent).toBe("この Mac だけ（開発版）");
-    expect(row.textContent).toContain("NIHO_DOCS_CLOUD=1");
+    expect(row.textContent).toContain("この Mac に保存されます");
+    expect(row.textContent).not.toContain("NIHO_DOCS_CLOUD");
     expect(row.querySelectorAll("button")).toHaveLength(0);
     expect(rowOf(screen.container, "同期")).toBeUndefined();
     screen.unmount();
@@ -377,7 +378,7 @@ describe("設定の保存先のクラウド", () => {
     screen = await renderApp(bridge, account(signedIn()).transport);
     await click(button(screen.container, "設定"));
     row = rowOf(screen.container, "保存先")!;
-    expect(row.querySelector(".st")?.textContent).toBe("NIHO クラウド");
+    expect(row.querySelector(".st")?.textContent).toBe("クラウド");
     expect(row.textContent).toContain("別の Mac やスマホからも開けます");
     expect(row.textContent).toContain("クラウドでは 30 日で消え、この Mac には残ります");
     expect(row.querySelectorAll("button")).toHaveLength(0);
@@ -430,7 +431,7 @@ describe("設定の保存先のクラウド", () => {
     expect(confirm.textContent).toContain("音声 0 件は、クラウドでは 30 日で消え");
     expect(bridge.cloudCallsOf("cloudStorageReopen")).toEqual([]);
     await click(button(confirm, "クラウドに移す"));
-    await until(() => rowOf(container, "保存先")?.querySelector(".st")?.textContent === "NIHO クラウド");
+    await until(() => rowOf(container, "保存先")?.querySelector(".st")?.textContent === "クラウド");
     expect(bridge.cloudCallsOf("cloudStorageReopeningPreview")).toHaveLength(1);
     expect(bridge.cloudCallsOf("cloudStorageReopen")).toHaveLength(1);
   });
@@ -646,7 +647,7 @@ describe("設定の保存先のクラウド", () => {
     expect(container.querySelector(".login-required")).toBeNull();
     expect(container.textContent).toContain("朝市");
     const notice = container.querySelector<HTMLElement>(".rail .cloud-notice")!;
-    expect(notice.textContent).toContain("いまは NIHO にログインできないため、同期していません");
+    expect(notice.textContent).toContain("いまはログインできないため、同期していません");
     expect([...notice.querySelectorAll("button")].some((item) => item.textContent === "ログイン")).toBe(false);
   });
 
@@ -657,11 +658,11 @@ describe("設定の保存先のクラウド", () => {
     const login = account({ kind: "signedOut" });
     screen = await renderApp(bridge, login.transport);
     const { container } = screen;
-    expect(container.querySelector(".login-required h1")?.textContent).toBe("NIHO アカウントでログイン");
-    expect(container.textContent).toContain("保存先をまだ選んでいない場合は、ログイン後に「NIHO クラウド」か「この Mac だけ」を選べます。");
+    expect(container.querySelector(".login-required h1")?.textContent).toBe("アカウントでログイン");
+    expect(container.textContent).toContain("保存先をまだ選んでいない場合は、ログイン後に「クラウド」か「この Mac だけ」を選べます。");
     expect(container.querySelector(".rail")).toBeNull();
     expect(container.textContent).not.toContain("朝市");
-    await click(button(container, "NIHO でログイン"));
+    await click(button(container, "ログイン"));
     expect(login.calls).toContain(ACCOUNT_COMMANDS.beginLogin);
     screen.unmount();
 
@@ -669,6 +670,23 @@ describe("設定の保存先のクラウド", () => {
     screen = await renderApp(dev, account({ kind: "signedOut" }).transport);
     expect(screen.container.querySelector(".login-required")).toBeNull();
     expect(screen.container.querySelector(".rail")).not.toBeNull();
+  });
+
+  it("保存先の初回選択は「クラウド」と「この Mac だけ」で案内し、内部名を表示しない", async () => {
+    const bridge = new FakeBridge();
+    bridge.cloud = activeCloud({ storage: {
+      mode: "UNSET", epoch: "0", changedAt: null, cleanupPending: false,
+      quotaBytes: 5 * 1024 ** 3, closing: null,
+    } });
+    screen = await renderApp(bridge, account(signedIn()).transport);
+    const { container } = screen;
+    await until(() => container.querySelector(".storage-choice") !== null);
+    const choice = container.querySelector<HTMLElement>(".storage-choice")!;
+    expect(choice.textContent).toContain("クラウドを選ぶ");
+    expect(choice.textContent).toContain("この Mac だけを選ぶ");
+    expect(choice.textContent).toContain("処理の間だけクラウドを通ります");
+    expect(choice.textContent).not.toContain("NIHO API");
+    expect(choice.textContent).not.toContain("NIHO クラウド");
   });
 
   it("ログイン画面にいる間に接続が閉じたら（障害対応など）、確かめ直して手元で続ける", async () => {
@@ -742,7 +760,7 @@ describe("設定の保存先のクラウド", () => {
     bridge.cloud = activeCloud({ status: "expired" });
     screen = await renderApp(bridge, account({ kind: "expired", profile, reason: "sessionRevoked" }).transport);
     const notice = screen.container.querySelector<HTMLElement>(".rail .cloud-notice")!;
-    expect(notice.textContent).toContain("いまは NIHO にログインできないため、同期していません");
+    expect(notice.textContent).toContain("いまはログインできないため、同期していません");
     expect([...notice.querySelectorAll("button")].some((item) => item.textContent === "ログイン")).toBe(false);
   });
 
@@ -757,7 +775,7 @@ describe("設定の保存先のクラウド", () => {
     await act(async () => {
       window.dispatchEvent(new Event("focus"));
     });
-    await until(() => notice().textContent?.includes("いまは NIHO にログインできないため、同期していません") ?? false);
+    await until(() => notice().textContent?.includes("いまはログインできないため、同期していません") ?? false);
     expect([...notice().querySelectorAll("button")].some((item) => item.textContent === "ログイン")).toBe(false);
   });
 });
@@ -858,9 +876,9 @@ describe("文書のページ（NIHO クラウド）", () => {
     await act(async () => bridge.ackCloud(projectId));
     expect(saveText(container)).toBe("クラウドに保存済み");
     // 接続できない間は「オフライン」（この Mac には保存済み）
-    await act(async () => bridge.emitCloudState(activeCloud({ message: "NIHO に接続できません" })));
+    await act(async () => bridge.emitCloudState(activeCloud({ message: "クラウドに接続できません" })));
     expect(saveText(container)).toBe("このMacに保存済み・オフライン");
-    expect(container.querySelector(".rail .cloud-notice")?.textContent).toContain("NIHO に接続できません");
+    expect(container.querySelector(".rail .cloud-notice")?.textContent).toContain("クラウドに接続できません");
   });
 
   it("別の Mac の更新は守っている間は延ばし、「最新を表示」で守りを外して同期し、届いたら本文を読み直す", async () => {

@@ -1404,8 +1404,8 @@ export function Settings(props: {
               {props.executionProblem || !props.executionNotice ? (
                 <span className={props.executionProblem ? "bad" : "help"}>
                   {props.executionProblem ?? (props.executionScope === "account"
-                    ? "NIHO アカウントで共有し、iPhone・Web・Mac の新しい実行に使います。"
-                    : "この Mac だけの設定です。NIHO クラウドへ接続すると、アカウントの設定を使います。")}
+                    ? "アカウントで共有し、iPhone・Web・Mac の新しい実行に使います。"
+                    : "この Mac だけの設定です。クラウドへ接続すると、アカウントの設定を使います。")}
                 </span>
               ) : (
                 // 選べない理由（実行先は変えていない）を押した場所の近くに表示する。
