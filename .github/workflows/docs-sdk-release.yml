@@ -1,0 +1,156 @@
+name: Docs SDK release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "origin/main の祖先である40桁commit SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    outputs:
+      artifact-name: ${{ steps.names.outputs.artifact-name }}
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-digest: ${{ steps.upload.outputs.artifact-digest }}
+      manifest-file: ${{ steps.names.outputs.manifest-file }}
+      manifest-sha256: ${{ steps.names.outputs.manifest-sha256 }}
+      source-sha: ${{ steps.source.outputs.source-sha }}
+      version: ${{ steps.names.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: source
+        env:
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_SOURCE" =~ ^[a-f0-9]{40}$ ]]
+          resolved="$(git rev-parse --verify "$REQUESTED_SOURCE^{commit}")"
+          test "$resolved" = "$REQUESTED_SOURCE"
+          git merge-base --is-ancestor "$REQUESTED_SOURCE" origin/main
+          version="$(git show "$REQUESTED_SOURCE:sdk/release-set.json" | node -e 'const fs = require("node:fs"); process.stdout.write(JSON.parse(fs.readFileSync(0, "utf8")).version)')"
+          [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]
+          {
+            echo "source-sha=$REQUESTED_SOURCE"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+      - name: Checkout immutable selected source
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+        run: git checkout --detach "$SOURCE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/docs/package-lock.json
+      - run: npm -C apps/docs ci --ignore-scripts --no-audit --no-fund
+      - run: node --test scripts/sdk/release-set.test.mjs
+      - env:
+          SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+        run: node scripts/sdk/pack-release-set.mjs --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/docs-sdk"
+      - id: names
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.source-sha }}
+          VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          set -euo pipefail
+          manifest_file="niho-docs-sdk-$VERSION-$SOURCE_SHA.json"
+          node scripts/sdk/verify-release-set.mjs --manifest "$RUNNER_TEMP/docs-sdk/$manifest_file" --expected-source "$SOURCE_SHA" --expected-version "$VERSION" --source-repository "$GITHUB_WORKSPACE"
+          node scripts/sdk/smoke-consumer.mjs --manifest "$RUNNER_TEMP/docs-sdk/$manifest_file"
+          manifest_sha256="$(sha256sum "$RUNNER_TEMP/docs-sdk/$manifest_file" | cut -d' ' -f1)"
+          artifact_name="niho-docs-sdk-$SOURCE_SHA-run-$GITHUB_RUN_ID-attempt-$GITHUB_RUN_ATTEMPT"
+          {
+            echo "manifest-file=$manifest_file"
+            echo "manifest-sha256=$manifest_sha256"
+            echo "artifact-name=$artifact_name"
+            echo "version=$VERSION"
+          } >> "$GITHUB_OUTPUT"
+      - id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.names.outputs.artifact-name }}
+          path: ${{ runner.temp }}/docs-sdk/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Verify artifact identity and transport digest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.build.outputs.artifact-id }}
+          ARTIFACT_NAME: ${{ needs.build.outputs.artifact-name }}
+          ARTIFACT_DIGEST: ${{ needs.build.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$ARTIFACT_DIGEST" =~ ^[a-f0-9]{64}$ ]]
+          IFS=$'\t' read -r metadata_id metadata_name metadata_expired metadata_digest metadata_run_id < <(
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID" --jq '[.id, .name, .expired, .digest, .workflow_run.id] | @tsv'
+          )
+          test "$metadata_id" = "$ARTIFACT_ID"
+          test "$metadata_name" = "$ARTIFACT_NAME"
+          test "$metadata_expired" = "false"
+          test "$metadata_digest" = "sha256:$ARTIFACT_DIGEST"
+          test "$metadata_run_id" = "$GITHUB_RUN_ID"
+      - name: Download exact artifact ID
+        uses: actions/download-artifact@v5
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          path: ${{ runner.temp }}/docs-sdk
+          merge-multiple: true
+      - name: Verify downloaded data with trusted main verifier
+        env:
+          SOURCE_SHA: ${{ needs.build.outputs.source-sha }}
+          MANIFEST_FILE: ${{ needs.build.outputs.manifest-file }}
+          MANIFEST_SHA256: ${{ needs.build.outputs.manifest-sha256 }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          actual="$(sha256sum "$RUNNER_TEMP/docs-sdk/$MANIFEST_FILE" | cut -d' ' -f1)"
+          test "$actual" = "$MANIFEST_SHA256"
+          node scripts/sdk/verify-release-set.mjs --manifest "$RUNNER_TEMP/docs-sdk/$MANIFEST_FILE" --expected-source "$SOURCE_SHA" --expected-version "$VERSION" --source-repository "$GITHUB_WORKSPACE"
+      - name: Create immutable tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.build.outputs.source-sha }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="docs-sdk-v$VERSION"
+          existing_tag="$(git ls-remote --tags origin "refs/tags/$tag")"
+          test -z "$existing_tag" || { echo "tag already exists: $tag" >&2; exit 1; }
+          existing_release="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$tag\") | .id")"
+          test -z "$existing_release" || { echo "release already exists: $tag" >&2; exit 1; }
+          git tag "$tag" "$SOURCE_SHA"
+          git push origin "refs/tags/$tag"
+          prerelease_args=()
+          if [[ "${VERSION%%+*}" == *-* ]]; then prerelease_args+=(--prerelease); fi
+          gh release create "$tag" "$RUNNER_TEMP/docs-sdk/"* \
+            --verify-tag \
+            --latest=false \
+            "${prerelease_args[@]}" \
+            --title "NIHO docs SDK v$VERSION" \
+            --notes "選択した commit $SOURCE_SHA から再現可能に生成・検証した NIHO docs SDK release set です。"

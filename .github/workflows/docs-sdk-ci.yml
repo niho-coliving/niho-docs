@@ -1,0 +1,62 @@
+name: Docs SDK CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/docs-sdk-*.yml"
+      - "sdk/**"
+      - "scripts/sdk/**"
+      - "packages/docs-core/**"
+      - "packages/docs-ui/**"
+      - "packages/ui/**"
+      - "apps/docs/package.json"
+      - "apps/docs/package-lock.json"
+      - "docs/architecture/docs-sdk.md"
+      - "LICENSE"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/docs-sdk-*.yml"
+      - "sdk/**"
+      - "scripts/sdk/**"
+      - "packages/docs-core/**"
+      - "packages/docs-ui/**"
+      - "packages/ui/**"
+      - "apps/docs/package.json"
+      - "apps/docs/package-lock.json"
+      - "docs/architecture/docs-sdk.md"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  pack-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/docs/package-lock.json
+      - run: npm -C apps/docs ci --ignore-scripts --no-audit --no-fund
+      - run: node --test scripts/sdk/release-set.test.mjs
+      - name: Pack, verify, and smoke selected source
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./sdk/release-set.json').version")"
+          manifest="$RUNNER_TEMP/docs-sdk/niho-docs-sdk-$version-$SOURCE_SHA.json"
+          node scripts/sdk/pack-release-set.mjs --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/docs-sdk"
+          node scripts/sdk/verify-release-set.mjs --manifest "$manifest" --expected-source "$SOURCE_SHA" --expected-version "$version" --source-repository "$GITHUB_WORKSPACE"
+          node scripts/sdk/smoke-consumer.mjs --manifest "$manifest"
