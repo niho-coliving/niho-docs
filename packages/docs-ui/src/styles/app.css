@@ -2273,7 +2273,7 @@
   gap: 4px;
   width: 100%;
 }
-/* ガイドと指示文: その場で書け、書いた分だけ伸びる（高さは useFitHeight。欄の中ではスクロールさせない） */
+/* 背景情報・ガイド・指示文: 書いた分だけ伸びる（高さは useFitHeight。欄の中ではスクロールさせない） */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .ta.grow {
   resize: none;
   overflow: hidden;
