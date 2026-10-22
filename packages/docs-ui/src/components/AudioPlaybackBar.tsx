@@ -14,7 +14,7 @@ import {
 import type { AudioFilePath, Bridge, RecordingRef } from "../lib/bridge";
 import { formatPlaybackTime, locateTimelineSecond, timelineDuration, timelineStarts } from "../lib/audio-playback";
 
-export type AudioPlaybackState = { positionSec: number; playing: boolean; follow: boolean };
+export type AudioPlaybackState = { positionSec: number | null; playing: boolean; follow: boolean };
 export type AudioPlaybackHandle = { seek: (second: number) => void; pause: () => void };
 
 type PlaybackTrack = AudioInput & { path: string | null };
@@ -53,6 +53,7 @@ export const AudioPlaybackBar = forwardRef<AudioPlaybackHandle, {
   const [tracks, setTracks] = useState<PlaybackTrack[] | null>(null);
   const [durations, setDurations] = useState<Array<number | null>>(() => props.audio.map((item) => item.durationSec));
   const [position, setPosition] = useState(0);
+  const [positionSelected, setPositionSelected] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -113,6 +114,7 @@ export const AudioPlaybackBar = forwardRef<AudioPlaybackHandle, {
       return;
     }
     const start = timelineStarts(durationsRef.current)[index];
+    setPositionSelected(true);
     if (start !== null && start !== undefined) setTimelinePosition(start + Math.max(0, offsetSec));
     if (!shouldPlay) return;
     setError(null);
@@ -146,6 +148,7 @@ export const AudioPlaybackBar = forwardRef<AudioPlaybackHandle, {
     setTracks(null);
     setDurations(stableAudio.map((item) => item.durationSec));
     setTimelinePosition(0);
+    setPositionSelected(false);
     setPlayback(false);
     setError(null);
     void props.bridge.audioFilePaths(props.recording).then(
@@ -231,8 +234,8 @@ export const AudioPlaybackBar = forwardRef<AudioPlaybackHandle, {
   }, [speed]);
 
   useEffect(() => {
-    props.onStateChange?.({ positionSec: position, playing, follow });
-  }, [follow, playing, position, props.onStateChange]);
+    props.onStateChange?.({ positionSec: positionSelected ? position : null, playing, follow });
+  }, [follow, playing, position, positionSelected, props.onStateChange]);
 
   if (props.audio.length === 0) return null;
   const total = timelineDuration(durations);

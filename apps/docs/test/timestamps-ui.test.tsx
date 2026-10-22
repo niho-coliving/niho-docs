@@ -82,6 +82,13 @@ describe("文字起こしのタイムスタンプ表示", () => {
     expect(bridge.copied.at(-1)).toBe("[00:00:12] 話者1: 出発。\n\n[00:00:24] 話者2: 出発。\n");
   });
 
+  it("先頭が0秒でもページを開いた直後はどの段落も選択しない", async () => {
+    const { bridge } = await audioBridge("[00:00:00] 先頭\n\n[00:00:12] 続き\n");
+    const container = await openTranscript(bridge);
+    expect(container.querySelectorAll(".transcript-timed-paragraph")).toHaveLength(2);
+    expect(container.querySelector(".transcript-playback-current")).toBeNull();
+  });
+
   it("既定 OFF は表示・コピー・.md から接頭辞を外し、toggle だけで draft/版を増やさない", async () => {
     const { bridge, project } = await audioBridge();
     const stored = bridge.projects.get(project.id)!;

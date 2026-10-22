@@ -110,6 +110,7 @@ describe("音声の連続再生と頭出し", () => {
 
   it("metadata で不明時間を補い、次の音声へ継続し、停止中のseekでは再生を始めない", async () => {
     const media: FakeMedia[] = [];
+    let selectedPosition: number | null | undefined;
     const bridge = {
       audioSourceUrl: (path: string) => `asset://localhost/${encodeURIComponent(path)}`,
       audioFilePaths: async () => [
@@ -130,6 +131,7 @@ describe("音声の連続再生と頭出し", () => {
           recording={{ projectId: "p1", recordingId: "r1" }}
           audio={audio}
           followParagraphs
+          onStateChange={(state) => { selectedPosition = state.positionSec; }}
           createMedia={() => {
             const item = new FakeMedia();
             media.push(item);
@@ -139,6 +141,7 @@ describe("音声の連続再生と頭出し", () => {
       );
     });
     await settle();
+    expect(selectedPosition).toBeNull();
     expect(container.querySelector<HTMLInputElement>(".audio-playback-follow input")?.checked).toBe(true);
     expect(media.map((item) => item.src)).toEqual([
       "asset://localhost/%2Fdocs%2Finputs%2Ffirst.m4a",
@@ -151,9 +154,11 @@ describe("音声の連続再生と頭出し", () => {
       media[1]!.onloadedmetadata?.();
     });
     expect(container.textContent).toContain("00:00 / 00:30");
+    expect(selectedPosition).toBeNull();
 
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="再生"]')!.click());
     expect(media[0]!.playCalls).toBe(1);
+    expect(selectedPosition).toBe(0);
     await act(async () => media[0]!.onended?.());
     expect(media[1]!.playCalls).toBe(1);
     expect(media[1]!.currentTime).toBe(0);
@@ -162,6 +167,7 @@ describe("音声の連続再生と頭出し", () => {
     const before = media[0]!.playCalls + media[1]!.playCalls;
     await act(async () => player.current!.seek(4));
     expect(media[0]!.currentTime).toBe(4);
+    expect(selectedPosition).toBe(4);
     expect(media[0]!.playCalls + media[1]!.playCalls).toBe(before);
 
     await act(async () => player.current!.seek(12));
