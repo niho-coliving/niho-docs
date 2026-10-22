@@ -616,10 +616,19 @@ describe("制作", () => {
     expect(bridge.turnRequests).toHaveLength(beforeClose);
     await act(async () => artifactEditor(container).commands.insertContent("追記"));
     expect(container.querySelector(".cloud-banner")).toBeNull();
+    await click(railItem(container, "インサイト"));
+    await click(container.querySelector<HTMLButtonElement>('[aria-label="元の変更通知を閉じる"]')!);
+    for (const name of ["次の打ち手", "インサイト"]) {
+      await click(railItem(container, name));
+      expect(container.querySelector(".cloud-banner")).toBeNull();
+    }
+    expect(bridge.turnRequests).toHaveLength(beforeClose);
     await click(railItem(container, "発言の抽出"));
     await rebuild(container);
-    await click(railItem(container, "次の打ち手"));
-    expect(container.querySelector(".cloud-banner")?.textContent).toBe("元にしたページが変わりました。作り直す");
+    for (const name of ["次の打ち手", "インサイト"]) {
+      await click(railItem(container, name));
+      expect(container.querySelector(".cloud-banner")?.textContent).toBe("元にしたページが変わりました。作り直す");
+    }
   });
 
   it("履歴の古い版は読むだけで開き、「この版に戻す」で新しい版（版 N から）になる（#18912）", async () => {
