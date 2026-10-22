@@ -48,5 +48,6 @@ jobs:
           version="$(node -p "require('./sdk/release-set.json').version")"
           manifest="$RUNNER_TEMP/docs-sdk/niho-docs-sdk-$version-$SOURCE_SHA.json"
           node scripts/sdk/pack-release-set.mjs --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/docs-sdk"
-          node scripts/sdk/verify-release-set.mjs --manifest "$manifest" --expected-source "$SOURCE_SHA" --expected-version "$version" --source-repository "$GITHUB_WORKSPACE"
+          node scripts/sdk/pack-release-set.mjs --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/docs-sdk-reproduced"
+          node scripts/sdk/verify-release-set.mjs --manifest "$manifest" --reproduced-manifest "$RUNNER_TEMP/docs-sdk-reproduced/niho-docs-sdk-$version-$SOURCE_SHA.json" --expected-source "$SOURCE_SHA" --expected-version "$version" --source-repository "$GITHUB_WORKSPACE"
           node scripts/sdk/smoke-consumer.mjs --manifest "$manifest"

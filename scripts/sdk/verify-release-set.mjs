@@ -254,12 +254,14 @@ function verifySelectedSource(manifest, repoRoot, expectedSource, expectedVersio
   if (JSON.stringify(manifest.sourceOwnership) !== JSON.stringify(sourceOwnership(repoRoot, expectedSource))) fail("選択sourceとsource ownership provenanceが一致しません");
 }
 
-export function verifyReleaseSet(manifestPath, { expectedSource, expectedVersion, sourceRepositoryRoot, allowPreview = false, exactDirectory = true } = {}) {
+export function verifyReleaseSet(manifestPath, { expectedSource, expectedVersion, expectedManifestSha256, sourceRepositoryRoot, allowPreview = false, exactDirectory = true } = {}) {
   const absolute = path.resolve(manifestPath);
   const stat = lstatSync(absolute);
   if (!stat.isFile() || stat.isSymbolicLink()) fail("manifestは通常fileが必要です");
+  const manifestBytes = readFileSync(absolute);
+  if (expectedManifestSha256 !== undefined && (!SHA256.test(expectedManifestSha256) || sha256(manifestBytes) !== expectedManifestSha256)) fail("再生成で確認済みのmanifest hashと一致しません");
   let manifest;
-  try { manifest = JSON.parse(readFileSync(absolute, "utf8")); } catch { fail("manifest JSONが不正です"); }
+  try { manifest = JSON.parse(manifestBytes.toString("utf8")); } catch { fail("manifest JSONが不正です"); }
   validateReleaseManifest(manifest, { expectedSource, expectedVersion, allowPreview });
   if (sourceRepositoryRoot) verifySelectedSource(manifest, sourceRepositoryRoot, expectedSource, expectedVersion);
   const expectedManifestName = `niho-docs-sdk-${manifest.version}-${manifest.source.commit}.json`;
@@ -281,9 +283,26 @@ export function verifyReleaseSet(manifestPath, { expectedSource, expectedVersion
   return manifest;
 }
 
+/** 再生成はread-only jobの信頼済み生成器で行い、受領artifactのコードは実行しない。 */
+export function verifyReproducedReleaseSet(manifestPath, reproducedManifestPath, options) {
+  if (!options?.expectedSource || !options?.expectedVersion || !options?.sourceRepositoryRoot) fail("再生成照合には選択Git source/version/repositoryが必要です");
+  const actual = verifyReleaseSet(manifestPath, options);
+  const reproduced = verifyReleaseSet(reproducedManifestPath, options);
+  for (const item of actual.packages) {
+    const expectedItem = reproduced.packages.find(({ id }) => id === item.id);
+    const entries = readTarEntries(readFileSync(path.join(path.dirname(manifestPath), item.file)));
+    const expectedEntries = readTarEntries(readFileSync(path.join(path.dirname(reproducedManifestPath), expectedItem.file)));
+    if (entries.size !== expectedEntries.size) fail(`${item.name} の再生成file集合が一致しません`);
+    for (const [file, bytes] of expectedEntries) {
+      if (!entries.get(file)?.equals(bytes)) fail(`${item.name}/${file} が選択sourceからの再生成結果と一致しません`);
+    }
+  }
+  return actual;
+}
+
 function cli(argv) {
   const values = {};
-  const allowed = new Set(["--manifest", "--expected-source", "--expected-version", "--source-repository"]);
+  const allowed = new Set(["--manifest", "--expected-source", "--expected-version", "--source-repository", "--reproduced-manifest", "--expected-manifest-sha256"]);
   for (let index = 0; index < argv.length; index += 2) {
     const key = argv[index];
     const value = argv[index + 1];
@@ -298,11 +317,15 @@ function cli(argv) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const values = cli(process.argv.slice(2));
-    const manifest = verifyReleaseSet(values["--manifest"], {
+    const options = {
       expectedSource: values["--expected-source"],
       expectedVersion: values["--expected-version"],
+      expectedManifestSha256: values["--expected-manifest-sha256"],
       sourceRepositoryRoot: values["--source-repository"] ? path.resolve(values["--source-repository"]) : undefined,
-    });
+    };
+    const manifest = values["--reproduced-manifest"]
+      ? verifyReproducedReleaseSet(values["--manifest"], values["--reproduced-manifest"], options)
+      : verifyReleaseSet(values["--manifest"], options);
     console.log(`Docs SDK release setを検証しました（${manifest.packages.length} packages）`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : "Docs SDK release setの検証に失敗しました");

@@ -164,6 +164,7 @@ function packageManifest(definition, original, version) {
 }
 
 function rewriteDocsUi(bytes, file) {
+  if (file === "README.md") return Buffer.from(bytes.toString("utf8").replace(/\bniho-ui\b/gu, "niho-docs-sdk-ui"));
   if (!/\.[cm]?[jt]sx?$/u.test(file)) return bytes;
   return Buffer.from(bytes.toString("utf8").replace(/(["'])niho-ui(?=\/|["'])/gu, "$1niho-docs-sdk-ui"));
 }

@@ -8,7 +8,7 @@ import test from "node:test";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 import { createTarGzip, packReleaseSet, SdkReleaseError } from "./release-set-lib.mjs";
-import { readTarEntries, sha256, sri, verifyReleaseSet, ReleaseVerificationError } from "./verify-release-set.mjs";
+import { readTarEntries, sha256, sri, verifyReleaseSet, verifyReproducedReleaseSet, ReleaseVerificationError } from "./verify-release-set.mjs";
 
 const realRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const releaseConfig = JSON.parse(readFileSync(path.join(realRoot, "sdk/release-set.json"), "utf8"));
@@ -59,7 +59,7 @@ function fixture({ docsSource = 'export const DocsApp = () => null;\nexport type
     },
     devDependencies: { "niho-ui": "file:../ui" },
   }, null, 2)}\n`);
-  put(root, "packages/docs-ui/README.md", "fixture\n");
+  put(root, "packages/docs-ui/README.md", 'Peer: `niho-ui`.\n```ts\nimport "niho-ui/styles/tokens.css";\n```\n');
   put(root, "packages/docs-ui/src/index.ts", docsSource);
   put(root, "packages/docs-ui/src/styles/app.css", ":root { color: black; }\n");
   put(root, "packages/docs-ui/src/testing/fixture.ts", "export const mustNotShip = true;\n");
@@ -111,6 +111,34 @@ test("source選択はdirty worktreeを無視し、digestとtarballは再現可�
   const docsUi = one.manifest.packages.find(({ id }) => id === "docs-ui");
   const docsUiEntries = readTarEntries(readFileSync(path.join(one.output, docsUi.file)));
   assert.equal([...docsUiEntries.keys()].some((file) => file.startsWith("src/testing/")), false);
+  assert.match(docsUiEntries.get("README.md").toString("utf8"), /niho-docs-sdk-ui\/styles\/tokens\.css/u);
+  assert.doesNotMatch(docsUiEntries.get("README.md").toString("utf8"), /\bniho-ui\b/u);
+  assert.match(readFileSync(path.join(data.root, "packages/docs-ui/README.md"), "utf8"), /\bniho-ui\b/u);
+  assert.equal(verifyReproducedReleaseSet(one.manifestPath, two.manifestPath, { expectedSource: data.sha, expectedVersion: releaseConfig.version, sourceRepositoryRoot: data.root }).source.commit, data.sha);
+});
+
+test("自己申告hashとprovenanceが整っていても、source・変換物・追加fileの差異を再生成照合で拒否", (t) => {
+  const data = fixture();
+  const expected = packFixture(data, "reproduced");
+  const casesRoot = mkdtempSync(path.join(tmpdir(), "niho-docs-sdk-reproduction-"));
+  t.after(() => { rmSync(data.root, { recursive: true, force: true }); rmSync(expected.output, { recursive: true, force: true }); rmSync(casesRoot, { recursive: true, force: true }); });
+  const options = { expectedSource: data.sha, expectedVersion: releaseConfig.version, sourceRepositoryRoot: data.root };
+  for (const [id, file] of [["core", "src/index.ts"], ["core", "dist/server/index.js"], ["core", "dist/server/index.d.ts"], ["docs-ui", "README.md"], ["docs-ui", "package.json"], ["sdk-ui", "src/styles/tokens.css"], ["core", "extra.txt"]]) {
+    const output = path.join(casesRoot, `${id}-${file.replaceAll("/", "-")}`);
+    cpSync(expected.output, output, { recursive: true });
+    const actual = { output, manifestPath: path.join(output, expected.manifestFile) };
+    const item = expected.manifest.packages.find((record) => record.id === id);
+    const entries = readTarEntries(readFileSync(path.join(output, item.file)));
+    const original = entries.get(file) ?? Buffer.alloc(0);
+    entries.set(file, file === "package.json"
+      ? Buffer.from(JSON.stringify({ ...JSON.parse(original), description: "altered" }))
+      : Buffer.concat([original, Buffer.from("\n/* altered */\n")]));
+    rewritePackage(actual, id, createTarGzip([...entries].map(([name, bytes]) => ({ name, bytes }))));
+    // 構造とGit provenanceだけの検証は通るが、配布内容の照合では通らない。
+    assert.doesNotThrow(() => verifyReleaseSet(actual.manifestPath, options));
+    assert.throws(() => verifyReproducedReleaseSet(actual.manifestPath, expected.manifestPath, options), (error) => error instanceof ReleaseVerificationError && /再生成/u.test(error.message));
+    assert.throws(() => verifyReleaseSet(actual.manifestPath, { ...options, expectedManifestSha256: sha256(readFileSync(expected.manifestPath)) }), ReleaseVerificationError);
+  }
 });
 
 test("release-set version bumpはartifact名・package・verifierに一貫して反映される", (t) => {

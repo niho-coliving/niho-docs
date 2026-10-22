@@ -14,7 +14,9 @@ node scripts/sdk/smoke-consumer.mjs --manifest <manifest.json>
 
 pack は指定 commit の Git object だけから allowlist 済み source を読み、core の `./server` を JavaScript と `.d.ts` に compile します。release pack は、実行中の生成・検証スクリプトと選択 commit が一致し、`apps/docs/package.json` と `package-lock.json` も手元の build tooling と一致する場合だけ実行でき、manifest に両者の SHA-256 と実際の TypeScript compiler version を記録します。未 commit の新しい tooling をローカル確認するときだけ `--tooling-worktree` を付けられます。この preview manifest は release verifier が拒否するため公開には使えません。tarball の install script は持たず、consumer smoke も `--ignore-scripts --offline` で実行します。
 
-配布用の verifier には `--expected-source <40桁SHA> --expected-version <版> --source-repository <Gitリポジトリの絶対パス>` も渡します。manifest の自己申告だけでなく、選択した Git object の tree・ソース一覧・build lock と照合します。
+配布用の verifier には `--expected-source <40桁SHA> --expected-version <版> --source-repository <Gitリポジトリの絶対パス>` も渡します。manifest の自己申告だけでなく、選択した Git object の tree・ソース一覧・build lock と照合します。これだけでは配布コードとsourceの一致までは証明できないため、release workflowは独立したread-onlyの `verify-source` jobも必須にしています。workflow起動時の信頼済みmain SHAをcheckoutし、同じ選択Git sourceから再生成したmanifestを `--reproduced-manifest <再生成manifest>` に渡し、変換後のpackage.json・README・JS・宣言・CSS等を含む全package entryの集合とbytesを比較します。受領artifactのコードは実行しません。生成器またはbuild lockが現在の信頼済みtoolingと異なる過去commitは公開せず、現行mainで新しい版を作ります。
+
+write権限を持つpublish jobは再生成jobが確認したmanifest SHA-256を `--expected-manifest-sha256` で固定し、全tarballのhashとGit provenanceを再検証します。publish jobではnpm installや配布コードの実行を行いません。3 jobの信頼済みcheckoutは同じworkflow起動SHAに固定し、build jobの自己申告hashだけを公開根拠にしません。同梱READMEのpackage名もstaging時に `niho-docs-sdk-ui` へ置換します。
 
 UI の組み込みでは `niho-docs-sdk-ui/styles/tokens.css` と `niho-docs-ui/styles/{tokens,app,sharing,editor,account}.css` を読み込みます。アカウント・共通ダイアログの Tailwind utilities は接続側で生成し、配布された `node_modules/niho-docs-sdk-ui/src/**/*.tsx` を走査対象にします。従来の `packages/ui` へのパスを SDK の設定へ持ち込まないでください。画面 root の寸法、Tailwind の scope、実ブラウザでの受入はホストの責務です。consumer smoke は型・bundle・Node 実行の検査であり、視覚的な受入を代替しません。
 
