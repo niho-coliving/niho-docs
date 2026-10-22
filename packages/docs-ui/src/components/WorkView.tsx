@@ -44,7 +44,7 @@ import { EditorTools, type EditorToolControls } from "./EditorTools";
 import { ChatPanel } from "./ChatPanel";
 import { DocsWorkLayout } from "./DocsComposerRail";
 import { RunGateNote, RunningBand } from "./RunBand";
-import { ClockIcon } from "./icons";
+import { ClockIcon, CloseIcon } from "./icons";
 import { CloudPageNotice, SaveStatusText } from "./SaveStatus";
 import { useDocEditor } from "./useDocEditor";
 import { useNow } from "./useNow";
@@ -422,7 +422,8 @@ export function WorkView(props: WorkViewProps) {
   const [editor, setEditor] = useState<Editor | null>(null);
   const [toolHost, setToolHost] = useState<HTMLDivElement | null>(null);
   const playbackRef = useRef<AudioPlaybackHandle>(null);
-  const [playback, setPlayback] = useState<AudioPlaybackState>({ positionSec: 0, playing: false, follow: true });
+  const [playback, setPlayback] = useState<AudioPlaybackState>({ positionSec: null, playing: false, follow: true });
+  const [dismissedStaleNotices, setDismissedStaleNotices] = useState<ReadonlySet<string>>(() => new Set());
   const { view, stepId, activeRun } = props;
   const progress = view.plan.steps.find((step) => step.stepId === stepId);
   const name = props.target?.name ?? stepName(view, stepId);
@@ -521,14 +522,17 @@ export function WorkView(props: WorkViewProps) {
     ? staleNoticeText(progress.staleReasons, view.sourceName === "文章" ? "text" : "audio")
     : null;
   const rebuildDisabled = !rerunnable || runBlocked;
-  const staleNotice = staleText ? (
-    props.onRebuild ? (
-      <CloudPageNotice text={staleText} action="作り直す" disabled={rebuildDisabled} onAction={props.onRebuild} />
-    ) : (
-      <div className="cloud-banner" role="status">
-        <span>{staleText}</span>
-      </div>
-    )
+  const staleNoticeKey = useMemo(() => staleText
+    ? JSON.stringify([view.key, stepId, flowIndex >= 0 ? basisFor(view.flow, flowIndex, view.materials) : staleText])
+    : null, [staleText, view.key, stepId, flowIndex, view.flow, view.materials]);
+  const staleNotice = staleText && staleNoticeKey !== null && !dismissedStaleNotices.has(staleNoticeKey) ? (
+    <div className="cloud-banner cloud-banner-dismissible" role="status">
+      <span className="cloud-banner-message">{staleText}</span>
+      {props.onRebuild && <button type="button" className="link" disabled={rebuildDisabled} onClick={props.onRebuild}>作り直す</button>}
+      <button type="button" className="cloud-banner-close" aria-label="元の変更通知を閉じる" onClick={() => setDismissedStaleNotices((previous) => new Set(previous).add(staleNoticeKey))}>
+        <CloseIcon />
+      </button>
+    </div>
   ) : null;
   const previousCurrentVersion = versions.find((record) => record !== shown && !isLegacyUnpublished(record));
   const overwritten = !props.target && !viewing && !view.unversioned.includes(stepId)
