@@ -58,6 +58,13 @@ describe("DocsStorageModeScreen", () => {
     expect(onSelectCloud).not.toHaveBeenCalled();
   });
 
+  it("UNSETはcallbackを必須とし、JavaScriptから欠落して渡された場合も無反応の主ボタンを有効にしない", async () => {
+    // @ts-expect-error UNSETでは選択callbackが必須。型検査と実行時の両方を確認する。
+    const node = <DocsStorageModeScreen mode="UNSET" accountContent={null} recordingRescue={null} />;
+    const container = await render(node);
+    expect(buttonOf(container, "NIHO クラウドを選ぶ")!.disabled).toBe(true);
+  });
+
   it("LOCALでは案内を表示し、クラウド選択ボタンを表示しない", async () => {
     const container = await render(
       <DocsStorageModeScreen
@@ -75,7 +82,7 @@ describe("DocsStorageModeScreen", () => {
   it("エラーと読み直すcallbackを表示する", async () => {
     const onRetry = vi.fn();
     const container = await render(
-      <DocsStorageModeScreen mode="UNSET" error="保存先を確認できませんでした。" onRetry={onRetry} accountContent={null} recordingRescue={null} />,
+      <DocsStorageModeScreen mode="UNSET" onSelectCloud={vi.fn()} error="保存先を確認できませんでした。" onRetry={onRetry} accountContent={null} recordingRescue={null} />,
     );
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("保存先を確認できませんでした。");
     await act(async () => { buttonOf(container, "読み直す")!.click(); });
@@ -86,6 +93,7 @@ describe("DocsStorageModeScreen", () => {
     const container = await render(
       <DocsStorageModeScreen
         mode="UNSET"
+        onSelectCloud={vi.fn()}
         accountContent={<div data-testid="account-slot">account content</div>}
         recordingRescue={<div data-testid="rescue-slot">recording rescue</div>}
       />,

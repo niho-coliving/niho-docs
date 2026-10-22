@@ -84,7 +84,7 @@ const nextStepsView: DocsNextStepsView = {
   checking: false, placeLine: null, band: null, submitting: false, error: null, notice: null,
   start: continueAction, stop: () => {}, closeBand: () => {}, open: () => {},
 };
-const storageModeProps: DocsStorageModeScreenProps = { mode: "UNSET", accountContent: null, recordingRescue: null };
+const storageModeProps: DocsStorageModeScreenProps = { mode: "UNSET", onSelectCloud: () => {}, accountContent: null, recordingRescue: null };
 const contracts = { DocsApp, DocsSdkDialogHost, DocsNextStepsEnd, DocsStorageModeScreen, pageTitle, nextStepsView, storageModeProps };
 document.body.dataset.docsSdk = Object.keys(contracts).sort().join(",");
 export type PublicHosts = DocsHost | DocsWorkspaceHost;

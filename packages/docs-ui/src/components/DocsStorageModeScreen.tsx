@@ -6,14 +6,15 @@ import { useState } from "react";
 
 /** 保存先モードの表示と、ホストから受け取った補助領域を組み合わせる画面。 */
 export type DocsStorageModeScreenProps = {
-  mode: "UNSET" | "LOCAL";
   selecting?: boolean;
   error?: string | null;
-  onSelectCloud?: () => void;
   onRetry?: () => void;
   accountContent: ReactNode;
   recordingRescue: ReactNode;
-};
+} & (
+  | { mode: "UNSET"; onSelectCloud: () => void }
+  | { mode: "LOCAL"; onSelectCloud?: () => void }
+);
 
 export function DocsStorageModeScreen({ mode, selecting, error, onSelectCloud, onRetry, accountContent, recordingRescue }: DocsStorageModeScreenProps) {
   const [showAccount, setShowAccount] = useState(false);
@@ -33,8 +34,8 @@ export function DocsStorageModeScreen({ mode, selecting, error, onSelectCloud, o
           ) : (
             <>
               <p className="mt-3 text-body leading-relaxed text-niho-text-sub">Web やスマホでページと録音を使うには、NIHO クラウドを選んでください。この Mac だけに保存する場合は Mac アプリで選べます。</p>
-              <button type="button" disabled={selecting} onClick={onSelectCloud}
-                className="mt-5 min-h-11 w-full rounded-xl bg-niho px-4 text-body font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-niho-dark/40 disabled:opacity-60 sm:w-auto">
+              <button type="button" disabled={selecting || !onSelectCloud} onClick={onSelectCloud}
+                className="niho-accent-surface mt-5 min-h-11 w-full rounded-xl px-4 text-body font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-niho-dark/40 disabled:opacity-60 sm:w-auto">
                 {selecting ? "保存先を確認中…" : "NIHO クラウドを選ぶ"}
               </button>
               <p className="mt-3 text-sub leading-relaxed text-niho-text-sub">Mac アプリで使う場合は、この画面では選ばず Mac アプリを開いてください。</p>

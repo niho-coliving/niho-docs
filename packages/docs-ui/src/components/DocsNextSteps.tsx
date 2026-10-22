@@ -75,7 +75,7 @@ function Controls({ view, onOpenSettings, macAppHref = DEFAULT_MAC_APP_HREF }: {
       type="button"
       onClick={view.start}
       disabled={!view.startable || view.running || view.submitting}
-      className={`mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-niho px-4 text-body font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-niho-dark/40 disabled:cursor-not-allowed disabled:opacity-50 w-full`}
+      className={`niho-accent-surface mt-3 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-body font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-niho-dark/40 disabled:cursor-not-allowed disabled:opacity-50 w-full`}
     >{view.running || view.submitting ? NEXT_STEPS_WORDS.runningButton : RUN_START_LABELS.continue}</button> : null}
     {view.checking && remaining > 0 ? <p role="status" className="mt-2 text-sub text-niho-text-muted">利用条件を確認しています...</p> : null}
     {view.reason && !view.running ? <p className="mt-2 text-sub leading-relaxed text-niho-text-sub">{view.reason}</p> : null}
