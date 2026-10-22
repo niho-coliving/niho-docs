@@ -6,7 +6,7 @@ import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const REPOSITORY = "niho-coliving/niho-docs";
+const REPOSITORIES = new Set(["niho-coliving/niho-docs", "niho-life/niho-docs"]);
 const COMMIT = /^[a-f0-9]{40}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
@@ -173,7 +173,7 @@ function ownershipDigest(records) {
 
 export function validateReleaseManifest(manifest, { expectedSource, expectedVersion, allowPreview = false } = {}) {
   exactKeys(manifest, ["schemaVersion", "repository", "version", "source", "buildTooling", "packages", "sourceOwnership", "uiSingleton"], "release manifest");
-  if (manifest.schemaVersion !== 1 || manifest.repository !== REPOSITORY || !SEMVER.test(manifest.version) || (expectedVersion && manifest.version !== expectedVersion)) fail("release manifest基本契約が不正です");
+  if (manifest.schemaVersion !== 1 || !REPOSITORIES.has(manifest.repository) || !SEMVER.test(manifest.version) || (expectedVersion && manifest.version !== expectedVersion)) fail("release manifest基本契約が不正です");
   exactKeys(manifest.source, ["commit", "tree", "configOrigin"], "source");
   if (!COMMIT.test(manifest.source.commit) || !COMMIT.test(manifest.source.tree) || (expectedSource && manifest.source.commit !== expectedSource)) fail("source SHAが不正です");
   if (manifest.source.configOrigin !== "git" && !(allowPreview && manifest.source.configOrigin === "worktree-preview")) fail("worktree preview manifestはreleaseできません");

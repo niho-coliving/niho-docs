@@ -23,11 +23,11 @@ function git(root, args) {
   return execFileSync("git", ["-C", root, "-c", "user.name=SDK Test", "-c", "user.email=sdk@example.invalid", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
-function fixture({ docsSource = 'export const DocsApp = () => null;\nexport type DocsHost = { kind: "native" };\nexport type DocsWorkspaceHost = { kind: "vault-workspace" };\n', version = releaseConfig.version, toolingMismatch = false } = {}) {
+function fixture({ docsSource = 'export const DocsApp = () => null;\nexport type DocsHost = { kind: "native" };\nexport type DocsWorkspaceHost = { kind: "vault-workspace" };\n', version = releaseConfig.version, repository = releaseConfig.repository, toolingMismatch = false } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), "niho-docs-sdk-fixture-"));
   git(root, ["init", "--initial-branch=main"]);
   put(root, "LICENSE", "Fixture license\n");
-  put(root, "sdk/release-set.json", `${JSON.stringify({ ...releaseConfig, version }, null, 2)}\n`);
+  put(root, "sdk/release-set.json", `${JSON.stringify({ ...releaseConfig, version, repository }, null, 2)}\n`);
   put(root, "sdk/THIRD_PARTY_NOTICES.md", "Fixture notices\n");
   mkdirSync(path.join(root, "apps/docs"), { recursive: true });
   cpSync(path.join(realRoot, "apps/docs/package.json"), path.join(root, "apps/docs/package.json"));
@@ -94,6 +94,24 @@ function rewritePackage(pack, id, bytes) {
   record.integrity = sri(bytes);
   writeFileSync(pack.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
+
+test("移管前のsourceは旧repositoryの成果物として再生成・検証できる", (t) => {
+  const data = fixture({ repository: "niho-coliving/niho-docs" });
+  const pack = packFixture(data, "legacy");
+  t.after(() => { rmSync(data.root, { recursive: true, force: true }); rmSync(pack.output, { recursive: true, force: true }); });
+  assert.equal(verifyReleaseSet(pack.manifestPath).repository, "niho-coliving/niho-docs");
+  const core = pack.manifest.packages.find(({ id }) => id === "core");
+  const entries = readTarEntries(readFileSync(path.join(pack.output, core.file)));
+  assert.deepEqual(JSON.parse(entries.get("package.json")).repository, {
+    type: "git", url: "https://github.com/niho-coliving/niho-docs.git",
+  });
+});
+
+test("移管元・移管先以外のrepositoryはSDK生成で拒否する", (t) => {
+  const data = fixture({ repository: "unknown/niho-docs" });
+  t.after(() => rmSync(data.root, { recursive: true, force: true }));
+  assert.throws(() => packFixture(data, "unknown"), SdkReleaseError);
+});
 
 test("source選択はdirty worktreeを無視し、digestとtarballは再現可能", (t) => {
   const data = fixture();
@@ -202,7 +220,7 @@ test("verifierはtamper、path traversal、symlink、unexpected file、malformed
   const original = packFixture(data, "verify");
   const casesRoot = mkdtempSync(path.join(tmpdir(), "niho-docs-sdk-verify-cases-"));
   t.after(() => { rmSync(data.root, { recursive: true, force: true }); rmSync(original.output, { recursive: true, force: true }); rmSync(casesRoot, { recursive: true, force: true }); });
-  assert.equal(verifyReleaseSet(original.manifestPath).repository, "niho-coliving/niho-docs");
+  assert.equal(verifyReleaseSet(original.manifestPath).repository, "niho-life/niho-docs");
 
   const makeCase = (name) => {
     const output = path.join(casesRoot, name);
