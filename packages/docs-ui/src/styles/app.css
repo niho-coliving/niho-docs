@@ -421,6 +421,9 @@
   font-weight: 400;
   color: var(--niho-text);
 }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .trow .addpage .mi-label {
+  overflow-wrap: anywhere;
+}
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .pop .mi svg {
   width: 16px;
   height: 16px;

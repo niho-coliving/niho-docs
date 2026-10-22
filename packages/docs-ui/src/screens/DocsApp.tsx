@@ -697,8 +697,8 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
   );
 
   /**
-   * マイク録音の保存先（#18914）: 開いているフォルダの音声（「この Mac で録音」はその録音のページ）。フォルダを開いていなければ
-   * （ホーム・フォルダの外・工程設計・設定）、保存のときに新しいフォルダを作る（projectId は null）。
+   * マイク録音の保存先: フォルダ内はそのフォルダの音声、ホームの音声はその pageId を保存先に保つ。
+   * 保存先ページが無い復旧時は、保存のときに新しいフォルダを作る。
    */
   const captureTarget = (pageId?: string): CaptureTarget => {
     const current = openRef.current;
@@ -706,7 +706,7 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     const flow = defaultFlowOf(flowsRef.current, lastUsedFlowRef.current) ?? createBlankFlow(newId("flow"));
     const settingsNow = settingsRef.current;
     return {
-      root: docsRoot, projectId: folderId, pageId: folderId === null ? undefined : pageId, existing: folderId !== null && !!pageId,
+      root: docsRoot, projectId: folderId, pageId, existing: !!pageId,
       draft: {
         version: 1, id: "", createdAt: new Date().toISOString(),
         flowSnapshot: createFlowSnapshot(flow, activeProfiles(settingsNow), activeProviders(settingsNow), settingsNow.connection),
@@ -717,17 +717,17 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
   const capture = useAppRecording({
     bridge, root: docsRoot, fallback: () => captureTarget(), onError: showFailure,
     onSaved: async (rec) => {
-      await reloadView(rec);
+      const saved = await reloadView(rec);
       await refreshProjects();
       if (!(await flushDocAndVersion())) {
-        showFailure("録音を保存しました。文書の書きかけを保存してから、レールの背景情報を開いてください。");
+        showFailure("録音を保存しました。文書の書きかけを保存してから、音声を開いてください。");
         if (openRef.current?.id === rec.projectId) await reloadOpen(rec.projectId);
         return;
       }
-      // フォルダの音声に入れたので、そのフォルダの背景情報のページを開く（#18914）
-      if (!guardAboutLeave(() => { applyScreen("work"); void openProject(rec.projectId); })) return;
+      // ホームは保存した音声ページ、フォルダ内は背景情報のページを開く。
+      if (!guardAboutLeave(() => { applyScreen("work"); void openProject(rec.projectId, saved.page.id); })) return;
       applyScreen("work");
-      await openProject(rec.projectId);
+      await openProject(rec.projectId, saved.page.id);
     },
   });
   recordingActiveRef.current = capture.active;
@@ -794,7 +794,6 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
     lastUsedFlowRef,
     settingsRef,
     rememberFlow,
-    setFocusFolderTitle,
     setBusy,
     persistSettings,
     reloadFlows,
@@ -1261,7 +1260,6 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
         onAddCandidate={openCandidateDialog}
         sourceEngineChoices={bridge.capabilities?.localExecution === false ? undefined : transcriptionEngineChoices(settings)}
         onAddSourceCandidate={(projectId, pageId, engine) => void createSourceCandidate(projectId, pageId, engine)}
-        newProjectId={screen === "work" && open?.id !== null ? open?.id ?? null : null}
         onDrop={(drop) => void applyRailDrop(drop)}
         onMoveFolder={reorderFolder}
         onDeleteFolder={deleteEmptyFolder}

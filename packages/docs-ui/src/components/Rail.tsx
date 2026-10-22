@@ -40,19 +40,19 @@ function AddPageMenu(props: { folderName: string; onAddDoc?: () => void; onAddRe
   const pick = (action: () => void) => () => { menu.setOpen(false); action(); };
   const label = `${props.folderName}に追加`;
   return <div ref={menu.ref} className="addpage"><button type="button" className="ibtn sm" title={label} aria-label={label} aria-expanded={menu.open} disabled={props.disabled} onClick={menu.toggle}><PlusIcon /></button>
-    {menu.open && <div className="pop" role="menu">{props.onAddDoc && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onAddDoc)}><DocIcon />ページ</button>}{props.onAddRecording && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onAddRecording)}><MicIcon />音声</button>}</div>}</div>;
+    {menu.open && <div className="pop" role="menu" aria-label={label}><p className="mi-label">{label}</p>{props.onAddDoc && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onAddDoc)}><DocIcon />ページ</button>}{props.onAddRecording && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onAddRecording)}><MicIcon />音声</button>}</div>}</div>;
 }
 
 /**
- * 新規作成の ＋（ページ ⌘N／音声 ⇧⌘N／フォルダ。言葉は Web/PWA の ＋ と同じ。owner 2026-10-18・#18867）。ページは開いている場所、音声は新しいフォルダに作る。
+ * 新規作成の ＋（ページ ⌘N／音声 ⇧⌘N／フォルダ）。選択中の場所に依存せず、常にホームに作る（owner 2026-10-22）。
  * アイコンだけの緑の丸で、タイトルバーのアプリ名の行のレールの右端に置く（「＋ 新しい」の箱はやめた。owner 2026-10-18・#18929）。
- * 題はフォルダを開いているときだけ「〈フォルダ名〉に追加」（ホームは出さない。Web/PWA と同じ。owner 2026-10-18）。
+ * 題は「ホームに作成」。フォルダ内への追加は、そのフォルダの行の ＋ で行う。
  */
-function NewMenu(props: { folderName: string | null; onDoc?: () => void; onRecording?: () => void; onFolder?: () => void; disabled?: boolean; browser?: boolean }) {
+function NewMenu(props: { onDoc?: () => void; onRecording?: () => void; onFolder?: () => void; disabled?: boolean; browser?: boolean }) {
   const menu = usePopover();
   const pick = (action: () => void) => () => { menu.setOpen(false); action(); };
   return <div ref={menu.ref} className="new-menu"><button type="button" className="tb-new" title="新規作成" aria-label="新規作成" aria-expanded={menu.open} disabled={props.disabled} onClick={menu.toggle}><PlusIcon /></button>
-    {menu.open && <div className="pop" role="menu">{props.folderName && <p className="mi-label">{props.folderName}に追加</p>}
+    {menu.open && <div className="pop" role="menu" aria-label="ホームに作成"><p className="mi-label">ホームに作成</p>
       {props.onDoc && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onDoc)}><DocIcon /><span>ページ</span>{!props.browser && <kbd>⌘N</kbd>}</button>}
       {props.onRecording && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onRecording)}><MicIcon /><span>音声</span>{!props.browser && <kbd>⇧⌘N</kbd>}</button>}
       {props.onFolder && <button type="button" className="mi" role="menuitem" disabled={props.disabled} onClick={pick(props.onFolder)}><FolderIcon /><span>フォルダ</span></button>}
@@ -91,7 +91,7 @@ export function Rail(props: {
   onOpenInfo?: (projectId: string) => void; onAddDoc?: (projectId: ProjectId) => void;
   /** フォルダの行の ＋ の「音声」（そのフォルダの音声。あれば背景情報のページを開く）。 */
   onAddRecording?: (projectId: string) => void;
-  /** 「＋ 新しい」の「音声」と ⇧⌘N（音声 1 セット入りの新しいフォルダ。#18914）。 */
+  /** 新規作成の「音声」と ⇧⌘N（ホームの独立した音声）。 */
   onNewAudio?: () => void;
   onSelectPage: (projectId: ProjectId, pageId: string, stepId: string | null, candidateId?: string | null) => void; onScreen?: (screen: Screen) => void;
   onAddCandidate?: (projectId: ProjectId, pageId: string, stepId: string) => void;
@@ -99,7 +99,7 @@ export function Rail(props: {
   sourceEngineChoices?: readonly { engine: TranscriptionEngineId; label: string; reason: string | null }[];
   /** 文字起こしの ＋ でエンジンを選んだ（その録音の文字起こしをもう 1 つ作る）。 */
   onAddSourceCandidate?: (projectId: ProjectId, pageId: string, engine: TranscriptionEngineId) => void;
-  newProjectId?: ProjectId; onDrop?: (drop: RailDrop) => void; onMoveFolder?: (projectId: string, delta: -1 | 1) => void;
+  onDrop?: (drop: RailDrop) => void; onMoveFolder?: (projectId: string, delta: -1 | 1) => void;
   onDeleteFolder?: (projectId: string) => Promise<boolean>;
   /** フォルダの ⋯ の「Google ドキュメントへ書き出す」（NIHO にログインできないときは渡さず、項目を出さない）。 */
   onExportFolder?: (projectId: string) => void;
@@ -206,10 +206,9 @@ export function Rail(props: {
       {expanded && outputRows(space, page, children)}</div>;
   });
 
-  const newFolder = props.newProjectId === null ? null : props.folders.find((folder) => folder.id === props.newProjectId) ?? null;
   // ホームへはタイトルバーのアプリ名から、新規作成の ＋ はタイトルバーのレールの右端（レールに「ホーム」の行は置かない。#18929）。
   // 窓の枠の外（タイトルバーが無いとき）は ＋ をレールの先頭に描く
-  const newMenu = props.onNewFolder || props.onNewAudio || props.onAddDoc ? <NewMenu folderName={newFolder ? folderName(newFolder.project) : null} onDoc={props.onAddDoc ? () => props.onAddDoc!(props.newProjectId ?? null) : undefined} onRecording={props.onNewAudio} onFolder={props.onNewFolder} disabled={props.mutationsDisabled} browser={props.browser} /> : null;
+  const newMenu = props.onNewFolder || props.onNewAudio || props.onAddDoc ? <NewMenu onDoc={props.onAddDoc ? () => props.onAddDoc!(null) : undefined} onRecording={props.onNewAudio} onFolder={props.onNewFolder} disabled={props.mutationsDisabled} browser={props.browser} /> : null;
   return <nav className="rail" aria-label="ページとフォルダ">{titlebarRail ? createPortal(newMenu, titlebarRail) : newMenu}<div className="rscroll">
     {props.creationRow}
     {props.folders.map((folder, folderIndex) => {

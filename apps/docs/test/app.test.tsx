@@ -403,7 +403,7 @@ describe("ホームとフローがまだ無い録音", () => {
     expect(bridge.byName("朝の会").project.pages?.map((page) => page.kind)).toEqual(["rec"]);
   });
 
-  it("⌘Nは文書、⇧⌘Nは音声 1 セット入りの新しいフォルダを作り、repeatとIMEは無視する", async () => {
+  it("⌘Nはホームに文書、⇧⌘Nはホームに音声を作り、repeatとIMEは無視する", async () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[0]!, "flow-1");
     screen = await renderApp(bridge, { autoOpen: false });
@@ -411,15 +411,15 @@ describe("ホームとフローがまだ無い録音", () => {
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, bubbles: true })));
     await until(() => bridge.outside.project.pages?.length === 1);
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, shiftKey: true, bubbles: true })));
-    await until(() => bridge.projects.size === 1);
+    await until(() => bridge.outside.project.pages?.length === 2);
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, repeat: true, bubbles: true }));
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, isComposing: true, bubbles: true }));
     });
-    // ホームには録音を作らない（#18914）
-    expect(bridge.outside.project.pages?.map((page) => page.kind)).toEqual(["doc"]);
-    expect([...bridge.projects.values()][0]!.project.pages?.map((page) => page.kind)).toEqual(["rec"]);
-    expect(railCurrent(container)).toBe("背景情報");
+    // ホームに文書と音声を作り、フォルダは増やさない。
+    expect(bridge.outside.project.pages?.map((page) => page.kind)).toEqual(["doc", "rec"]);
+    expect(bridge.projects.size).toBe(0);
+    expect(railCurrent(container)).toBe("録音");
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -1149,9 +1149,9 @@ describe("工程設計と設定", () => {
     expect(bridge.flowIndex?.lastUsed).toBe(firstFlow.id);
     expect(container.querySelector(".failure-band .fb-msg")?.textContent).toBe("録音の工程を変えましたが、次の既定に保存できませんでした。");
 
-    // 新しい音声（新しいフォルダ）の既定は、保存できた最後に使った工程のまま
+    // ホームの新しい音声の既定も、保存できた最後に使った工程のまま
     await newFromMenu(container, "音声");
-    const fresh = [...bridge.projects.values()].find((item) => item.project.id !== created.id)!;
+    const fresh = bridge.outside;
     const added = fresh.project.pages?.find((page) => page.kind === "rec");
     expect(added).toBeTruthy();
     expect(fresh.recordings[added!.id]!.recording.flowSnapshot.id).toBe(firstFlow.id);

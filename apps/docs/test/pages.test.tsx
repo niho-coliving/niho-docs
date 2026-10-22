@@ -81,10 +81,11 @@ describe("新しい案件と文書のページ", () => {
     const bridge = new FakeBridge();
     screen = await renderApp(bridge);
     const { container } = screen;
-    // ホームの新規作成の ＋ は題を出さない（作る場所はホーム。Web/PWA と同じ。owner 2026-10-18）
+    // ホームの新規作成の ＋ は作成先を明示する。フォルダを開いても変わらない。
     await click(container.querySelector<HTMLButtonElement>(".window-titlebar .tb-new")!);
     expect(container.querySelector(".window-titlebar .new-menu .pop")).not.toBeNull();
-    expect(container.querySelector(".window-titlebar .new-menu .pop .mi-label")).toBeNull();
+    expect(container.querySelector(".window-titlebar .new-menu .pop")?.getAttribute("aria-label")).toBe("ホームに作成");
+    expect(container.querySelector(".window-titlebar .new-menu .pop .mi-label")?.textContent).toBe("ホームに作成");
     await click(container.querySelector<HTMLButtonElement>(".window-titlebar .tb-new")!);
     await newFromMenu(container, "ページ");
     await typeInto(titleInput(container), "外のメモ");
@@ -106,11 +107,37 @@ describe("新しい案件と文書のページ", () => {
     const add = folder.querySelector<HTMLButtonElement>(":scope > .trow .addpage > button")!;
     expect(add.getAttribute("aria-label")).toBe("取材に追加");
     await click(add);
+    expect(folder.querySelector(":scope > .trow .addpage .pop .mi-label")?.textContent).toBe("取材に追加");
+    expect(folder.querySelector(":scope > .trow .addpage .pop")?.getAttribute("aria-label")).toBe("取材に追加");
     expect([...folder.querySelectorAll(":scope > .trow .addpage .pop .mi")].map((item) => item.textContent)).toEqual(["ページ", "音声"]);
     await click(add);
-    // フォルダの中を開いているときの新規作成の ＋ はそのフォルダに作る（題は Web/PWA と同じ「〈フォルダ名〉に追加」）
+    // フォルダ内でも緑の ＋ はホームへの新規作成。
     await click(container.querySelector<HTMLButtonElement>(".window-titlebar .tb-new")!);
-    expect(container.querySelector(".window-titlebar .new-menu .pop .mi-label")?.textContent).toBe("取材に追加");
+    expect(container.querySelector(".window-titlebar .new-menu .pop .mi-label")?.textContent).toBe("ホームに作成");
+  });
+
+  it("緑の ＋ と ⌘N はフォルダ内のページを見ていてもホームへ作り、フォルダの ＋ は押したフォルダへ作る", async () => {
+    const bridge = new FakeBridge();
+    screen = await renderApp(bridge);
+    const { container } = screen;
+    await createProjectByName(container, "取材");
+    await typeInto(titleInput(container), "取材メモ");
+    await newFromMenu(container, "ページ");
+    expect(bridge.outside.project.pages?.map((page) => page.kind)).toEqual(["doc"]);
+    expect(bridge.byName("取材").project.pages).toHaveLength(1);
+    await typeInto(titleInput(container), "ホームのページ");
+    await click(railItem(container, "取材メモ"));
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "n", metaKey: true, bubbles: true })));
+    await until(() => (bridge.outside.project.pages ?? []).length === 2);
+    expect(bridge.byName("取材").project.pages).toHaveLength(1);
+    expect(railCurrent(container)).toBe("無題");
+    await newFolder(container);
+    await typeInto(titleInput(container), "別のフォルダ");
+    await addPageInFolder(railFolder(container, "取材"), "ページ");
+    expect(bridge.byName("取材").project.pages).toHaveLength(2);
+    expect(bridge.byName("別のフォルダ").project.pages).toHaveLength(0);
+    expect(railFolder(container, "取材").querySelector('[aria-current="page"]')).not.toBeNull();
+    expect(document.activeElement).toBe(titleInput(container));
   });
 
   it("新しいフォルダはダイアログ無しで背景情報のページを開き、題と背景情報をその場で編集できる（#18914）", async () => {
@@ -769,30 +796,32 @@ describe("フォルダの音声と成果物の子ページ（#18914）", () => {
     expect(railCurrent(container)).toBe("背景情報");
   });
 
-  it("「＋ 新しい › 音声」と ⇧⌘N は、開いている場所によらず音声 1 セット入りの新しいフォルダを作って背景情報のページを開く", async () => {
+  it("緑の ＋ と ⇧⌘N は、開いているフォルダによらずホームに独立した音声を作る", async () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[1]!, "flow-1");
     screen = await renderApp(bridge);
     const { container } = screen;
     await createProjectByName(container, "取材");
-    // 開いているフォルダがあっても、そのフォルダには作らない
     await newFromMenu(container, "音声");
-    expect(bridge.projects.size).toBe(2);
-    const created = [...bridge.projects.values()].find((item) => item.project.name !== "取材")!;
-    expect(created.project.name).toBe("");
-    expect(projectPages(created.project).map((page) => page.kind)).toEqual(["rec"]);
+    expect(bridge.projects.size).toBe(1);
+    expect(bridge.outside.project.pages?.map((page) => page.kind)).toEqual(["rec"]);
     expect(bridge.byName("取材").project.pages?.some((page) => page.kind === "rec")).toBe(false);
-    expect(railCurrent(container)).toBe("背景情報");
-    expect(titleInput(container).placeholder).toBe("無題のフォルダ");
+    expect(railCurrent(container)).toBe("録音");
+    expect(container.querySelector(".folder-home")).toBeNull();
     expect(document.activeElement).toBe(titleInput(container));
-    expect(container.querySelector(".folder-audio .drop")).not.toBeNull();
-    // ⇧⌘N も同じ
+    expect(container.querySelector(".drop")).not.toBeNull();
+    await typeInto(titleInput(container), "ホームの音声");
+    await waitSaves();
+    await click(railItem(container, "取材"));
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "N", metaKey: true, shiftKey: true, bubbles: true })));
-    await until(() => bridge.projects.size === 3);
-    expect([...bridge.projects.values()].filter((item) => projectPages(item.project).some((page) => page.kind === "rec"))).toHaveLength(2);
+    await until(() => (bridge.outside.project.pages ?? []).length === 2);
+    expect(bridge.projects.size).toBe(1);
+    expect(bridge.outside.project.pages?.map((page) => page.kind)).toEqual(["rec", "rec"]);
+    await click(railItem(container, "ホームの音声"));
+    expect(titleInput(container).value).toBe("ホームの音声");
   });
 
-  it("「＋ 新しい › 音声」で録音を作れなかったら、作ったばかりの空のフォルダを残さない", async () => {
+  it("ホームの音声作成が失敗したらフォルダもページも増やさず、同じ入口から再試行できる", async () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[1]!, "flow-1");
     screen = await renderApp(bridge);
@@ -801,6 +830,10 @@ describe("フォルダの音声と成果物の子ページ（#18914）", () => {
     await newFromMenu(container, "音声");
     await until(() => container.querySelector(".failure, .band.error, [role=alert]")?.textContent?.includes("書き込めませんでした") === true);
     expect(bridge.projects.size).toBe(0);
+    expect(bridge.outside.project.pages ?? []).toHaveLength(0);
+    await newFromMenu(container, "音声");
+    expect(bridge.outside.project.pages).toHaveLength(1);
+    expect(railCurrent(container)).toBe("録音");
   });
 
   it("フォルダの ＋ › 音声 は、音声のあるフォルダには 2 つ目を作らず背景情報のページを開く", async () => {

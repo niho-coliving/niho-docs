@@ -56,7 +56,7 @@ describe("App が所有する録音", () => {
     expect(container.querySelector(".afile .nm")?.textContent).toBe("録音 10/16 15:30");
   });
 
-  it("ホーム（以前の録音のページ）から始めた録音は、再起動後に開始時の工程を保って新しいフォルダへ保存する（#18914）", async () => {
+  it("ホームの音声で始めた録音は、再起動後も開始時の工程と保存先ページを保つ", async () => {
     const bridge = new FakeBridge();
     const flow = createFlowFromTemplate(FLOW_TEMPLATES[1]!, "flow-at-capture"); bridge.flow = flow;
     const draft = draftOf(flow);
@@ -66,9 +66,9 @@ describe("App が所有する録音", () => {
     await click(button(screen.container, "この Mac で録音"));
     const recordingId = bridge.activeRecording!.id;
     const original = (JSON.parse(localStorage.getItem(RECORDING_JOURNAL_KEY) ?? "{}") as Record<string, CaptureTarget>)[recordingId]!;
-    // フォルダを開いていないので、保存のときに新しいフォルダを作る
+    // ホームの音声も開始時の保存先をジャーナルに残す。
     expect(original.projectId).toBeNull();
-    expect(original.pageId).toBeUndefined();
+    expect(original.pageId).toBe(rec.id);
     expect(original.draft.flowSnapshot.id).toBe("flow-at-capture");
 
     screen.unmount(); screen = null;
@@ -79,15 +79,12 @@ describe("App が所有する録音", () => {
     await click(button(screen.container, "録音のページに保存"));
     await until(() => screen!.container.querySelector(".afile") !== null);
 
-    // ホームの録音には足さない
-    expect(bridge.outside.recordings[rec.id]!.recording.source).toEqual({ kind: "audio", audio: [] });
-    const [folder] = newFolders(bridge, []);
-    expect(folder!.project.name).toBe("10/16 15:30 の録音");
-    const page = folder!.project.pages!.find((entry) => entry.kind === "rec")!;
-    const saved = folder!.recordings[page.id]!.recording;
+    expect(bridge.projects.size).toBe(0);
+    expect(bridge.outside.project.pages).toHaveLength(1);
+    const saved = bridge.outside.recordings[rec.id]!.recording;
     expect(saved.flowSnapshot).toEqual(original.draft.flowSnapshot);
     expect(saved.source.kind === "audio" && saved.source.audio).toHaveLength(1);
-    expect(railCurrent(screen.container)).toBe("背景情報");
+    expect(railCurrent(screen.container)).toBe("10/16 15:30 の録音");
   });
 
   it("Error 行のあと開始が reject された場合も、不要な復旧情報を残さない", async () => {
@@ -200,6 +197,27 @@ describe("App が所有する録音", () => {
 });
 
 describe("録音の保存の再開", () => {
+  it("ホームの指定した音声に保存し、掃除の再試行でもほかの音声へ混ぜず二重に取り込まない", async () => {
+    const { bridge, fresh, draft } = await setup();
+    const first = await bridge.createPage(null, { kind: "rec", title: "先の音声", createdAt: draft.createdAt, recording: draft });
+    const second = await bridge.createPage(null, { kind: "rec", title: "後の音声", createdAt: draft.createdAt, recording: draft });
+    let checkpoint: CaptureTarget = { ...fresh, projectId: null, pageId: second.id, existing: true };
+    const before = bridge.projects.size;
+    const discard = bridge.discardRecording.bind(bridge);
+    bridge.discardRecording = async () => { throw new Error("元音声を消せません"); };
+    const audio = bridge.recordedAudio("rec-home-page");
+    await expect(saveCapturedRecording(bridge, audio, checkpoint, (next) => { checkpoint = next; })).rejects.toThrow();
+    bridge.discardRecording = discard;
+    const saved = await saveCapturedRecording(bridge, audio, checkpoint, (next) => { checkpoint = next; });
+    expect(saved).toEqual({ projectId: null, recordingId: second.recordingId ?? second.id });
+    expect(bridge.projects.size).toBe(before);
+    expect(bridge.copiedAudio).toHaveLength(1);
+    expect(bridge.outside.project.pages).toHaveLength(2);
+    expect(bridge.recording(null, first.id).recording.source).toEqual({ kind: "audio", audio: [] });
+    const source = bridge.recording(null, second.id).recording.source;
+    expect(source.kind === "audio" && source.audio).toHaveLength(1);
+  });
+
   it("保存済みだが元音声の掃除に失敗した場合も再試行で音声を二重に足さない", async () => {
     const { bridge, fresh, project } = await setup(); let checkpoint = fresh; const discard = bridge.discardRecording.bind(bridge);
     bridge.discardRecording = async () => { throw new Error("元音声を消せません"); }; const audio = bridge.recordedAudio("rec-saved");

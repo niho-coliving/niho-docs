@@ -9,7 +9,7 @@ import { openProjectOf, saveRecordingChange } from "./project-view";
 export const RECORDING_JOURNAL_KEY = "niho-docs-recording-journal-v1";
 export type CaptureTarget = {
   root: string;
-  /** 保存先のフォルダ。null はフォルダを開いていなかった録音で、保存のときに新しいフォルダを作る（#18914）。 */
+  /** 保存先。null と pageId の組はホームの音声。pageId が無い旧ジャーナル・復旧時は新しいフォルダへ保存する。 */
   projectId: ProjectId;
   /**
    * 旧版のジャーナルだけが持つ、録音を始めた文書ページ（文書ページからの録音の入口は #18881 でやめた）。新しい録音では書かない。
@@ -62,8 +62,8 @@ async function intoNewFolder(bridge: Bridge, audio: RecordedAudio, target: Captu
 
 /**
  * 再試行は同じページ・取り込み結果を使う。元音声の削除は recording.json の保存後だけ。保存先はフォルダの音声（1 フォルダ 1 音声。
- * #18914）: フォルダに音声があればそこへ足し、無ければ作る。フォルダを開いていなかった録音（projectId が null）と、文章を貼った
- * フォルダの録音は、新しいフォルダを作って入れる。
+ * #18914）: フォルダに音声があればそこへ足し、無ければ作る。ホームの音声は開始時の pageId に保存し、別の音声へ混ぜない。
+ * 保存先ページの無い旧ジャーナルと、文章を貼ったフォルダの録音は、新しいフォルダを作って入れる。
  */
 export async function saveCapturedRecording(
   bridge: Bridge,
@@ -72,12 +72,19 @@ export async function saveCapturedRecording(
   checkpoint: (target: CaptureTarget) => void,
 ): Promise<RecordingRef> {
   let target = initial;
-  if (target.projectId === null) target = await intoNewFolder(bridge, audio, target, checkpoint);
+  if (target.projectId === null && !target.pageId) target = await intoNewFolder(bridge, audio, target, checkpoint);
   let opened = openProjectOf(await bridge.loadPages(target.projectId));
-  let page = folderRecordingPage(opened.pages) ?? undefined;
+  let page = target.projectId === null
+    ? opened.pages.find((entry) => entry.kind === "rec" && entry.id === target.pageId)
+    : folderRecordingPage(opened.pages) ?? undefined;
   if (page && opened.recordings[page.recordingId ?? page.id]?.recording.source.kind !== "audio") {
-    target = await intoNewFolder(bridge, audio, target, checkpoint);
-    opened = openProjectOf(await bridge.loadPages(target.projectId));
+    if (target.projectId === null) {
+      target = { ...target, existing: false, imported: undefined };
+      checkpoint(target);
+    } else {
+      target = await intoNewFolder(bridge, audio, target, checkpoint);
+      opened = openProjectOf(await bridge.loadPages(target.projectId));
+    }
     page = undefined;
   }
   if (!page) {

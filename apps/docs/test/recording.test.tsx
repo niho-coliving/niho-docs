@@ -7,7 +7,7 @@ import { button, buttons, click, renderApp, typeInto, type Screen } from "./dom"
 import { FakeBridge } from "./fake-bridge";
 import { useRecording } from "../src/components/Recording";
 import { RECORDING_JOURNAL_KEY } from "../src/lib/app-recording";
-import { addPage, createProjectByName, until } from "./pages";
+import { addPage, createProjectByName, newFromMenu, until } from "./pages";
 
 /** 録音（#18590）: 録音ページの音声欄から録音・復旧し、追加した音声をその場で保存する。 */
 
@@ -98,6 +98,28 @@ describe("録音", () => {
     expect(savedSource?.kind === "audio" ? savedSource.audio.map((item) => item.name) : []).toEqual(["録音 10/16 15:30"]);
     expect(bridge.discardedRecordings).toEqual([id]);
     expect(container.querySelector(".dlg")).toBeNull();
+  });
+
+  it("ホームの2つ目の音声で録音を始め、別ページへ移っても開始した音声へ保存して開く", async () => {
+    const bridge = newBridge();
+    screen = await renderApp(bridge, { autoOpen: false });
+    const { container } = screen;
+    await newFromMenu(container, "音声");
+    await newFromMenu(container, "音声");
+    const [first, second] = bridge.outside.project.pages!;
+    await click(button(container, "この Mac で録音"));
+    const id = bridge.activeRecording!.id;
+    const journal = JSON.parse(localStorage.getItem(RECORDING_JOURNAL_KEY) ?? "{}");
+    expect(journal[id]).toMatchObject({ projectId: null, pageId: second!.id, existing: true });
+    await newFromMenu(container, "ページ");
+    await click(button(container, "止める"));
+    await until(() => bridge.discardedRecordings.includes(id) && audioNames(container).length === 1);
+    expect(bridge.projects.size).toBe(0);
+    expect(bridge.outside.project.pages).toHaveLength(3);
+    expect(bridge.recording(null, first!.id).recording.source).toEqual({ kind: "audio", audio: [] });
+    const saved = bridge.recording(null, second!.id).recording.source;
+    expect(saved.kind === "audio" && saved.audio.map((audio) => audio.name)).toEqual(["録音 10/16 15:30"]);
+    expect(bridge.recent[0]).toMatchObject({ projectId: null, pageId: second!.id });
   });
 
   it("マイクの許可が無ければ案内とシステム設定を開くボタンを出し、録音は始めない", async () => {

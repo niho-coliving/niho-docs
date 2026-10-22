@@ -912,16 +912,16 @@ describe("話者人数・言語は録音ごと", () => {
     await click(button(info.querySelector<HTMLElement>(".folder-save")!, "保存"));
     expect(stored.project.info).toEqual({ speakers: "3", language: "en", terms: [], background: "朝市の出店者への取材" });
 
-    // root 以外の録音は recording.json（1 フォルダ 1 音声なので、「＋ 新しい › 音声」で新しいフォルダに作る）
+    // ホームの新しい音声は recording.json に設定を保存し、既存フォルダの info には影響しない。
     await newFromMenu(container, "音声");
-    const fresh = [...bridge.projects.values()].find((item) => item.project.id !== created.id)!;
+    const fresh = bridge.outside;
     const rec = fresh.project.pages!.find((page) => page.kind === "rec")!;
     expect([speakers().value, language().value]).toEqual(["auto", "ja"]);
     await selectOption(speakers(), "none");
-    await until(() => bridge.recording(fresh.project.id, rec.id).recording.speakers === "none" && !speakers().disabled);
+    await until(() => bridge.recording(null, rec.id).recording.speakers === "none" && !speakers().disabled);
     await selectOption(language(), "en");
-    await until(() => bridge.recording(fresh.project.id, rec.id).recording.language === "en");
-    expect(bridge.recording(fresh.project.id, rec.id).recording).toMatchObject({ speakers: "none", language: "en" });
+    await until(() => bridge.recording(null, rec.id).recording.language === "en");
+    expect(bridge.recording(null, rec.id).recording).toMatchObject({ speakers: "none", language: "en" });
     expect(stored.project.info).toMatchObject({ speakers: "3", language: "en" });
   });
 
