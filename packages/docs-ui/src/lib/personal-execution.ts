@@ -1,4 +1,4 @@
-import { SOURCE_STEP_ID, type Effort, type FlowSnapshot, type GlossaryEntry, type ResolvedStepModel, type RunCheckpoint, type RunRecord, type SpeakerMode } from "@niho/docs-core";
+import { SOURCE_STEP_ID, flowHasTranscription, type Effort, type FlowSnapshot, type GlossaryEntry, type ResolvedStepModel, type RunCheckpoint, type RunRecord, type SpeakerMode } from "@niho/docs-core";
 import { personalReportedModelMatches } from "./personal-provider-readiness";
 import { DEEPGRAM_MODEL, GEMINI_TRANSCRIPTION_EFFORT, GEMINI_TRANSCRIPTION_MODEL } from "./runner";
 
@@ -537,6 +537,8 @@ export function personalFixedFlow(flow: FlowSnapshot, fixedModels: Record<string
     revision: flow.revision,
     name: flow.name,
     guide: flow.guide,
+    // 旧snapshotのhashを保ちつつ、文字起こしなしを固定入力・実行へ引き継ぐ。
+    ...(flowHasTranscription(flow) ? {} : { transcription: false }),
     terms: flow.terms.map((term) => ({ term: term.term, reading: term.reading, variants: [...term.variants], note: term.note })),
     samples: flow.samples.map((sample) => ({ id: sample.id, name: sample.name, chars: sample.chars, truncatedFrom: sample.truncatedFrom })),
     steps: flow.steps.map((step) => ({ id: step.id, name: step.name, instruction: step.instruction, provider: step.provider, profile: step.profile })),

@@ -2575,7 +2575,7 @@ export class FakeBridge implements Bridge {
         language,
         background: info.background,
         terms,
-        sourceName: source.kind === "text" ? "文章" : "文字起こし",
+        sourceName: source.kind === "text" && !source.transcriptImport ? "文章" : "文字起こし",
       },
       flow: structuredClone(flow),
       audio,

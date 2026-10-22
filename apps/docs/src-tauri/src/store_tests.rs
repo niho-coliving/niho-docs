@@ -2853,6 +2853,17 @@ fn vtt_is_imported_only_into_an_empty_recording_and_keeps_the_original() {
     .to_string();
   let original = b"\xef\xbb\xbfWEBVTT\r\n\r\n00:00.000 --> 00:01.000\r\n<v Recorder>hello</v>\r\n";
   let markdown = "[00:00:00] Recorder: hello\n";
+  assert!(store
+    .import_transcript_at(
+      Some(&id),
+      &rec,
+      "meeting.vtt",
+      original,
+      &"a".repeat(niho_desktop_vault::TEXT_MAX_BYTES as usize + 1),
+      &save_record("vtt-too-large"),
+    )
+    .is_err());
+  assert!(store.load_recording(&id, &rec).unwrap().transcript.is_none());
   store
     .import_transcript_at(
       Some(&id),

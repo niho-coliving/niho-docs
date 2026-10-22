@@ -2735,6 +2735,11 @@ impl Store {
         "VTTファイルが大きすぎます。分けてから取り込んでください。",
       ));
     }
+    if markdown.len() as u64 > niho_desktop_vault::TEXT_MAX_BYTES {
+      return Err(StoreError::bad_page(
+        "変換後の文字起こしが大きすぎます。VTTファイルを分けてから取り込んでください。",
+      ));
+    }
     let valid_name = !name.is_empty()
       && name.chars().count() <= MAX_AUDIO_NAME_CHARS
       && !name.chars().any(char::is_control)

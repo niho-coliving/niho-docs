@@ -6,6 +6,7 @@ import {
   PersonalAuthenticationRequiredError,
   PersonalRemoteRejectionError,
   buildPersonalFixedSnapshot,
+  personalFixedFlow,
   canonical,
   createPersonalExecutionController,
   projectPersonalRunEvent,
@@ -488,6 +489,19 @@ describe("R6 personal execution controller", () => {
 });
 
 describe("R6 fixed snapshot validation and history projection", () => {
+  it("固定実行とhashに文字起こしなしを保持し、旧工程と明示trueのhashをそろえる", async () => {
+    const r = request();
+    const legacy = material(r.route);
+    const withTranscription = structuredClone(legacy);
+    withTranscription.flow.transcription = true;
+    const imported = structuredClone(legacy);
+    imported.flow.transcription = false;
+    expect(personalFixedFlow(imported.flow, imported.flow.models).transcription).toBe(false);
+    const oldHash = (await buildPersonalFixedSnapshot(r, legacy)).flowSnapshotSha256;
+    expect((await buildPersonalFixedSnapshot(r, withTranscription)).flowSnapshotSha256).toBe(oldHash);
+    expect((await buildPersonalFixedSnapshot(r, imported)).flowSnapshotSha256).not.toBe(oldHash);
+  });
+
   it("secretらしい追加fieldをspreadせずallowlistだけを固定する", async () => {
     const r = request();
     const m = material(r.route) as PersonalSnapshotMaterial & { token: string; settings: object; workspace: string };

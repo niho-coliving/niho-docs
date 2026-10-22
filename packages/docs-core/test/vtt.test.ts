@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VTT_MAX_BYTES, VttParseError, parseVtt } from "../src/index.js";
+import { VTT_MAX_BYTES, VTT_MARKDOWN_MAX_BYTES, VttParseError, parseVtt } from "../src/index.js";
 
 describe("parseVtt", () => {
   it("BOM/CRLF、字幕ID、複数行、voice tagを保ち、非発言blockを除く", () => {
@@ -51,6 +51,17 @@ describe("parseVtt", () => {
     ]) {
       expect(() => parseVtt(source), source).toThrow(VttParseError);
     }
+  });
+
+  it("原本が上限内でも、変換後の本文が同期上限を超える場合は保存前に断る", () => {
+    const prefix = "WEBVTT\n\n00:00.000 --> 00:01.000\n";
+    const accepted = `${prefix}${"a".repeat(VTT_MARKDOWN_MAX_BYTES - 12)}\n`;
+    expect(new TextEncoder().encode(parseVtt(accepted).markdown)).toHaveLength(VTT_MARKDOWN_MAX_BYTES);
+    expect(() => parseVtt(`${accepted}a`)).toThrow(/変換後/);
+    // & は変換時に &amp; へ広がるため、原本の大きさだけでは判定できない。
+    const escaped = `${prefix}${"&".repeat(Math.floor(VTT_MARKDOWN_MAX_BYTES / 5))}\n`;
+    expect(new TextEncoder().encode(escaped).length).toBeLessThan(VTT_MAX_BYTES);
+    expect(() => parseVtt(escaped)).toThrow(/変換後/);
   });
 
   it("上限を超えた原本を先頭だけ取り込まない", () => {

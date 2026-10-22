@@ -1,6 +1,8 @@
 /** WebVTT 原本を検証し、編集可能な文字起こし Markdown へ変換する。原本そのものは host が別ファイルで保持する。 */
 
 export const VTT_MAX_BYTES = 10 * 1024 * 1024;
+/** desktop-vaultのMarkdown上限。原本が小さくてもHTMLエスケープ等で超える場合がある。 */
+export const VTT_MARKDOWN_MAX_BYTES = 8 * 1024 * 1024;
 
 export type VttCue = {
   id: string | null;
@@ -143,5 +145,9 @@ export function parseVtt(input: string): ParsedVtt {
     .map((cue) => `[${timestampPrefix(cue.start)}] ${cueTextMarkdown(cue.text)}`)
     .join("\n\n");
   if (!markdown.trim()) throw new VttParseError("empty", "VTTファイルに発言がありません。");
-  return { cues, markdown: `${markdown}\n` };
+  const result = `${markdown}\n`;
+  if (byteLength(result) > VTT_MARKDOWN_MAX_BYTES) {
+    throw new VttParseError("too_large", "変換後の文字起こしが大きすぎます。VTTファイルを分けてから取り込んでください。");
+  }
+  return { cues, markdown: result };
 }
