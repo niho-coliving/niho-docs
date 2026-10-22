@@ -2,17 +2,6 @@ name: Docs SDK CI
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/docs-sdk-*.yml"
-      - "sdk/**"
-      - "scripts/sdk/**"
-      - "packages/docs-core/**"
-      - "packages/docs-ui/**"
-      - "packages/ui/**"
-      - "apps/docs/package.json"
-      - "apps/docs/package-lock.json"
-      - "docs/architecture/docs-sdk.md"
-      - "LICENSE"
   push:
     branches: [main]
     paths:
@@ -36,6 +25,7 @@ concurrency:
 
 jobs:
   pack-and-smoke:
+    name: docs-sdk
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

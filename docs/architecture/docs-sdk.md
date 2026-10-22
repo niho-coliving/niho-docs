@@ -21,3 +21,5 @@ UI の組み込みでは `niho-docs-sdk-ui/styles/tokens.css` と `niho-docs-ui/
 private repository との統合単位は release manifest と SHA-256/SRI で固定された versioned tarball です。private 側から未レビューの public branch や可変な `main` を直接 import しません。desktop 署名で native source snapshot が必要な場合も一時入力に限定し、認証・production secret・署名処理を SDK に移しません。
 
 現在の private `file:` 依存と native source snapshot は、初回 SDK 発行と固定版の統合受入まで維持します。この PR だけで本番の依存・配布承認は変更しません。オーナーが公開 PR をマージした後、信頼された main から手動発行し、版・公開 SHA・manifest hash と各 tarball の SRI を統合 PR に記録します。tag を確保した後に発行が失敗した場合も、その版を再利用せず新しい版を発行します。
+
+`Docs SDK CI` の `docs-sdk` check は全PRで発行します。初回の公開PRをmainへ取り込んだ後、既存のrequired CIを維持したまま `docs-sdk` もrequired status checkへ追加してください。親PR #24にこのcheckは存在しないため、そのマージを待たずに設定して親を停止させないようにします。
