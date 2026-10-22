@@ -18,7 +18,11 @@ pack は指定 commit の Git object だけから allowlist 済み source を読
 
 write権限を持つpublish jobは再生成jobが確認したmanifest SHA-256を `--expected-manifest-sha256` で固定し、全tarballのhashとGit provenanceを再検証します。publish jobではnpm installや配布コードの実行を行いません。3 jobの信頼済みcheckoutは同じworkflow起動SHAに固定し、build jobの自己申告hashだけを公開根拠にしません。同梱READMEのpackage名もstaging時に `niho-docs-sdk-ui` へ置換します。
 
-UI の組み込みでは `niho-docs-sdk-ui/styles/tokens.css` と `niho-docs-ui/styles/{tokens,app,sharing,editor,account}.css` を読み込みます。アカウント・共通ダイアログの Tailwind utilities は接続側で生成し、配布された `node_modules/niho-docs-sdk-ui/src/**/*.tsx` を走査対象にします。従来の `packages/ui` へのパスを SDK の設定へ持ち込まないでください。画面 root の寸法、Tailwind の scope、実ブラウザでの受入はホストの責務です。consumer smoke は型・bundle・Node 実行の検査であり、視覚的な受入を代替しません。
+UI の組み込みでは `niho-docs-sdk-ui/styles/tokens.css` と `niho-docs-ui/styles/{tokens,app,sharing,editor,account}.css` を読み込みます。アカウント・共通ダイアログの Tailwind utilities は接続側で生成し、`node_modules/niho-docs-sdk-ui/src/**/*.tsx` と `node_modules/niho-docs-ui/src/**/*.tsx` を走査対象にします。従来の `packages/ui` へのパスを SDK の設定へ持ち込まないでください。画面 root の寸法、Tailwind の scope、実ブラウザでの受入はホストの責務です。consumer smoke は型・bundle・Node 実行の検査であり、視覚的な受入を代替しません。
+
+「次の工程」は `niho-docs-ui/next-steps` から利用できます。ホストは `DocsNextStepsView` として工程の行・残り・実行中／確認中・理由・エラー・場所・帯などの表示状態を渡し、`start`・`stop`・`closeBand`・`open` と設定画面を開く callback を実装します。Mac アプリ案内が必要な場合は `DocsNextStepsSection` / `DocsNextStepsEnd` の `macAppHref` を渡します。受付判定、実行 lifecycle、停止確認、routing はホストの責務です。
+
+保存先モード画面は `niho-docs-ui/storage-mode` から利用できます。ホストは `mode`・選択中／エラー状態とクラウド選択・再読込 callback を渡し、アカウント領域を `accountContent`、端末録音の救出領域を `recordingRescue` slot に渡します。認証・保存先判定・storage／permission・録音アクセスはホストの責務で、SDKはmount時に選択処理を開始しません。
 
 private repository との統合単位は release manifest と SHA-256/SRI で固定された versioned tarball です。private 側から未レビューの public branch や可変な `main` を直接 import しません。desktop 署名で native source snapshot が必要な場合も一時入力に限定し、認証・production secret・署名処理を SDK に移しません。
 
