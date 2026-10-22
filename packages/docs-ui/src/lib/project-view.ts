@@ -15,6 +15,8 @@ import {
   recordingOf,
   rootRecording,
   selectedSourceCandidate,
+  flowHasTranscription,
+  flowSourceIssue,
   sourceStepName,
   type Basis,
   type FlowSnapshot,
@@ -181,9 +183,10 @@ export function buildRecordingView(
   const autoPages = projectId === null ? [] : recordingAutoReferencePages(project);
   const tooManyPages = !frozenRefs && autoPages.length > RECORDING_AUTO_REFERENCE_MAX;
   const refs = frozenRefs ? [...frozenRefs] : tooManyPages ? [] : promptRefs(autoPages, refBodies);
-  const executionBlockReason = tooManyPages || refs.length > RECORDING_AUTO_REFERENCE_MAX
+  const sourceIssue = flowSourceIssue(flow, recording.source, source.trim().length > 0);
+  const executionBlockReason = sourceIssue ?? (tooManyPages || refs.length > RECORDING_AUTO_REFERENCE_MAX
     ? `同じフォルダの文書が${RECORDING_AUTO_REFERENCE_MAX}件を超えているため、工程を実行できません。文書を別のフォルダへ移してください。`
-    : null;
+    : null);
   const info = recordingInfo(project, recording);
   const plan = planProject({ flow, sourceName, source, ...(transcriptSpeakerNames ? { transcriptSpeakerNames } : {}), artifacts, refs, info, latestBasis });
   const rec = { projectId, recordingId: entry.recordingId ?? entry.id };
@@ -299,8 +302,9 @@ export function withPageTitle(open: OpenProject, pageId: string, title: string):
 /** 録音の進み（済の工程の数・全体。レールの録音の行）。 */
 export function recordingProgress(recording: Recording, hasTranscript: boolean, artifacts: readonly string[]): { done: number; total: number } {
   const steps = recording.flowSnapshot.steps;
-  const done = (hasTranscript ? 1 : 0) + steps.filter((step) => artifacts.includes(step.id)).length;
-  return { done, total: steps.length + 1 };
+  const transcription = flowHasTranscription(recording.flowSnapshot);
+  const done = (transcription && hasTranscript ? 1 : 0) + steps.filter((step) => artifacts.includes(step.id)).length;
+  return { done, total: steps.length + (transcription ? 1 : 0) };
 }
 
 /** 録音に素材（音声か、文字起こし・文章）があるか。無ければ工程を実行できない。 */
@@ -370,6 +374,6 @@ export function stepName(view: RecordingView, stepId: string): string {
 /** 「すべて再実行」の工程。音声があれば工程 1（文字起こし）から、文章と音声の無い録音は工程 2 から。 */
 export function rerunQueueOf(view: RecordingView): string[] {
   const source = view.recording.source;
-  const hasAudio = source.kind === "audio" && source.audio.length > 0;
+  const hasAudio = flowHasTranscription(view.flow) && source.kind === "audio" && source.audio.length > 0;
   return view.plan.steps.filter((step) => step.stepId !== SOURCE_STEP_ID || hasAudio).map((step) => step.stepId);
 }

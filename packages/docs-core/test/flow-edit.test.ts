@@ -63,6 +63,7 @@ describe("テンプレートと白紙", () => {
       guide: "",
       terms: [],
       samples: [],
+      transcription: true,
       steps: [],
     });
   });
@@ -87,7 +88,7 @@ describe("フローの複製（P4 #18567）", () => {
 
   it("新しい id・「〈名前〉のコピー」・revision 1 で、ガイド・固有名詞・お手本・工程（id も）を写す", () => {
     const copy = duplicateFlow(source, "flow-9", [source]);
-    expect(copy).toEqual({ ...source, id: "flow-9", name: "テストのコピー", revision: 1 });
+    expect(copy).toEqual({ ...source, id: "flow-9", name: "テストのコピー", revision: 1, transcription: true });
     expect(copy.steps.map((step) => step.id)).toEqual(["a", "b", "c"]);
     // 名前が重なれば「 2」
     expect(duplicateFlow(source, "flow-10", [source, copy]).name).toBe("テストのコピー 2");
@@ -109,9 +110,16 @@ describe("設計の比較", () => {
     expect(sameFlowDesign(flow, { ...flow, name: "別名", revision: 9, samples: [{ id: "s", name: "x", chars: 1 }] })).toBe(true);
     expect(sameFlowDesign(flow, { ...flow, guide: "別のガイド" })).toBe(false);
     expect(sameFlowDesign(flow, { ...flow, steps: moveStep(steps, 0, 1) })).toBe(false);
+    expect(sameFlowDesign(flow, { ...flow, transcription: false })).toBe(false);
     expect(sameFlowContent(flow, { ...flow, revision: 9 })).toBe(true);
     expect(sameFlowContent(flow, { ...flow, name: "別名" })).toBe(false);
     expect(sameFlowContent(flow, { ...flow, samples: [{ id: "s", name: "x", chars: 1 }] })).toBe(false);
+  });
+
+  it("文字起こし工程の有無を複製と差分へ残す", () => {
+    const without = { ...flow, transcription: false };
+    expect(duplicateFlow(without, "flow-vtt-copy", [without]).transcription).toBe(false);
+    expect(diffFlowDesign(flow, without).transcription).toBe(true);
   });
 
   it("お手本の元 URL は保存対象として比較し、旧フローの省略とも互換にする", () => {
@@ -139,6 +147,7 @@ describe("設計の比較", () => {
       models: ["整える"],
       reordered: true,
       guide: true,
+      transcription: false,
     });
     expect(diffFlowDesign(flow, { ...flow, revision: 4 })).toEqual({
       added: [],
@@ -148,6 +157,7 @@ describe("設計の比較", () => {
       models: [],
       reordered: false,
       guide: false,
+      transcription: false,
     });
   });
 

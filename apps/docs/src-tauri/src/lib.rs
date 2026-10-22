@@ -47,6 +47,7 @@ mod speech;
 mod store;
 mod updater;
 
+use base64::Engine;
 use contract::{
   ClaudeUpdate, Effort, LlmRunner, MaintenanceError, Provider, ProviderStatus, ProviderUsage, TurnHandle, TurnRequest,
 };
@@ -838,6 +839,36 @@ async fn set_recording_text(
       .store()
       .set_recording_text_at(project_id.as_deref(), &recording_id, &text, &record)?,
   )
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscriptImportWire {
+  name: String,
+  original_base64: String,
+  markdown: String,
+}
+
+/// 共通UIで検証したVTT原本と派生Markdownを、空の録音へ原子的に取り込む。
+#[tauri::command]
+async fn import_transcript(
+  state: State<'_, AppState>,
+  project_id: Option<String>,
+  recording_id: String,
+  transcript: TranscriptImportWire,
+  record: Value,
+) -> CommandResult<()> {
+  let original = base64::engine::general_purpose::STANDARD
+    .decode(&transcript.original_base64)
+    .map_err(|_| CommandError::new("bad_vtt", "VTTファイルを読み取れませんでした。"))?;
+  Ok(state.store().import_transcript_at(
+    project_id.as_deref(),
+    &recording_id,
+    &transcript.name,
+    &original,
+    &transcript.markdown,
+    &record,
+  )?)
 }
 
 /// ページを足す（文書か録音。id は Rust が決める）。足した pages の 1 行を返す。
@@ -2743,6 +2774,7 @@ pub fn run() {
       rename_candidate,
       set_source_candidate,
       set_recording_text,
+      import_transcript,
       create_page,
       rename_page,
       delete_page,

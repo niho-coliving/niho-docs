@@ -160,6 +160,9 @@ export function terminalEvent(result: TurnResult | null | undefined, fromChannel
 
 export type AudioInfo = { path: string; name: string; durationSec: number | null };
 
+/** 共通UIが検証・変換したVTT。hostは原本とMarkdownを同じ保存単位で確定する。 */
+export type TranscriptImportPayload = { name: string; originalBase64: string; markdown: string };
+
 /** source.audio と同じ順の、この Mac にある音声の実ファイル。無い写しは path が null。 */
 export type AudioFilePath = { file: string; path: string | null };
 
@@ -559,6 +562,8 @@ export interface Bridge {
   setSourceCandidate(rec: RecordingRef, candidateId: string, expected: string | null): Promise<void>;
   /** 素材の無い録音（root 以外）に文章を貼る（工程 1 の版 1・source を文章に）。 */
   setRecordingText(rec: RecordingRef, text: string, record: RunRecord): Promise<void>;
+  /** 素材の無い録音へVTT原本と派生Markdownを保存し、sourceをVTT取込由来のtextにする。 */
+  importTranscript?(rec: RecordingRef, transcript: TranscriptImportPayload, record: RunRecord): Promise<void>;
   /** ページを足す（pages が無ければ root を先頭に初期化する）。足した 1 行を返す。 */
   createPage(projectId: ProjectId, page: NewPage): Promise<PageEntry>;
   renamePage(projectId: ProjectId, pageId: string, title: string): Promise<void>;

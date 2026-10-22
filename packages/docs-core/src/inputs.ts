@@ -3,12 +3,34 @@ import type { Flow, Language, ProjectSource, SpeakerMode } from "./types.js";
 /** 工程 1（文字起こし／文章）の id。工程 1 は固定で `Flow.steps` に含めない。 */
 export const SOURCE_STEP_ID = "source";
 
+/** 古い工程設計は先頭の文字起こしが固定だったため、欄の欠落を true として読む。 */
+export function flowHasTranscription(flow: Pick<Flow, "transcription">): boolean {
+  return flow.transcription !== false;
+}
+
 /**
  * 工程 1 の名前（音声のある案件は「文字起こし」、文章から作った案件は「文章」）。素材の種類が分からないとき（素材を持たない
  * 以前の行など）は「文字起こし」。
  */
 export function sourceStepName(source: ProjectSource | Pick<ProjectSource, "kind"> | null | undefined): string {
-  return source?.kind === "text" ? "文章" : "文字起こし";
+  return source?.kind === "text" && !("transcriptImport" in source && source.transcriptImport) ? "文章" : "文字起こし";
+}
+
+/** 素材と工程設計が一致しない理由。画面と実行 host が同じ理由で開始前に止める。 */
+export function flowSourceIssue(
+  flow: Pick<Flow, "transcription">,
+  source: ProjectSource,
+  sourceReady: boolean,
+): string | null {
+  if (flowHasTranscription(flow)) {
+    return source.kind === "text" && source.transcriptImport
+      ? "この工程は音声から文字起こしを始めます。文字起こしファイルには、文字起こしなしの工程を選んでください。"
+      : null;
+  }
+  if (source.kind !== "text" || !source.transcriptImport || !sourceReady) {
+    return "この工程は文字起こしファイルから始めます。VTTファイルを取り込んでください。";
+  }
+  return null;
 }
 
 /** 工程 1 として使えない名前（工程 2 以降と成果物のファイル名がぶつかる）。 */

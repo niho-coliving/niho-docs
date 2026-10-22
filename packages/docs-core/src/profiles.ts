@@ -1,3 +1,4 @@
+import { flowHasTranscription } from "./inputs.js";
 import type { Connection, Effort, Flow, FlowSnapshot, Profile, ProfileModel, ProviderId, ResolvedStepModel, Step } from "./types.js";
 
 /** 設定の既定のプロファイル（標準・高性能）の id。工程はプロファイル名で選ぶので、フローは方式や AI に依存しない。 */
@@ -351,6 +352,7 @@ export function createFlowSnapshot(
   const { models } = resolveFlowModels(flow, profiles, providers, connection);
   return {
     ...flow,
+    transcription: flowHasTranscription(flow),
     steps: flow.steps.map((step) => ({ ...step })),
     terms: flow.terms.map((entry) => ({ ...entry, variants: [...entry.variants] })),
     samples: flow.samples.map((sample) => ({ ...sample })),

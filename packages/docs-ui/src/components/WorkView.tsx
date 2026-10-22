@@ -518,7 +518,7 @@ export function WorkView(props: WorkViewProps) {
   const shownAt = saved !== undefined && !runningHere && shown ? formatDateTime(shown.at) : "";
   // 元にした内容が変わった知らせ（本文の上の 1 行）。別の Mac の知らせ（banner）があればそちらだけを出す（帯を重ねない）
   const staleText = !props.target && progress?.stale && !runningHere
-    ? staleNoticeText(progress.staleReasons, view.recording.source.kind === "text" ? "text" : "audio")
+    ? staleNoticeText(progress.staleReasons, view.sourceName === "文章" ? "text" : "audio")
     : null;
   const rebuildDisabled = !rerunnable || runBlocked;
   const staleNotice = staleText ? (

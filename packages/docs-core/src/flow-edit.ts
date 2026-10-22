@@ -1,4 +1,5 @@
 import { cleanGlossary } from "./glossary.js";
+import { flowHasTranscription } from "./inputs.js";
 import { STANDARD_PROFILE_ID } from "./profiles.js";
 import type { Flow, Step } from "./types.js";
 
@@ -51,6 +52,7 @@ export function duplicateFlow(flow: Flow, id: string, flows: readonly Pick<Flow,
     id,
     name: uniqueFlowName(`${flow.name.trim()}のコピー`, flows),
     revision: 1,
+    transcription: flowHasTranscription(flow),
     terms: flow.terms.map((entry) => ({ ...entry, variants: [...entry.variants] })),
     samples: flow.samples.map((sample) => ({ ...sample })),
     steps: flow.steps.map((step) => ({ ...step })),
@@ -88,7 +90,8 @@ function termsKey(flow: Flow) {
 /** 実行に効く設計（文書ガイド・共通の固有名詞・工程）が同じか。名前・revision・お手本の文書は比べない。 */
 export function sameFlowDesign(a: Flow, b: Flow): boolean {
   return (
-    JSON.stringify([a.guide, termsKey(a), stepsKey(a.steps)]) === JSON.stringify([b.guide, termsKey(b), stepsKey(b.steps)])
+    JSON.stringify([flowHasTranscription(a), a.guide, termsKey(a), stepsKey(a.steps)]) ===
+    JSON.stringify([flowHasTranscription(b), b.guide, termsKey(b), stepsKey(b.steps)])
   );
 }
 
@@ -113,6 +116,8 @@ export type FlowDesignDiff = {
   reordered: boolean;
   /** 文書ガイドか共通の固有名詞が変わる。 */
   guide: boolean;
+  /** 先頭の文字起こし工程の有無が変わる。 */
+  transcription: boolean;
 };
 
 export function diffFlowDesign(snapshot: Flow, flow: Flow): FlowDesignDiff {
@@ -126,6 +131,7 @@ export function diffFlowDesign(snapshot: Flow, flow: Flow): FlowDesignDiff {
     models: [],
     reordered: false,
     guide: JSON.stringify([snapshot.guide, termsKey(snapshot)]) !== JSON.stringify([flow.guide, termsKey(flow)]),
+    transcription: flowHasTranscription(snapshot) !== flowHasTranscription(flow),
   };
   for (const step of flow.steps) {
     const old = before.get(step.id);

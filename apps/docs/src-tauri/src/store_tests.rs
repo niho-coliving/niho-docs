@@ -2840,6 +2840,124 @@ fn a_failed_paste_leaves_the_recording_as_it_was_and_can_be_retried() {
 }
 
 #[test]
+fn vtt_is_imported_only_into_an_empty_recording_and_keeps_the_original() {
+  let root = temp_root("vtt-import");
+  let store = Store::new(root.clone());
+  let created = store.create_project(&pages_project("朝市"), None, None, &[]).unwrap();
+  let id = created["id"].as_str().unwrap().to_string();
+  let rec = store
+    .create_page(&id, "rec", "", "2026-10-16T01:00:00.000Z", Some(&new_recording()))
+    .unwrap()["id"]
+    .as_str()
+    .unwrap()
+    .to_string();
+  let original = b"\xef\xbb\xbfWEBVTT\r\n\r\n00:00.000 --> 00:01.000\r\n<v Recorder>hello</v>\r\n";
+  let markdown = "[00:00:00] Recorder: hello\n";
+  assert!(store
+    .import_transcript_at(
+      Some(&id),
+      &rec,
+      "meeting.vtt",
+      original,
+      &"a".repeat(niho_desktop_vault::TEXT_MAX_BYTES as usize + 1),
+      &save_record("vtt-too-large"),
+    )
+    .is_err());
+  assert!(store.load_recording(&id, &rec).unwrap().transcript.is_none());
+  store
+    .import_transcript_at(
+      Some(&id),
+      &rec,
+      "meeting.vtt",
+      original,
+      markdown,
+      &save_record("vtt-1"),
+    )
+    .unwrap();
+
+  let loaded = store.load_recording(&id, &rec).unwrap();
+  assert_eq!(loaded.transcript.as_deref(), Some(markdown));
+  assert_eq!(loaded.runs[0]["version"], 1);
+  let source = &loaded.recording.unwrap()["source"];
+  assert_eq!(source["kind"], "text");
+  assert_eq!(source["transcriptImport"]["format"], "vtt");
+  assert_eq!(source["transcriptImport"]["file"], "source.vtt");
+  assert_eq!(source["transcriptImport"]["name"], "meeting.vtt");
+  assert_eq!(source["transcriptImport"]["hash"].as_str().unwrap().len(), 64);
+  let rec_id = recording_id(&store, Some(&id), &rec);
+  assert_eq!(
+    fs::read(root.join(format!("projects/{id}/recordings/{rec_id}/inputs/source.vtt"))).unwrap(),
+    original
+  );
+
+  let error = store
+    .import_transcript_at(
+      Some(&id),
+      &rec,
+      "other.vtt",
+      b"WEBVTT\n",
+      "other",
+      &save_record("vtt-2"),
+    )
+    .unwrap_err();
+  assert_eq!(error.code, "store_bad_page");
+  assert_eq!(
+    store.load_recording(&id, &rec).unwrap().transcript.as_deref(),
+    Some(markdown)
+  );
+  let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn failed_vtt_commit_rolls_back_and_the_same_recording_can_retry() {
+  let root = temp_root("vtt-import-rollback");
+  let store = Store::new(root.clone());
+  let created = store.create_project(&pages_project("朝市"), None, None, &[]).unwrap();
+  let id = created["id"].as_str().unwrap().to_string();
+  let rec = store
+    .create_page(&id, "rec", "", "2026-10-16T01:00:00.000Z", Some(&new_recording()))
+    .unwrap()["id"]
+    .as_str()
+    .unwrap()
+    .to_string();
+  let rec_id = recording_id(&store, Some(&id), &rec);
+  let rec_dir = root.join(format!("projects/{id}/recordings/{rec_id}"));
+  let before = fs::read_to_string(rec_dir.join("recording.json")).unwrap();
+  let original = b"WEBVTT\n\n00:00.000 --> 00:01.000\nhello\n";
+  let markdown = "[00:00:00] hello\n";
+
+  let error = store
+    .import_transcript_with(
+      Some(&id),
+      &rec,
+      "meeting.vtt",
+      original,
+      markdown,
+      &save_record("vtt-1"),
+      |_, _| Err(StoreError::new("store_io", "ディスクがいっぱいです。")),
+    )
+    .unwrap_err();
+  assert_eq!(error.code, "store_io");
+  assert!(!rec_dir.join("inputs/source.vtt").exists());
+  assert!(!rec_dir.join("transcript.md").exists());
+  assert!(!rec_dir.join("runs.jsonl").exists());
+  assert_eq!(fs::read_to_string(rec_dir.join("recording.json")).unwrap(), before);
+
+  store
+    .import_transcript_at(
+      Some(&id),
+      &rec,
+      "meeting.vtt",
+      original,
+      markdown,
+      &save_record("vtt-2"),
+    )
+    .unwrap();
+  assert_eq!(store.load_recording(&id, &rec).unwrap().runs[0]["version"], 1);
+  let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn save_recording_checks_the_id_and_the_audio_and_prunes_unused_copies() {
   let root = temp_root("save-recording");
   let audio_dir = temp_root("save-recording-audio");

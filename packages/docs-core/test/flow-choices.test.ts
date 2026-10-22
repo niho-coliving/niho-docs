@@ -11,6 +11,7 @@ import {
   defaultFlowChoice,
   flowChoiceKey,
   flowStepLine,
+  flowStepLineFor,
   flowStepLineParts,
   flowUnusableReason,
   isUnmodifiedTemplateCopy,
@@ -117,6 +118,11 @@ describe("工程の選択肢（#18883）", () => {
     expect(flowStepLine([{ name: "発言の抽出" }, { name: "インサイト" }])).toBe("文字起こし › 発言の抽出 › インサイト");
     expect(flowStepLineParts([{ name: "発言の抽出" }, { name: "インサイト" }])).toEqual(["文字起こし", "発言の抽出", "インサイト"]);
     expect(flowStepLine([], "文章")).toBe("文章");
+    const without = { ...flow("vtt", "VTTから"), transcription: false };
+    expect(flowStepLineFor(without)).toBe("要約");
+    const option = buildFlowChoices([without]).options.find((candidate) => candidate.key === "flow:vtt");
+    expect(option?.transcription).toBe(false);
+    expect(isUnmodifiedTemplateCopy({ ...createFlowFromTemplate(template("tpl-2"), "copy"), transcription: false }, template("tpl-2"))).toBe(false);
   });
 
   it("選んだものの文字列を作って分ける", () => {

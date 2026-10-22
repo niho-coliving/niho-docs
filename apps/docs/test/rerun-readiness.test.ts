@@ -8,6 +8,7 @@ import { addProvider, defaultSettings, effectiveEngine, rememberSpeechSupport, s
 function completedView(source: RecordingView["recording"]["source"]): RecordingView {
   return {
     recording: { source },
+    flow,
     plan: { steps: [{ stepId: SOURCE_STEP_ID }, { stepId: "minutes" }], remaining: [] },
   } as unknown as RecordingView;
 }
@@ -30,6 +31,16 @@ describe("すべて再実行の準備", () => {
     const queue = rerunQueueOf(view);
     expect(queue).toEqual(["minutes"]);
     expect(runSetupReason({ queue, flow, settings: defaultSettings(), statuses: { providers: {}, speech } })).toBeNull();
+  });
+});
+
+describe("文字起こしを含まない工程の再実行", () => {
+  it("取り込み済みの文字起こしを入力として使い、音声認識の準備を要求しない", () => {
+    const view = completedView({ kind: "text", transcriptImport: { format: "vtt", file: "source.vtt", name: "meeting.vtt", hash: "a".repeat(64) } } as never);
+    view.flow = { ...flow, transcription: false };
+    const queue = rerunQueueOf(view);
+    expect(queue).toEqual(["minutes"]);
+    expect(runSetupReason({ queue, flow: view.flow, settings: defaultSettings(), statuses: { providers: {}, speech: { ...speech, available: false, unsupported: "engine" } } })).toBeNull();
   });
 });
 

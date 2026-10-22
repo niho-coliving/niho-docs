@@ -26,6 +26,7 @@ import { cursorToEnd, flush, typeText } from "./block-editor-helpers";
 import { button, click, renderApp, selectOption, typeInto, type Screen } from "./dom";
 import { activeCloud, FakeBridge, done, recordingView } from "./fake-bridge";
 import { defaultSettings, normalizeSettings, type AppSettings } from "../src/lib/settings";
+import { transcriptImportFromFile } from "../src/components/RecordingPage";
 import type { PersonalOpenRequest } from "../src/lib/bridge";
 import { addPage, exportFromMenu, newFromMenu, openAudio, openPageMenu, pageMenuButton, pageMenuItems, railChildren, railCurrent, railItem, railPages, rebuild, rebuildItem, seedRun, shownVersion, titleInput, until, seedText } from "./pages";
 
@@ -205,6 +206,67 @@ function runbarButtons(container: HTMLElement): string[] {
 }
 
 describe("録音のページの始め方（何をするかはボタン、どこでやるかは設定。#18947）", () => {
+  it("VTT原本を取り込み、文字起こしなし工程ではASRを使わず後工程から始める", async () => {
+    const bridge = new FakeBridge();
+    const flow: Flow = { ...minutesFlow(), name: "VTTからインサイト", transcription: false };
+    bridge.flow = flow;
+    const { project } = await coachingProject(bridge);
+    const entry = await bridge.createPage(project.id, {
+      kind: "rec",
+      title: "既存の文字起こし",
+      createdAt: "2026-10-16T01:00:00.000Z",
+      recording: newRecording(flow),
+    });
+    const stored = bridge.recording(project.id, entry.id);
+    const storeTranscript = bridge.importTranscript.bind(bridge);
+    let failImport = true;
+    bridge.importTranscript = async (rec, transcript, record) => {
+      if (failImport) throw { code: "store_io", message: "VTT原本を保存できませんでした。" };
+      await storeTranscript(rec, transcript, record);
+    };
+    bridge.turnScript = (request) => [done(`${request.model} の成果物`, "EndTurn", "s1", request.model)];
+    screen = await renderApp(bridge);
+    const { container } = screen;
+    await openAudio(container, "佐藤さん コーチング");
+
+    expect(button(container, "VTTを取り込む")).not.toBeNull();
+    expect(button(container, "文書作成を開始").disabled).toBe(true);
+    expect(runbarButtons(container)).toEqual(["文書作成を開始"]);
+    expect(container.textContent).toContain("VTTファイルを取り込んでください");
+
+    const raw = "\uFEFFWEBVTT\r\n\r\ncue-a\r\n00:00:01.250 --> 00:00:02.500\r\n<v Recorder>そのままの話者です</v>\r\n";
+    const file = new File([raw], "interview.vtt", { type: "text/vtt" });
+    Object.defineProperty(file, "arrayBuffer", { value: async () => new TextEncoder().encode(raw).buffer });
+    const parsed = await transcriptImportFromFile(file);
+    const input = container.querySelector<HTMLInputElement>('[aria-label="VTTファイルを選択"]')!;
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await until(() => container.textContent?.includes("VTT原本を保存できませんでした。") ?? false);
+    expect(stored.recording.source).toEqual({ kind: "audio", audio: [] });
+    expect(stored.transcript).toBeNull();
+    expect(bridge.transcriptOriginals.size).toBe(0);
+
+    failImport = false;
+    await act(async () => input.dispatchEvent(new Event("change", { bubbles: true })));
+    await until(() => stored.recording.source.kind === "text");
+
+    expect(bridge.transcriptOriginals.get(`${project.id}/${entry.id}`)).toBe(parsed.originalBase64);
+    expect(stored.transcript).toBe(parsed.markdown);
+    expect(stored.recording.source).toMatchObject({
+      kind: "text",
+      transcriptImport: { format: "vtt", file: "source.vtt", name: "interview.vtt" },
+    });
+    expect(container.querySelector(".afile .nm")?.textContent).toContain("文字起こし · interview.vtt");
+    await until(() => runbarButtons(container).includes("続きを作成"));
+    expect(runbarButtons(container)).toEqual(["設定で変更", "続きを作成"]);
+
+    await click(button(container, "続きを作成"));
+    await until(() => bridge.turnRequests.length === flow.steps.length);
+    await until(() => bridge.locks.size === 0);
+    expect(bridge.transcribeLanguages).toEqual([]);
+    expect(stored.versions[SOURCE_STEP_ID]).toHaveLength(1);
+  });
+
   it("原文がまだ無い録音は「文書作成を開始」と控えめな「文字起こしだけ実施する」を出し、実行方法のプルダウンと AI・実行場所の表は無い", async () => {
     const setup = await routedRecording("audio");
     screen = setup.rendered;
