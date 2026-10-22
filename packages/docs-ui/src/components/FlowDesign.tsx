@@ -25,6 +25,7 @@ import {
   redirectedNote,
   requestEffort,
   duplicateStep,
+  flowHasTranscription,
   languageLabel,
   mergeExtractedTerms,
   moveStep,
@@ -58,7 +59,7 @@ import { usePopover } from "./usePopover";
 
 /**
  * 工程設計（spec §7・§8.4）。上に 保存、その下に フローの一覧（P4 #18567。App が `list` に渡す）と名前の欄。先頭に文書ガイド
- * （お手本の文書・お手本から抽出・ガイド・固有名詞）、続いて工程カード（1 文字起こし＝固定、2〜＝名前・指示文・モデル）と
+ * （お手本の文書・お手本から抽出・ガイド・固有名詞）、続いて文字起こしの有無と工程カード（文字起こしの後＝名前・指示文・モデル）と
  * 「＋ 工程を追加」。ガイドと指示文はその場で書ける欄で、書いた分だけ伸びる（開く・閉じるは無い。owner 2026-10-16）。
  * 開いているフロー 1 本に効く（App が フローの id を key にするので、フローを替えると作り直す）。
  * 編集中の内容（draft）は App がフローごとに持ち、ほかのフローや画面へ移っても残る。編集・並び替え・抽出はどれも保存するまで
@@ -186,6 +187,7 @@ type HandleEvents = {
 function StepCard(props: {
   step: Step;
   index: number;
+  number: number;
   count: number;
   issues: FlowIssue[];
   dragging: boolean;
@@ -233,7 +235,7 @@ function StepCard(props: {
         >
           ⋮⋮
         </span>
-        <span className="num">{index + 2}</span>
+        <span className="num">{props.number}</span>
         <FlowStepNameField
           inputRef={(element) => props.register(`name:${step.id}`, element)}
           className="inp"
@@ -825,7 +827,12 @@ export function FlowDesign(props: {
     }
     setSaving(true);
     try {
-      await props.onSave({ ...draft, name: draft.name.trim(), terms: cleanGlossary(draft.terms) });
+      await props.onSave({
+        ...draft,
+        name: draft.name.trim(),
+        terms: cleanGlossary(draft.terms),
+        transcription: flowHasTranscription(draft),
+      });
       // 保存で空の行を落とした固有名詞で描き直す
       if (mountedRef.current) setGlossaryKey((key) => key + 1);
     } catch (error) {
@@ -877,7 +884,7 @@ export function FlowDesign(props: {
             value={draft.name}
             onChange={(event) => change({ ...draftRef.current, name: event.target.value })}
           />
-          <span className="cnt">{draft.steps.length + 1} 工程</span>
+          <span className="cnt">{draft.steps.length + (flowHasTranscription(draft) ? 1 : 0)} 工程</span>
         </div>
         <IssueList issues={nameIssues} />
 
@@ -995,32 +1002,55 @@ export function FlowDesign(props: {
           </div>
         </div>
 
-        <div className="scard fixed">
-          <div className="top">
-            <span className="hd" aria-hidden="true" />
-            <span className="num">1</span>
-            <input className="inp" value="文字起こし" readOnly aria-label="工程の名前" />
+        <div className="gcard transcription-choice">
+          <div className="gh">
+            <h2>原文の準備</h2>
           </div>
-          <div className="body">
-            <span className="label">エンジン</span>
-            <div className="row">
-              <span>
-                {settings ? `${engineIdLabel(settings, effectiveEngine(settings))} · ${languageLabel(settings.transcription.language)}` : "録音するときの設定を使います"}
-              </span>
-              {settings && props.onOpenSettings && <button type="button" className="link" onClick={props.onOpenSettings}>
-                設定で変更
-              </button>}
+          <label className="row">
+            <input
+              type="checkbox"
+              checked={flowHasTranscription(draft)}
+              onChange={(event) => change({ ...draftRef.current, transcription: event.target.checked })}
+            />
+            音声を文字起こしする
+          </label>
+          <p className="help">
+            {flowHasTranscription(draft)
+              ? "音声から文字起こしを作り、その後の工程へ進みます。"
+              : "VTTファイルの原文から始めます。音声の文字起こしは行いません。"}
+          </p>
+        </div>
+        {flowHasTranscription(draft) && (
+          <div className="scard fixed">
+            <div className="top">
+              <span className="hd" aria-hidden="true" />
+              <span className="num">1</span>
+              <input className="inp" value="文字起こし" readOnly aria-label="工程の名前" />
+            </div>
+            <div className="body">
+              <span className="label">エンジン</span>
+              <div className="row">
+                <span>
+                  {settings ? `${engineIdLabel(settings, effectiveEngine(settings))} · ${languageLabel(settings.transcription.language)}` : "録音するときの設定を使います"}
+                </span>
+                {settings && props.onOpenSettings && <button type="button" className="link" onClick={props.onOpenSettings}>
+                  設定で変更
+                </button>}
+              </div>
             </div>
           </div>
-        </div>
+        )}
         {draft.steps.length === 0 ? (
-          <div className="gempty steps-empty">工程がありません。「＋ 工程を追加」で文字起こしの次の工程を作ります。</div>
+          <div className="gempty steps-empty">
+            工程がありません。「＋ 工程を追加」で{flowHasTranscription(draft) ? "文字起こしの次の" : "原文から始める"}工程を作ります。
+          </div>
         ) : (
           draft.steps.map((step, index) => (
             <StepCard
               key={step.id}
               step={step}
               index={index}
+              number={index + (flowHasTranscription(draft) ? 2 : 1)}
               count={draft.steps.length}
               issues={stepIssues(issues, step.id)}
               dragging={dragId === step.id}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { MutableRefObject, ReactNode } from "react";
-import { recordingChildren, type PageEntry } from "@niho/docs-core";
+import { recordingChildren, sourceStepName, type PageEntry } from "@niho/docs-core";
 import type { DocsValueSession } from "../host/DocsWorkspaceHost";
 import type { ProjectInfo } from "@niho/docs-core";
 import { SessionFolderInfo, SessionTitle } from "./SessionMetadata";
@@ -21,6 +21,7 @@ export type FolderAudioStart = {
   recordDisabled: boolean;
   onPick: () => void;
   onRecord: () => void;
+  onTranscript?: (file: File) => void;
 };
 
 /**
@@ -105,7 +106,7 @@ export function FolderHome(props: {
               <div className="row" role="group" aria-label="フォルダの録音">
                 {recordingPages.map((page, index) => {
                   const summary = props.folder.recordings[page.recordingId ?? page.id];
-                  const title = page.title.trim() || (summary?.recording.source.kind === "text" ? "文章" : "録音");
+                  const title = page.title.trim() || (summary?.recording.source.kind === "text" ? sourceStepName(summary.recording.source) : "録音");
                   return (
                     <button
                       type="button"
@@ -128,6 +129,7 @@ export function FolderHome(props: {
                 recordDisabled={props.start.recordDisabled}
                 onPick={props.start.onPick}
                 onRecord={props.start.onRecord}
+                onTranscript={props.start.onTranscript}
               />
             ) : null}
           </section>}

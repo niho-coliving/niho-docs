@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { flowHasTranscription } from "@niho/docs-core";
 import type { DocsFlowDesignSession } from "../host/DocsWorkspaceHost";
 import { FlowDesign } from "../components/FlowDesign";
 import { FlowList } from "../components/FlowList";
@@ -18,7 +19,7 @@ export function VaultFlowDesign({ session }: { session: DocsFlowDesignSession })
   const readOnlyReason = current ? state.readOnly[current.id] : undefined;
   const busy = importing || state.loading || ["saving", "unconfirmed", "conflict"].includes(state.phase);
   const run = (work: Promise<void>) => { void work.catch(() => undefined); };
-  const list = <FlowList rows={state.flows.map((flow) => ({ id: flow.id, name: flow.name, steps: flow.steps.length + 1, unsaved: flow.id in state.drafts, readOnlyReason: state.readOnly[flow.id] }))} currentId={state.currentId ?? ""} busy={busy}
+  const list = <FlowList rows={state.flows.map((flow) => ({ id: flow.id, name: flow.name, steps: flow.steps.length + (flowHasTranscription(flow) ? 1 : 0), unsaved: flow.id in state.drafts, readOnlyReason: state.readOnly[flow.id] }))} currentId={state.currentId ?? ""} busy={busy}
     onOpen={(id) => session.open(id)} onAdd={(choice) => run(session.add(choice))} onDuplicate={(id) => run(session.duplicate(id))}
     onRename={(id) => { session.open(id); setFocusName(true); }} onDelete={setDeleting} onMove={(id, delta) => run(session.move(id, delta))} />;
   return <>

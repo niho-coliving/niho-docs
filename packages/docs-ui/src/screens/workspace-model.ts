@@ -103,6 +103,7 @@ export function flowDiffLines(diff: FlowDesignDiff, unregistered: readonly strin
   if (diff.renamed.length > 0) lines.push(`名前が変わる工程: ${diff.renamed.map((item) => `${item.from} → ${item.to}`).join("・")}`);
   if (diff.instructions.length > 0) lines.push(`指示文が変わる工程: ${diff.instructions.join("・")}`);
   if (diff.models.length > 0) lines.push(`モデルが変わる工程: ${diff.models.join("・")}`);
+  if (diff.transcription) lines.push("文字起こし工程の有無が変わります");
   if (diff.reordered) lines.push("工程の順序が変わります");
   if (diff.guide) lines.push("文書ガイドか固有名詞が変わります");
   return lines;

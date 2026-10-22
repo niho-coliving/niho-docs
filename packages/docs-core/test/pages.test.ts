@@ -217,6 +217,7 @@ describe("pageTitle", () => {
     expect(pageTitle(entry("doc", ""))).toBe("無題");
     expect(pageTitle(entry("rec", "  "), recording)).toBe("録音");
     expect(pageTitle(entry("rec", ""), { ...recording, source: { kind: "text" } })).toBe("文章");
+    expect(pageTitle(entry("rec", ""), { ...recording, source: { kind: "text", transcriptImport: { format: "vtt", file: "source.vtt", name: "会議.vtt", hash: "a".repeat(64) } } })).toBe("文字起こし");
     expect(pageTitle(entry("rec", ""))).toBe("録音");
   });
 

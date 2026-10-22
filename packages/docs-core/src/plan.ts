@@ -1,6 +1,6 @@
 import { cleanGlossary } from "./glossary.js";
 import { cleanProjectEntities } from "./entities.js";
-import { SOURCE_STEP_ID, usedRefs, type PromptRef } from "./inputs.js";
+import { SOURCE_STEP_ID, flowHasTranscription, usedRefs, type PromptRef } from "./inputs.js";
 import { hashText } from "./text.js";
 import { sourceForPrompt } from "./transcript-speakers.js";
 import type { Basis, ExecutionPlan, Flow, GlossaryEntry, RecordingInfo } from "./types.js";
@@ -68,7 +68,13 @@ export function basisFor(flow: Flow, stepIndex: number, materials: BasisMaterial
     artifacts[step.id] = hashText(materials.artifacts[step.id] ?? "");
   }
   return {
-    source: hashText(sourceForPrompt(materials.sourceName ?? "文章", materials.source, materials.transcriptSpeakerNames)),
+    source: hashText(
+      `${flowHasTranscription(flow) ? "" : "flow-without-transcription\u0000"}${sourceForPrompt(
+        materials.sourceName ?? "文章",
+        materials.source,
+        materials.transcriptSpeakerNames,
+      )}`,
+    ),
     artifacts,
     info: infoHash(materials.info),
     guide: guideHash(flow),
@@ -194,7 +200,9 @@ export function planProject(input: ProjectPlanInput): ProjectPlan {
       staleReasons: reasons,
     });
   });
-  const remaining = steps.filter((step) => !step.done).map((step) => step.stepId);
+  const remaining = steps
+    .filter((step) => !step.done && (step.stepId !== SOURCE_STEP_ID || flowHasTranscription(input.flow)))
+    .map((step) => step.stepId);
   const doneCount = steps.filter((step) => step.done).length;
   return { plan: executionPlanFor(), steps, remaining, doneCount, total: steps.length };
 }
