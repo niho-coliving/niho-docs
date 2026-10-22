@@ -6,6 +6,7 @@ import { errorMessage, type Bridge } from "../lib/bridge";
 import type { DocFlush } from "./DocPage";
 import { Glossary } from "./Glossary";
 import { ProjectEntities } from "./ProjectEntities";
+import { useFitHeight } from "./useFitHeight";
 
 /**
  * 背景情報のページの 背景情報・登場人物・固有名詞（#18914。以前の背景情報のダイアログの欄をページに置いた）。フォルダのすべての
@@ -172,11 +173,13 @@ export function FolderInfoFields(props: {
   onBackground(value: string): void; onTerms(value: GlossaryEntry[]): void; onEntities(value: ProjectEntity[]): void;
 }) {
   const { background, terms, entities, glossaryRevision } = props;
+  const backgroundArea = useRef<HTMLTextAreaElement | null>(null);
+  useFitHeight(backgroundArea, background);
   return (
       <fieldset className="fields folder-fields" disabled={props.disabled}>
         <div className="fld">
           <label htmlFor="info-bg">背景情報</label>
-          <textarea id="info-bg" className="ta" style={{ minHeight: 84 }} value={background} onChange={(event) => props.onBackground(event.target.value)} />
+          <textarea ref={backgroundArea} id="info-bg" className="ta grow" style={{ minHeight: 84 }} value={background} onChange={(event) => props.onBackground(event.target.value)} />
         </div>
         <div className="fld">
           <span className="label">登場人物</span>
