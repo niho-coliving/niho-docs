@@ -2,7 +2,7 @@
 
 未修正の脆弱性、再現手順、exploit、実データ、token、署名 URL は public issue / pull request に投稿しないでください。
 
-1. GitHub の [private vulnerability reporting](https://github.com/niho-coliving/niho-docs/security/advisories/new) から非公開で報告してください。
+1. GitHub の [private vulnerability reporting](https://github.com/niho-life/niho-docs/security/advisories/new) から非公開で報告してください。
 2. private reporting が利用できない場合は、技術詳細を含めずに issue を作成し、maintainer へ非公開連絡先を問い合わせてください。
 3. 報告には可能な範囲で影響範囲、再現条件、修正案を含めます。実ユーザー情報や認証情報は添付しないでください。
 
