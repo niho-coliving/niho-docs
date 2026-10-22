@@ -423,7 +423,7 @@ export function WorkView(props: WorkViewProps) {
   const [toolHost, setToolHost] = useState<HTMLDivElement | null>(null);
   const playbackRef = useRef<AudioPlaybackHandle>(null);
   const [playback, setPlayback] = useState<AudioPlaybackState>({ positionSec: null, playing: false, follow: true });
-  const [dismissedStaleNotice, setDismissedStaleNotice] = useState<string | null>(null);
+  const [dismissedStaleNotices, setDismissedStaleNotices] = useState<ReadonlySet<string>>(() => new Set());
   const { view, stepId, activeRun } = props;
   const progress = view.plan.steps.find((step) => step.stepId === stepId);
   const name = props.target?.name ?? stepName(view, stepId);
@@ -525,11 +525,11 @@ export function WorkView(props: WorkViewProps) {
   const staleNoticeKey = useMemo(() => staleText
     ? JSON.stringify([view.key, stepId, flowIndex >= 0 ? basisFor(view.flow, flowIndex, view.materials) : staleText])
     : null, [staleText, view.key, stepId, flowIndex, view.flow, view.materials]);
-  const staleNotice = staleText && staleNoticeKey !== dismissedStaleNotice ? (
+  const staleNotice = staleText && staleNoticeKey !== null && !dismissedStaleNotices.has(staleNoticeKey) ? (
     <div className="cloud-banner cloud-banner-dismissible" role="status">
       <span className="cloud-banner-message">{staleText}</span>
       {props.onRebuild && <button type="button" className="link" disabled={rebuildDisabled} onClick={props.onRebuild}>作り直す</button>}
-      <button type="button" className="cloud-banner-close" aria-label="元の変更通知を閉じる" onClick={() => setDismissedStaleNotice(staleNoticeKey)}>
+      <button type="button" className="cloud-banner-close" aria-label="元の変更通知を閉じる" onClick={() => setDismissedStaleNotices((previous) => new Set(previous).add(staleNoticeKey))}>
         <CloseIcon />
       </button>
     </div>
