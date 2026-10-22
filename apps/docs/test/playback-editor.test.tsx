@@ -19,10 +19,10 @@ afterEach(() => {
   roots = [];
 });
 
-function Harness(props: { onEditor: (editor: Editor) => void; onDraftChange: (markdown: string) => void }) {
+function Harness(props: { onEditor: (editor: Editor) => void; onDraftChange: (markdown: string) => void; markdown?: string }) {
   const editor = useDocEditor({
     documentKey: "timestamp-playback",
-    markdown: "[00:00:05] 一つ目\n\n[00:00:12] 二つ目\n",
+    markdown: props.markdown ?? "[00:00:05] 一つ目\n\n[00:00:12] 二つ目\n",
     editable: true,
     timestampMode: "hidden",
     onChange: props.onDraftChange,
@@ -32,6 +32,25 @@ function Harness(props: { onEditor: (editor: Editor) => void; onDraftChange: (ma
 }
 
 describe("再生状態の ProseMirror meta", () => {
+  it("0秒から始まる本文も初期表示では未選択で、明示的な頭出し後にだけ強調する", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    roots.push({ root, container });
+    const onDraftChange = vi.fn();
+    let editor: Editor | null = null;
+    await act(async () => root.render(<Harness markdown="[00:00:00] 先頭\n\n[00:00:12] 続き\n" onEditor={(value) => { editor = value; }} onDraftChange={onDraftChange} />));
+    await act(async () => Promise.resolve());
+    expect(container.querySelector(".transcript-playback-current")).toBeNull();
+    await act(async () => setTimestampMode(editor!, "shown"));
+    expect(container.querySelector(".transcript-playback-current")).toBeNull();
+    await act(async () => setTimestampPlaybackState(editor!, { positionSec: 0, playing: false, follow: true }));
+    expect(container.querySelector(".transcript-playback-current")?.textContent).toContain("先頭");
+    await act(async () => setTimestampPlaybackState(editor!, { positionSec: null, playing: false, follow: true }));
+    expect(container.querySelector(".transcript-playback-current")).toBeNull();
+    expect(onDraftChange).not.toHaveBeenCalled();
+  });
+
   it("現在段落とseek余白を描いても serialization と onDraftChange を変えない", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
