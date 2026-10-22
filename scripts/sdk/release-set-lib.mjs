@@ -9,7 +9,7 @@ import ts from "../../apps/docs/node_modules/typescript/lib/typescript.js";
 
 import { sha256, sri, validatePackageTarball } from "./verify-release-set.mjs";
 
-const REPOSITORY = "niho-coliving/niho-docs";
+const REPOSITORIES = new Set(["niho-coliving/niho-docs", "niho-life/niho-docs"]);
 const FULL_SHA = /^[a-f0-9]{40}$/u;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/u;
 const PACKAGE_NAME = /^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)$/u;
@@ -76,7 +76,7 @@ function selected(relative, definition) {
 }
 
 export function validateConfig(config) {
-  if (!config || config.schemaVersion !== 1 || config.repository !== REPOSITORY || !SEMVER.test(config.version ?? "")) fail("release-set基本契約が不正です");
+  if (!config || config.schemaVersion !== 1 || !REPOSITORIES.has(config.repository) || !SEMVER.test(config.version ?? "")) fail("release-set基本契約が不正です");
   if (!Array.isArray(config.packages) || config.packages.length !== EXPECTED_PACKAGES.length) fail("release-set package集合が不正です");
   for (let index = 0; index < EXPECTED_PACKAGES.length; index += 1) {
     const definition = config.packages[index];
@@ -134,7 +134,7 @@ function readJson(bytes, label) {
   try { return JSON.parse(bytes.toString("utf8")); } catch { fail(`${label} JSONが不正です`); }
 }
 
-function packageManifest(definition, original, version) {
+function packageManifest(definition, original, version, repository) {
   const manifest = structuredClone(original);
   delete manifest.private;
   delete manifest.scripts;
@@ -146,7 +146,7 @@ function packageManifest(definition, original, version) {
   manifest.name = definition.name;
   manifest.version = version;
   manifest.license = "SEE LICENSE IN LICENSE";
-  manifest.repository = { type: "git", url: `https://github.com/${REPOSITORY}.git` };
+  manifest.repository = { type: "git", url: `https://github.com/${repository}.git` };
   manifest.files = definition.id === "core" ? ["src", "dist/server", "LICENSE", "THIRD_PARTY_NOTICES.md"] : ["src", "LICENSE", "THIRD_PARTY_NOTICES.md", ...(definition.id === "sdk-ui" ? ["tailwind-theme.cjs"] : []), ...(definition.id === "docs-ui" ? ["README.md"] : [])];
   const peers = { ...(manifest.peerDependencies ?? {}) };
   if (definition.id === "docs-ui") {
@@ -362,7 +362,7 @@ function ownershipRecords(repoRoot, commit) {
   return { algorithm: "sha256-git-file-set-v1", digest, paths: records };
 }
 
-function stagePackage({ repoRoot, toolingRoot, commit, definition, version, license, notice, temporaryRoot }) {
+function stagePackage({ repoRoot, toolingRoot, commit, definition, version, repository, license, notice, temporaryRoot }) {
   const prefix = `${definition.sourceRoot}/`;
   const sourceEntries = treeEntries(repoRoot, commit, definition.sourceRoot);
   const files = new Map();
@@ -374,7 +374,7 @@ function stagePackage({ repoRoot, toolingRoot, commit, definition, version, lice
     files.set(relative, definition.id === "docs-ui" ? rewriteDocsUi(original, relative) : original);
   }
   const originalManifest = readJson(files.get("package.json") ?? Buffer.alloc(0), `${definition.id} package.json`);
-  const manifest = packageManifest(definition, originalManifest, version);
+  const manifest = packageManifest(definition, originalManifest, version, repository);
   const peerNames = Object.keys(manifest.peerDependencies ?? {}).sort((left, right) => left.localeCompare(right, "en"));
   if (JSON.stringify(peerNames) !== JSON.stringify(EXPECTED_PEERS[definition.id])) fail(`${definition.id} peer dependency allowlistが不正です`);
   files.set("package.json", Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`));
@@ -420,7 +420,7 @@ export function packReleaseSet({ repoRoot, toolingRoot = repoRoot, sourceSha, ou
   try {
     const packageRecords = [];
     for (const definition of config.packages) {
-      const tarball = stagePackage({ repoRoot, toolingRoot, commit, definition, version: config.version, license, notice, temporaryRoot });
+      const tarball = stagePackage({ repoRoot, toolingRoot, commit, definition, version: config.version, repository: config.repository, license, notice, temporaryRoot });
       const file = artifactName(definition, config.version);
       writeFileSync(path.join(outputDirectory, file), tarball, { flag: "wx", mode: 0o644 });
       packageRecords.push({ id: definition.id, name: definition.name, file, size: tarball.length, sha256: sha256(tarball), integrity: sri(tarball) });
@@ -429,7 +429,7 @@ export function packReleaseSet({ repoRoot, toolingRoot = repoRoot, sourceSha, ou
     if (!toolingWorktree && ownership.paths.some(({ files }) => files === 0)) fail("release source ownership pathがcommitにありません");
     const manifest = {
       schemaVersion: 1,
-      repository: REPOSITORY,
+      repository: config.repository,
       version: config.version,
       source: { commit, tree, configOrigin: toolingWorktree ? "worktree-preview" : "git" },
       buildTooling: tooling,
