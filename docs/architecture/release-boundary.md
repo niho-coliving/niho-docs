@@ -12,7 +12,7 @@
 ## 採用する接続
 
 1. **公開版を正本にする。** Docs のクライアント変更はここでレビューし、標準 GitHub-hosted runner で型検査・テスト・署名不要のビルドを完了する。Web の Next.js ホストと API/DB は非公開側で開発する。Web と Mac で共有できる純粋な UI/ロジックだけをここに置く。
-2. **非公開側へ一方向に取り込む。** 統合 PR はレビュー済みの公開 `main` の変更不能な commit SHA を記録し、対応するソースの hash を検証して取り込む。初期段階では既存の `file:` 依存と配布 workflow を保つ。手作業で同じソースを両方修正しない。package 配布などを増やすのは、この方式の負担を測ってから判断する。
+2. **非公開側へ一方向に取り込む。** 統合 PR はレビュー済みの公開 `main` の変更不能な commit SHA を記録し、対応するソースの hash を検証して取り込む。オーナーの2026-10-22方針に従い、Web/APIの共通コードは[固定版SDK](docs-sdk.md)で接続する。初回SDKの公開・統合受入までは既存の `file:` 依存と配布 workflow を保ち、Macの署名に必要なnative source snapshotも移行完了まで維持する。手作業で同じソースを両方修正しない。
 3. **統合時だけ非公開の契約を確認する。** 公開 CI を通った版に対し、非公開 API/Web の型・契約テスト、必要な Mac ビルドと実アプリ受入を行う。公開 CI と同じ Docs 単体/ネイティブ検査をすべての機能 PR で重複実行しない。公開版を取り込む統合 PR の検査は残す。
 4. **本番への起点は非公開側に保つ。** API/DB と Web は `niho-app` の `v*` release tag から既存の production Environment / Cloud Run workflow で配備する。現行の API と Web の workflow は同じ tag でそれぞれ起動するため、到着順に依存する機能は入口を OFF に保ち、両方の配備・受入後に有効化する。Mac は非公開の `docs-release.yml` で updater 署名鍵・配布権限を使い、`docs-v*` と updater feed を発行する。公開 CI に本番秘密値、署名鍵、Cloud Run 権限を置かない。公開リポからの push で本番配備を直接起動しない。
 

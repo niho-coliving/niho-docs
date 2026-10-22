@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "repository": "niho-coliving/niho-docs",
+  "packages": [
+    {
+      "id": "core",
+      "name": "@niho/docs-core",
+      "sourceRoot": "packages/docs-core",
+      "include": ["package.json", "src/**"],
+      "exclude": ["**/*.test.*", "fixtures/**", "test/**"]
+    },
+    {
+      "id": "docs-ui",
+      "name": "niho-docs-ui",
+      "sourceRoot": "packages/docs-ui",
+      "include": ["package.json", "README.md", "src/**"],
+      "exclude": ["**/*.test.*", "src/**/fixtures/**", "src/testing/**"]
+    },
+    {
+      "id": "sdk-ui",
+      "name": "niho-docs-sdk-ui",
+      "sourceRoot": "packages/ui",
+      "include": ["package.json", "tailwind-theme.cjs", "src/**"],
+      "exclude": ["**/*.test.*"]
+    }
+  ],
+  "ownedSourcePaths": [
+    "apps/docs/package.json",
+    "apps/docs/package-lock.json",
+    "packages/docs-core",
+    "packages/docs-ui",
+    "packages/ui",
+    "sdk",
+    "scripts/sdk",
+    ".github/workflows/docs-sdk-ci.yml",
+    ".github/workflows/docs-sdk-release.yml",
+    "docs/architecture/docs-sdk.md",
+    "LICENSE"
+  ]
+}
