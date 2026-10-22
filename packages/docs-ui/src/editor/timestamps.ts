@@ -105,7 +105,7 @@ function normalizePastedTimestamps(fragment: Fragment): Fragment {
 const timestampModeKey = new PluginKey<TimestampMode>("transcriptTimestampMode");
 const timestampPlaybackKey = new PluginKey<TimestampPlaybackPluginState>("transcriptTimestampPlayback");
 export type TimestampMode = "shown" | "hidden" | null;
-export type TimestampPlaybackState = { positionSec: number; playing: boolean; follow: boolean };
+export type TimestampPlaybackState = { positionSec: number | null; playing: boolean; follow: boolean };
 type TimestampPlaybackPluginState = TimestampPlaybackState & { decorations: DecorationSet; activeSeconds: number | null };
 const playbackHandlers = new WeakMap<Editor, (second: number) => void>();
 
@@ -154,7 +154,7 @@ function playbackDecorations(
   seekEnabled: boolean,
 ): { decorations: DecorationSet; activeSeconds: number | null } {
   const paragraphs = timestampParagraphs(doc);
-  const active = activeTimestampSecond(paragraphs.map((item) => item.seconds), playback.positionSec);
+  const active = playback.positionSec === null ? null : activeTimestampSecond(paragraphs.map((item) => item.seconds), playback.positionSec);
   const decorations: Decoration[] = [];
   for (const paragraph of paragraphs) {
     decorations.push(Decoration.node(paragraph.from, paragraph.to, {
@@ -298,7 +298,7 @@ export const TranscriptTimestamp = TiptapNode.create<{ seekEnabled: boolean }>({
         key: timestampPlaybackKey,
         state: {
           init: (_config, state) => ({
-            positionSec: 0,
+            positionSec: null,
             playing: false,
             follow: true,
             decorations: DecorationSet.empty,

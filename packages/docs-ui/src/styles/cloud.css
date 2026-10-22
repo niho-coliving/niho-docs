@@ -38,6 +38,35 @@
   min-height: 24px;
   font-size: 12.5px;
 }
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner-dismissible {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner-message {
+  flex: 1;
+  min-width: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner-dismissible .link {
+  flex-shrink: 0;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+:where([data-docs-app-root]):where([data-docs-shared-ui]) .cloud-banner-close svg {
+  width: 14px;
+  height: 14px;
+}
 
 /* 変更の確認（components/ConflictDialog.tsx） */
 :where([data-docs-app-root]):where([data-docs-shared-ui]) .dlg.cfdlg {
