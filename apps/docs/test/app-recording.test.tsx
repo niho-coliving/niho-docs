@@ -45,7 +45,8 @@ describe("App が所有する録音", () => {
     const { bridge, project, doc, rec } = await withRecordingPage(); screen = await renderApp(bridge); const container = screen.container;
     await begin(container); expect(bridge.activeRecording).not.toBeNull();
     await click(railItem(container, "事前メモ")); await edit(container, " 録音中にも追記"); expect(bridge.activeRecording).not.toBeNull();
-    await click(button(container, "止める")); await until(() => container.querySelector(".afile") !== null);
+    await click(button(container, "止める"));
+    await until(() => container.querySelector(".afile") !== null && !container.textContent?.includes("録音をページに保存しています…"));
     expect(bridge.projects.get(project.id)!.docs[doc.id]).toContain("会議で聞きたいこと 録音中にも追記");
     expect(recPages(bridge, project.id).map((page) => page.id)).toEqual([rec.id]);
     expect(recPages(bridge, project.id)[0]!.title).toBe("10/16 15:30 の録音");

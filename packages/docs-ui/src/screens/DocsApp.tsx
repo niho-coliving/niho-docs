@@ -725,9 +725,10 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
         return;
       }
       // ホームは保存した音声ページ、フォルダ内は背景情報のページを開く。
-      if (!guardAboutLeave(() => { applyScreen("work"); void openProject(rec.projectId, saved.page.id); })) return;
+      const pageId = rec.projectId === null ? saved.page.id : null;
+      if (!guardAboutLeave(() => { applyScreen("work"); void openProject(rec.projectId, pageId); })) return;
       applyScreen("work");
-      await openProject(rec.projectId, saved.page.id);
+      await openProject(rec.projectId, pageId);
     },
   });
   recordingActiveRef.current = capture.active;
