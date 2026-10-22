@@ -53,7 +53,6 @@ type Context = {
   lastUsedFlowRef: React.MutableRefObject<string | null>;
   settingsRef: React.MutableRefObject<AppSettings>;
   rememberFlow: (flowId: string) => Promise<boolean>;
-  setFocusFolderTitle: React.Dispatch<React.SetStateAction<boolean>>;
   setBusy: React.Dispatch<React.SetStateAction<boolean>>;
   persistSettings: (next: AppSettings) => Promise<void>;
   reloadFlows: () => Promise<FlowListData>;
@@ -96,7 +95,7 @@ export function usePageNavigation(context: Context) {
     dropBusyRef, moveBusyRef, screenRef, navigationRef,
     setFailure, touchRecent, setFocusTitle, modalOpenRef,
     flowsRef, lastUsedFlowRef, settingsRef, rememberFlow,
-    setFocusFolderTitle, setBusy, persistSettings, reloadFlows,
+    setBusy, persistSettings, reloadFlows,
     putFlows, setDesignFlowId, editorToolsRef, screen,
     designFlowId, deletingFlow, recordingInteractionRef, rootChangeRef,
     setFileDropOver, runRef, chatSendingProjectRef, fileDropHandlerRef,
@@ -263,14 +262,14 @@ export function usePageNavigation(context: Context) {
 
   /**
    * 工程が無いときの「＋ → 音声」で出す「工程を選ぶ」（作る場所と、作った後に続けること。spec §7・#18753）。開いている間は ⌘N と
-   * 音声の drop を受けない。`target` はフォルダの id か、null（新しいフォルダごと作る。#18914）。
+   * 音声の drop を受けない。`target` はフォルダの id か、null（ホーム）。
    */
   const [flowPick, setFlowPick] = useState<{ target: string | null; name?: string; then?: RecordingThen; drop?: { paths: string[]; location: string | null } } | null>(null);
   if (flowPick) modalOpenRef.current = true;
 
   /**
    * フォルダの音声（録音のページ）を作り、背景情報のページを開く（1 フォルダ 1 音声。owner 2026-10-18・#18914）。`target` が null なら
-   * 音声 1 セット入りの新しいフォルダ（名前は `name`、無ければ「無題のフォルダ」で題にフォーカス）。音声のあるフォルダには 2 つ目を
+   * ホームに独立した音声を作り、そのページを開く。音声のあるフォルダには 2 つ目を
    * 作らず、背景情報のページ（音声の欄）を開く。保存済みフローが無ければ「工程を選ぶ」を出し、選んだテンプレートの工程で作る（白紙は
    * 工程設計へ）。`then` は作った録音に続けること（文章を入れる・録音を始める）。作ったら true。
    */
@@ -326,18 +325,17 @@ export function usePageNavigation(context: Context) {
         language: defaultRecordingLanguage(settingsNow.transcription.language),
         refs: [],
       };
-      const folderId = target ?? (await createFolderNamed(options.name ?? "", now));
-      const entry = await createRecordingIn(folderId, target === null, { kind: "rec", title: "", createdAt: now, recording });
-      touchRecent({ projectId: folderId, pageId: entry.id, openedAt: now });
+      const entry = await bridge.createPage(target, { kind: "rec", title: options.name ?? "", createdAt: now, recording });
+      touchRecent({ projectId: target, pageId: entry.id, openedAt: now });
       if (flowToUse && !(await rememberFlow(flowToUse.id))) {
         showFailure("音声を追加しましたが、次の既定に保存できませんでした。");
       }
-      if (options.then) await options.then({ projectId: folderId, recordingId: entry.recordingId ?? entry.id }, entry.id);
+      if (options.then) await options.then({ projectId: target, recordingId: entry.recordingId ?? entry.id }, entry.id);
       await refreshProjects();
       if (navigation !== navigationRef.current) return true;
-      if (target === null && !options.name) setFocusFolderTitle(true);
+      if (target === null && !options.name) setFocusTitle(entry.id);
       applyScreen("work");
-      await openProject(folderId);
+      await openProject(target, entry.id);
       return true;
     } catch (error) {
       if (error !== DOC_FLUSH_FAILED) showFailure(errorMessage(error, "音声を追加できませんでした。"));
@@ -350,7 +348,7 @@ export function usePageNavigation(context: Context) {
 
   /**
    * フォルダに録音（音声）を作る。`createdFolder` はこの操作で作ったばかりのフォルダで、録音を作れなかったら空のまま残さず消す
-   * （「＋ 新しい › 音声」・ドロップの再試行のたびに空のフォルダが増えないように。#18914）。
+   * （ドロップの再試行のたびに空のフォルダが増えないように）。
    */
   const createRecordingIn = async (folderId: string, createdFolder: boolean, page: NewPage): Promise<PageEntry> => {
     try {
@@ -421,9 +419,9 @@ export function usePageNavigation(context: Context) {
       if (event.defaultPrevented || event.repeat || event.isComposing || !event.metaKey || event.ctrlKey || event.altKey || event.key.toLowerCase() !== "n") return;
       event.preventDefault();
       if (modalOpenRef.current) return;
-      // ⇧⌘N は「＋ 新しい › 音声」と同じ（音声 1 セット入りの新しいフォルダ。#18914）
+      // 新規作成の ＋ と同じく、開いている場所に依存せずホームに作る。
       if (event.shiftKey) void addRecordingPage(null);
-      else void addDocPage();
+      else void addDocPage(null);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -434,14 +432,14 @@ export function usePageNavigation(context: Context) {
   const pageHandlesFileDrop = screen === "flow" && designFlowId !== null && deletingFlow === null;
   /**
    * ドロップした音声をフォルダの音声へ取り込む（1 フォルダ 1 音声。#18914）。フォルダを開いていれば（location）その音声に足し（無ければ
-   * 作る。足すのは「＋ 音声を追加」と同じ: 実行中・会話中は断り、文章の録音には足さない）、フォルダを開いていなければ、ファイル名
+   * 作る。足すのは「＋ 音声を追加」と同じ: 実行中・会話中は断り、文章の録音には足さない）。ホームの音声は ctx.pageId に固定し、それ以外は、ファイル名
    * （拡張子なし）の新しいフォルダを作って入れる。location・navigation はドロップした時点のもの（取り込みを待つ間に移っても、ドロップ
    * 時点の場所へ入れ、後の選択を上書きしない）。新しく録音を作るのに工程が 1 つも無いときは「＋ → 音声」と同じ「工程を選ぶ」から始め
    * （白紙の工程で黙って録音を作らない。#18789）、選んだ工程（chosenFlow）で改めて取り込む。
    */
   const processFileDrop = async (
     paths: string[],
-    ctx: { location: string | null; navigation: number },
+    ctx: { location: string | null; navigation: number; pageId?: string },
     chosenFlow: Flow | null = null,
   ) => {
     const { location, navigation } = ctx;
@@ -459,11 +457,14 @@ export function usePageNavigation(context: Context) {
         showFailure("音声ファイルではありません。ページは作りませんでした。");
         return;
       }
-      // 開いているフォルダの音声（あればそこへ足す）
+      // フォルダの音声、またはドロップ時に開いていたホームの音声へ足す。
       let reuse: { rec: RecordingRef; keep: string[] } | null = null;
-      if (location !== null) {
+      if (location !== null || ctx.pageId) {
         const opened = openProjectOf(await bridge.loadPages(location));
-        const existing = folderRecordingPage(opened.pages);
+        const existing = location === null
+          ? opened.pages.find((page) => page.kind === "rec" && page.id === ctx.pageId)
+          : folderRecordingPage(opened.pages);
+        if (location === null && !existing) throw NO_RECORDING;
         if (existing) {
           const recordingId = existing.recordingId ?? existing.id;
           const source = opened.recordings[recordingId]?.recording.source;
@@ -471,7 +472,7 @@ export function usePageNavigation(context: Context) {
             throw { code: "store_busy", message: "実行中または会話中の録音には音声を追加できません。" };
           }
           if (!source) throw NO_RECORDING;
-          if (source.kind !== "audio") throw { code: "store_bad_page", message: "文章を貼ったフォルダには音声を追加できません。" };
+          if (source.kind !== "audio") throw { code: "store_bad_page", message: location === null ? "文章を貼ったページには音声を追加できません。" : "文章を貼ったフォルダには音声を追加できません。" };
           reuse = { rec: { projectId: location, recordingId }, keep: source.audio.map((item) => item.file) };
         }
       }
@@ -482,10 +483,10 @@ export function usePageNavigation(context: Context) {
         return;
       }
       let rec: RecordingRef;
-      let folderId: string;
+      let folderId: ProjectId;
       if (reuse) {
         rec = reuse.rec;
-        folderId = location as string;
+        folderId = reuse.rec.projectId;
       } else {
         const flow = chosenFlow ?? defaultFlowOf(flowsRef.current, lastUsedFlowRef.current) ?? createBlankFlow(newId("blank"));
         const now = new Date().toISOString();
@@ -504,7 +505,7 @@ export function usePageNavigation(context: Context) {
       if (navigation === navigationRef.current) {
         setFocusTitle(null);
         applyScreen("work");
-        await openProject(folderId);
+        await openProject(folderId, ctx.pageId);
       }
       if (invalid > 0) showFailure(`${invalid}件は音声ファイルではないため取り込みませんでした。`);
     } catch (error) {
@@ -517,9 +518,11 @@ export function usePageNavigation(context: Context) {
   fileDropHandlerRef.current = (paths) => {
     const droppedOpen = openRef.current;
     const navigation = navigationRef.current;
-    // フォルダ（背景情報のページ・中の文書・成果物）を開いていればそのフォルダの音声へ、それ以外は新しいフォルダへ
+    // フォルダ内はそのフォルダの音声、ホームの音声・その生成ページはその音声へ。それ以外は新しいフォルダへ。
     const location = screenRef.current === "work" && droppedOpen && droppedOpen.id !== null ? droppedOpen.id : null;
-    const action = () => void processFileDrop(paths, { location, navigation });
+    const pageId = screenRef.current === "work" && droppedOpen?.id === null
+      ? droppedOpen.pages.find((page) => page.kind === "rec" && page.id === selectionRef.current?.pageId)?.id : undefined;
+    const action = () => void processFileDrop(paths, { location, navigation, pageId });
     if (guardAboutLeave(action)) action();
   };
   useEffect(() => {

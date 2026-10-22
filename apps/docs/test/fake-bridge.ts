@@ -1188,7 +1188,7 @@ export class FakeBridge implements Bridge {
     return this.requireRec(rec);
   }
   /** 録音のページ（テストから中身を見る）。 */
-  recording(projectId: string, recordingId: string): StoredRecording {
+  recording(projectId: ProjectId, recordingId: string): StoredRecording {
     const found = this.require(projectId).recordings[recordingId];
     if (!found) throw new Error(`recording not found: ${recordingId}`);
     return found;

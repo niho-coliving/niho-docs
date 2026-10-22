@@ -29,7 +29,7 @@ export function VaultWorkspace({ host }: { host: DocsWorkspaceHost }) {
     <div data-docs-app-root data-docs-shared-ui className="docs-app-content" data-docs-workspace>
       <div className={`app${state.open ? " workspace-page" : " workspace-home"}`}>
         <Rail outside={state.outside} folders={state.folders} open={state.open} selection={state.location.pageId ? { pageId: state.location.pageId, stepId: null } : null} screen={state.location.screen ?? "work"} activeRun={null}
-          titleOf={(_location, page) => page.title} flowDesign={Boolean(host.flows)} newProjectId={state.location.projectId} browser mutationsDisabled={busy} externalDeleteNotice
+          titleOf={(_location, page) => page.title} flowDesign={Boolean(host.flows)} browser mutationsDisabled={busy} externalDeleteNotice
           onScreen={(screen) => void host.navigate({ ...state.location, screen: screen === "flow" || screen === "settings" ? screen : undefined })}
           onNewFolder={actions?.beginFolder} onAddDoc={actions?.createDocument ? (projectId) => void actions.createDocument!(projectId) : undefined}
           onDeleteFolder={actions?.deleteFolder} folderDeleteBlock={actions?.folderDeleteBlock}

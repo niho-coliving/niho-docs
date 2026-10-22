@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FLOW_TEMPLATES, createBlankFlow, createFlowFromTemplate, projectPages } from "@niho/docs-core";
 import { button, click, renderApp, typeInto, type Screen } from "./dom";
 import { FakeBridge } from "./fake-bridge";
-import { homeButton, infoItem, newFromMenu, railCurrent, railItem, seedText, titleInput, until } from "./pages";
+import { addPage, homeButton, infoItem, newFolder, newFromMenu, railCurrent, railItem, seedText, titleInput, until } from "./pages";
 
 let screen: Screen | null = null;
 afterEach(() => { screen?.unmount(); screen = null; });
@@ -196,12 +196,41 @@ describe("ホーム・最近・窓全体の音声drop", () => {
     expect(bridge.outside.project.pages ?? []).toHaveLength(0);
   });
 
-  it("文章を貼ったフォルダの音声には、dropした音声を足さず理由を出す", async () => {
+  it("ホームの音声へのdropは開始したページに固定し、待っている間に別の音声へ移っても混ぜず選択を戻さない", async () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[0]!, "flow-1");
     screen = await renderApp(bridge, { autoOpen: false });
     const { container } = screen;
     await newFromMenu(container, "音声");
+    await typeInto(titleInput(container), "先の音声");
+    await newFromMenu(container, "音声");
+    await typeInto(titleInput(container), "後の音声");
+    const [first, second] = bridge.outside.project.pages!;
+    let release!: () => void;
+    bridge.audioInfoGate = new Promise<void>((resolve) => { release = resolve; });
+    await act(async () => bridge.drop(["/tmp/root-audio.m4a"]));
+    await click(railItem(container, "先の音声"));
+    release();
+    await until(() => bridge.importKeeps.length === 1);
+    expect(bridge.projects.size).toBe(0);
+    expect(bridge.outside.project.pages).toHaveLength(2);
+    expect(bridge.recording(null, first!.id).recording.source).toEqual({ kind: "audio", audio: [] });
+    await until(() => {
+      const source = bridge.recording(null, second!.id).recording.source;
+      return source.kind === "audio" && source.audio.length === 1;
+    });
+    const saved = bridge.recording(null, second!.id).recording.source;
+    expect(saved.kind === "audio" && saved.audio.map((audio) => audio.name)).toEqual(["root-audio.m4a"]);
+    expect(railCurrent(container)).toBe("先の音声");
+  });
+
+  it("文章を貼ったフォルダの音声には、dropした音声を足さず理由を出す", async () => {
+    const bridge = new FakeBridge();
+    bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[0]!, "flow-1");
+    screen = await renderApp(bridge, { autoOpen: false });
+    const { container } = screen;
+    await newFolder(container);
+    await addPage(container, "音声");
     await seedText(bridge, container, "貼った本文");
     await act(async () => bridge.drop(["/tmp/late.m4a"]));
     await until(() => container.querySelector(".failure-band .fb-msg")?.textContent === "文章を貼ったフォルダには音声を追加できません。");
@@ -266,7 +295,8 @@ describe("ホーム・最近・窓全体の音声drop", () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[0]!, "flow-1");
     screen = await renderApp(bridge, { autoOpen: false });
-    await newFromMenu(screen.container, "音声");
+    await newFolder(screen.container);
+    await addPage(screen.container, "音声");
     await seedText(bridge, screen.container, "貼った本文");
     screen.unmount();
     screen = await renderApp(bridge, { autoOpen: false });
@@ -320,7 +350,8 @@ describe("ホーム・最近・窓全体の音声drop", () => {
     const bridge = new FakeBridge();
     bridge.flow = createFlowFromTemplate(FLOW_TEMPLATES[0]!, "flow-1");
     screen = await renderApp(bridge, { autoOpen: false });
-    await newFromMenu(screen.container, "音声");
+    await newFolder(screen.container);
+    await addPage(screen.container, "音声");
     const created = [...bridge.projects.values()][0]!;
     let release!: () => void;
     bridge.audioInfoGate = new Promise<void>((resolve) => { release = resolve; });

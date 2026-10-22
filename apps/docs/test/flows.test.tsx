@@ -366,13 +366,13 @@ describe("録音のページの「工程」", () => {
     expect(blank.disabled).toBe(true);
     expect(blank.textContent).toBe("無題（工程がありません）");
 
-    // この録音を議事録にすると、次の録音（新しいフォルダの音声。#18914）の既定も議事録
+    // この録音を議事録にすると、ホームの次の音声の既定も議事録
     await selectOption(flowSelect(container), "flow-minutes");
     expect(bridge.flowIndex?.lastUsed).toBe("flow-minutes");
     await newFromMenu(container, "音声");
-    const next = [...bridge.projects.values()].find((item) => item.project.id !== project.id)!;
+    const next = bridge.outside;
     const nextRec = next.project.pages!.find((page) => page.kind === "rec")!;
-    expect(bridge.recording(next.project.id, nextRec.id).recording.flowSnapshot.id).toBe("flow-minutes");
+    expect(bridge.recording(null, nextRec.id).recording.flowSnapshot.id).toBe("flow-minutes");
     expect(flowSelect(container).value).toBe("flow-minutes");
     expect(recordings()).toHaveLength(1);
   });

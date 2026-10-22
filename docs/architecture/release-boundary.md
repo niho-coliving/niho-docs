@@ -6,7 +6,7 @@
 
 - この公開リポジトリは Docs の Mac アプリ、共有 UI・Core・端末保存クライアントの開発と、秘密値を使わない CI を担当する。
 - 本番の `niho.life/app/docs` は、非公開 `niho-app` の Next.js Web ホスト、API、認証・認可、DB を使う。Mac の updater も現時点では非公開側の `docs-release.yml` が作る。公開 `main` のマージだけでは本番は更新されない。
-- `niho-app` はまだ Docs Core/UI をリポジトリ内の `file:` 依存で読み、公開版の commit を固定して取り込む仕組みは未実装。両リポで同じクライアントを編集し続ける運用は採らない。
+- `niho-app` は Docs Core/UI をリポジトリ内の `file:` 依存で読むが、公開 `main` の commit SHA とファイル hash を固定して取り込み・検証する仕組みで管理する。クライアントの修正 PR は公開側で作り、非公開側のコピーを直接編集しない。両リポで同じクライアントを編集し続ける運用は採らない（2026-10-22 更新）。
 - `VITE_NIHO_DOCS_LOCAL_FOLDER_EXPORT`、`VITE_NIHO_DOCS_CLOUD_CLOSING`、`VITE_NIHO_DOCS_DEVICE_DELIVERY` の入口は、対応する非公開 API の配備・受入まで既定 OFF。自動参考のクライアントは API 側の受付・固定入力契約と同時に統合する。
 
 ## 採用する接続
