@@ -1370,6 +1370,7 @@ function DocsWorkspace(props: { bridge: Bridge; account: NihoAccount }) {
           nihoRunConfirmation, viewRef, cloudContextRef, showFailure,
           candidateDialog, candidateBusy, createCandidate, setCandidateDialog,
           failure, setFailure, compareOpen, selectedTarget,
+          activeRun,
           drafts, setCompareOpen, selectPage, toast,
           clearToast, discardingCapture, capture, setDiscardingCapture,
           stopRecordingAndClose,

@@ -157,6 +157,9 @@ describe("部品の検査", () => {
     expect(isStoredRecordingInfoShape({ speakers: "5", language: "en" })).toBe(false);
     expect(isStoredRecordingInfoShape({ speakers: "auto" })).toBe(false);
     expect(isStoredRecordingSourceShape({ kind: "text" })).toBe(true);
+    expect(isStoredRecordingSourceShape({ kind: "text", transcriptImport: { format: "vtt", file: "source.vtt", name: "会議.vtt", hash: HASH } })).toBe(true);
+    expect(isStoredRecordingSourceShape({ kind: "text", transcriptImport: { format: "vtt", file: "other.vtt", name: "会議.vtt", hash: HASH } })).toBe(false);
+    expect(isStoredRecordingSourceShape({ kind: "text", transcriptImport: { format: "html", file: "source.vtt", name: "会議.vtt", hash: HASH } })).toBe(false);
     expect(isStoredRecordingSourceShape({ kind: "audio", audio: [] })).toBe(true);
     expect(isStoredRecordingSourceShape({ kind: "audio", audio: [{ file: "a.m4a", hash: HASH }] })).toBe(true);
     expect(isStoredRecordingSourceShape({ kind: "audio", audio: [{ file: "a.m4a", hash: "abc" }] })).toBe(false);

@@ -1,4 +1,4 @@
-import { sourceStepName } from "./inputs.js";
+import { flowHasTranscription, sourceStepName } from "./inputs.js";
 import { BLANK_FLOW_NAME, FLOW_TEMPLATES, type FlowTemplate } from "./templates.js";
 import type { Flow, Step } from "./types.js";
 
@@ -32,6 +32,8 @@ export type FlowChoiceSource = {
   name: string;
   guide: string;
   steps: readonly Pick<Step, "id" | "name" | "instruction">[];
+  /** 欠落した旧データは文字起こしあり。 */
+  transcription?: boolean;
   /** 共通の固有名詞・お手本の文書（数だけ見る。テンプレートの写しは空で始まる）。無ければ空とみなす。 */
   terms?: readonly unknown[];
   samples?: readonly unknown[];
@@ -43,6 +45,7 @@ export type FlowChoiceFlowOption<F> = {
   id: string;
   name: string;
   stepNames: string[];
+  transcription: boolean;
   /** 選べない理由（null は選べる）。 */
   problem: string | null;
   flow: F;
@@ -54,6 +57,7 @@ export type FlowChoiceTemplateOption = {
   id: string;
   name: string;
   stepNames: string[];
+  transcription: true;
   problem: null;
   template: FlowTemplate;
 };
@@ -99,6 +103,12 @@ export function flowStepLine(steps: readonly Pick<Step, "name">[], sourceName?: 
   return flowStepLineParts(steps, sourceName).join(FLOW_STEP_SEPARATOR);
 }
 
+/** 保存した工程設計どおりに、文字起こしを含むときだけ先頭へ出す。 */
+export function flowStepLineFor(flow: Pick<FlowChoiceSource, "steps" | "transcription">, sourceName?: string): string {
+  const names = flow.steps.map((step) => step.name);
+  return (flowHasTranscription(flow) ? flowStepLineParts(flow.steps, sourceName) : names).join(FLOW_STEP_SEPARATOR);
+}
+
 /** 録音に使えない工程の理由（Mac と Web/PWA で同じ文。null は使える）。 */
 export function flowUnusableReason(flow: { steps: readonly Pick<Step, "instruction">[] }): string | null {
   if (flow.steps.length === 0) return "工程がありません";
@@ -113,8 +123,12 @@ export function flowUnusableReason(flow: { steps: readonly Pick<Step, "instructi
  * 足した工程は案件向けに調整した別の工程で、元のテンプレートを隠さない）。フローの名前（重ならないように番号が付く）・モデルの
  * 指定は比べない。
  */
-export function isUnmodifiedTemplateCopy(flow: Pick<FlowChoiceSource, "guide" | "steps" | "terms" | "samples">, template: FlowTemplate): boolean {
+export function isUnmodifiedTemplateCopy(
+  flow: Pick<FlowChoiceSource, "guide" | "steps" | "terms" | "samples" | "transcription">,
+  template: FlowTemplate,
+): boolean {
   return (
+    flowHasTranscription(flow) &&
     (flow.terms?.length ?? 0) === 0 &&
     (flow.samples?.length ?? 0) === 0 &&
     flow.guide === template.guide &&
@@ -141,6 +155,7 @@ export function buildFlowChoices<F extends FlowChoiceSource>(
       id: flow.id,
       name: flow.name || BLANK_FLOW_NAME,
       stepNames: flow.steps.map((step) => step.name),
+      transcription: flowHasTranscription(flow),
       problem: flowUnusableReason(flow) ?? options.problem?.(flow) ?? null,
       flow,
     }),
@@ -152,6 +167,7 @@ export function buildFlowChoices<F extends FlowChoiceSource>(
       id: template.id,
       name: template.name,
       stepNames: template.steps.map((step) => step.name),
+      transcription: true,
       problem: null,
       template,
     }),

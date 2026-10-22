@@ -246,5 +246,15 @@
     "name": "お手本のtruncatedFromがJavaScript safe integerの上限を超える",
     "valid": false,
     "flow": { "version": 1, "id": "flow-1", "name": "議事録", "revision": 3, "guide": "", "terms": [], "samples": [{ "id": "s1", "name": "お手本.md", "chars": 12, "truncatedFrom": 9007199254740992 }], "steps": [] }
+  },
+  {
+    "name": "文字起こしなしを明示した工程設計",
+    "valid": true,
+    "flow": { "version": 1, "id": "flow-vtt", "name": "インサイト抽出", "revision": 1, "guide": "", "terms": [], "samples": [], "transcription": false, "steps": [{ "id": "insight", "name": "インサイト", "instruction": "抽出する", "profile": "standard" }] }
+  },
+  {
+    "name": "transcriptionが真偽値でない",
+    "valid": false,
+    "flow": { "version": 1, "id": "flow-vtt", "name": "インサイト抽出", "revision": 1, "guide": "", "terms": [], "samples": [], "transcription": "no", "steps": [] }
   }
 ]

@@ -20,6 +20,7 @@ export * from "./plan.js";
 export * from "./validate.js";
 export * from "./shape.js";
 export * from "./transcript.js";
+export * from "./vtt.js";
 export * from "./transcript-speakers.js";
 export * from "./audio-transcription.js";
 export * from "./deepgram.js";

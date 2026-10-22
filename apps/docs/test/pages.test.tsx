@@ -132,8 +132,8 @@ describe("新しい案件と文書のページ", () => {
     expect(page.querySelector("#info-bg")).not.toBeNull();
     expect(page.textContent).toContain("固有名詞");
     expect(page.querySelector(".folder-audio .sec")?.textContent).toBe("音声");
-    // 音声がまだ無いフォルダはファイル選択と Mac 録音の欄。ページの一覧は置かない
-    expect([...page.querySelectorAll(".folder-audio .drop .row button")].map((item) => item.textContent)).toEqual(["ファイルを選択", "この Mac で録音"]);
+    // 素材がまだ無いフォルダは音声選択・Mac録音・VTT取込の欄。ページの一覧は置かない
+    expect([...page.querySelectorAll(".folder-audio .drop .row button")].map((item) => item.textContent)).toEqual(["ファイルを選択", "この Mac で録音", "VTTを取り込む"]);
     expect(page.querySelector(".folder-pages, .orows")).toBeNull();
     // 保存は「保存」で（変えるまで押せない）
     const save = () => button(page.querySelector<HTMLElement>(".folder-save")!, "保存");
@@ -622,7 +622,7 @@ describe("今の案件（ページの無い project.json）", () => {
 });
 
 describe("フォルダの音声と成果物の子ページ（#18914）", () => {
-  it("空の録音はファイル選択／Mac録音の2択。文章素材を保存し、成果物をフォルダ直下へ並べる", async () => {
+  it("空の録音は音声ファイル選択／Mac録音／VTT取込を選べる。文章素材を保存し、成果物をフォルダ直下へ並べる", async () => {
     const bridge = new FakeBridge();
     const flow = createFlowFromTemplate(FLOW_TEMPLATES[1]!, "flow-1");
     bridge.flow = flow;
@@ -645,8 +645,8 @@ describe("フォルダの音声と成果物の子ページ（#18914）", () => {
     expect(railFolderRows(railFolder(container, "運営会議"))).toEqual(["無題"]);
     // 素材が無いうちは実行できない
     expect(container.querySelector(".folder-audio .drop")?.textContent).toContain("音声ファイルをここにドロップ");
-    // 素材は 音声ファイル か この Mac で録音 の 2 択（「文章を貼る」は出さない。owner 2026-10-18）
-    expect([...container.querySelectorAll(".folder-audio .drop button")].map((item) => item.textContent)).toEqual(["ファイルを選択", "この Mac で録音"]);
+    // 素材は音声ファイル・Mac録音・VTT取込から選ぶ（「文章を貼る」は出さない）。
+    expect([...container.querySelectorAll(".folder-audio .drop button")].map((item) => item.textContent)).toEqual(["ファイルを選択", "この Mac で録音", "VTTを取り込む"]);
     expect(button(container, "文書作成を開始").disabled).toBe(true);
     expect(container.querySelector(".runbar .note")?.textContent).toBe("音声を入れると実行できます");
 

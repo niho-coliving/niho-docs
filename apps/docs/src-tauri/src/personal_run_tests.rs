@@ -1518,6 +1518,34 @@ fn js_number_formatting_follows_number_to_string() {
 }
 
 #[test]
+fn material_distinguishes_imported_transcripts_from_legacy_text() {
+  tauri::async_runtime::block_on(async {
+    for (label, source, expected) in [
+      (
+        "vtt",
+        json!({ "kind": "text", "transcriptImport": { "format": "vtt", "file": "source.vtt", "name": "meeting.vtt", "hash": "a".repeat(64) } }),
+        "文字起こし",
+      ),
+      ("text", json!({ "kind": "text" }), "文章"),
+    ] {
+      let h = Harness::signed_in(label, LeaseMode::Grant);
+      let path = h.rec_dir().join("recording.json");
+      let mut recording: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+      recording["source"] = source;
+      write_json(&path, &recording);
+      let opened = open(&h.state, &h.cloud, request("intent-source", "generation_only", None))
+        .await
+        .unwrap();
+      let material = read_material(&h.state, &opened.handle, vec!["minutes".into()])
+        .await
+        .unwrap();
+      assert_eq!(material["recordingMetadata"]["sourceName"], json!(expected));
+      close(&h.state, &h.cloud, &opened.handle).await.unwrap();
+    }
+  });
+}
+
+#[test]
 fn material_tells_the_page_from_the_recording_reads_the_captured_store_and_verify_catches_changes() {
   tauri::async_runtime::block_on(async {
     let h = Harness::signed_in("material", LeaseMode::Grant);

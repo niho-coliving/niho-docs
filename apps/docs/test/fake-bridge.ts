@@ -60,6 +60,7 @@ import type {
   RecordingEvent,
   RecentId,
   RecordingRef,
+  TranscriptImportPayload,
   SampleImport,
   SpeechEvent,
   RestartOutcome,
@@ -209,6 +210,13 @@ export function rootRef(projectId: string): RecordingRef {
   return { projectId, recordingId: ROOT_RECORDING_ID };
 }
 
+async function sha256Base64(value: string): Promise<string> {
+  const binary = atob(value);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return [...digest].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export type TurnScript = (request: TurnRequest, call: number) => TurnEvent[];
 /** Gemini の文字起こしの区切り 1 つの台本（`transcribe_audio_part`）。 */
 export type AudioPartScript = (request: AudioPartRequest, call: number, at: { file: number; part: number }) => TurnEvent[];
@@ -339,6 +347,8 @@ export class FakeBridge implements Bridge {
     this.activeFlow = flow ? structuredClone(flow) : null;
   }
   projects = new Map<string, StoredProject>();
+  /** VTT原本（recordingKey → base64）。 */
+  transcriptOriginals = new Map<string, string>();
   projectOrder: string[] = [];
   recent: RecentId[] = [];
   recentCorrupt = false;
@@ -852,6 +862,22 @@ export class FakeBridge implements Bridge {
     if (source.kind !== "audio" || source.audio.length > 0 || found.transcript !== null) throw TEXT_REFUSED;
     this.write(found, "source", true, text, record);
     found.recording = { ...found.recording, source: { kind: "text" } };
+  }
+  async importTranscript(rec: RecordingRef, transcript: TranscriptImportPayload, record: RunRecord) {
+    if (rec.recordingId === ROOT_RECORDING_ID) throw TEXT_REFUSED;
+    if (!transcript.originalBase64 || !transcript.markdown.trim()) throw { code: "store_bad_page", message: "VTTファイルに発言がありません。" };
+    const found = this.require(rec.projectId).recordings[rec.recordingId];
+    if (!found) throw NO_RECORDING;
+    const source = found.recording.source;
+    const key = `${rec.projectId ?? "_outside"}/${rec.recordingId}`;
+    if (source.kind !== "audio" || source.audio.length > 0 || found.transcript !== null || this.transcriptOriginals.has(key)) throw TEXT_REFUSED;
+    const hash = await sha256Base64(transcript.originalBase64);
+    this.write(found, SOURCE_STEP_ID, true, transcript.markdown, record);
+    this.transcriptOriginals.set(key, transcript.originalBase64);
+    found.recording = {
+      ...found.recording,
+      source: { kind: "text", transcriptImport: { format: "vtt", file: "source.vtt", name: transcript.name, hash } },
+    };
   }
   /** pages（無ければ root を先頭に初期化した並び）。 */
   private pagesOf(stored: StoredProject): PageEntry[] {
@@ -2549,7 +2575,7 @@ export class FakeBridge implements Bridge {
         language,
         background: info.background,
         terms,
-        sourceName: source.kind === "text" ? "文章" : "文字起こし",
+        sourceName: source.kind === "text" && !source.transcriptImport ? "文章" : "文字起こし",
       },
       flow: structuredClone(flow),
       audio,

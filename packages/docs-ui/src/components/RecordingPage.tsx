@@ -12,8 +12,12 @@ import {
   SPEAKER_MODES,
   buildFlowChoices,
   countChars,
+  flowHasTranscription,
+  flowSourceIssue,
   languageLabel,
   pageTitle,
+  parseVtt,
+  VTT_MAX_BYTES,
   runStartActions,
   speakerLabel,
   staleNoticeText,
@@ -27,8 +31,8 @@ import {
   type RunStartAction,
   type SpeakerMode,
 } from "@niho/docs-core";
-import { errorMessage, type AudioInfo, type Bridge, type RecordingRef } from "../lib/bridge";
-import { formatAudioLength, formatChars, formatDateTime } from "../lib/format";
+import { errorMessage, type AudioInfo, type Bridge, type RecordingRef, type TranscriptImportPayload } from "../lib/bridge";
+import { formatAudioLength, formatChars, formatDateTime, newId } from "../lib/format";
 import { hasMaterial, recordingRef, rerunQueueOf, saveRecordingChange, stepMarkdown, type RecordingView } from "../lib/project-view";
 import { candidateChoiceReason, runGate, type RunGate } from "../lib/run-gate";
 import { runIsOn, type ActiveRun, type RunNotice } from "../lib/run-state";
@@ -104,7 +108,9 @@ export function AudioEmpty(props: {
   recordDisabled: boolean;
   onPick: () => void;
   onRecord: () => void;
+  onTranscript?: (file: File) => void;
 }) {
+  const transcriptInput = useRef<HTMLInputElement | null>(null);
   return (
     <div className={`drop${props.dropOver ? " over" : ""}`}>
       <span>音声ファイルをここにドロップ</span>
@@ -115,9 +121,59 @@ export function AudioEmpty(props: {
         <button type="button" className="btn outline sm" disabled={props.recordDisabled} onClick={props.onRecord}>
           この Mac で録音
         </button>
+        {props.onTranscript && (
+          <>
+            <button type="button" className="btn outline sm" disabled={props.disabled} onClick={() => transcriptInput.current?.click()}>
+              VTTを取り込む
+            </button>
+            <input
+              ref={transcriptInput}
+              type="file"
+              accept=".vtt,text/vtt"
+              hidden
+              aria-label="VTTファイルを選択"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) props.onTranscript?.(file);
+              }}
+            />
+          </>
+        )}
       </div>
     </div>
   );
+}
+
+/** Mac/Webの共通入口で、保存を始める前に拡張子とVTT全体を検証する。 */
+export async function transcriptImportFromFile(file: File): Promise<TranscriptImportPayload> {
+  if (!file.name.toLocaleLowerCase("en-US").endsWith(".vtt")) throw new Error("VTTファイルを選んでください。");
+  if (file.size > VTT_MAX_BYTES) throw new Error("VTTファイルが大きすぎます。分けてから取り込んでください。");
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let content: string;
+  try {
+    content = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error("VTTファイルをUTF-8で読み取れませんでした。");
+  }
+  const parsed = parseVtt(content);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(bytes.length, offset + 0x8000)));
+  }
+  return { name: file.name, originalBase64: btoa(binary), markdown: parsed.markdown };
+}
+
+export function transcriptImportRecord(): RunRecord {
+  return {
+    id: newId("save"),
+    kind: "save",
+    at: new Date().toISOString(),
+    stepId: SOURCE_STEP_ID,
+    stepName: "文字起こし",
+    version: null,
+    result: "saved",
+  };
 }
 
 /** 録音の操作（素材・props の表・実行の帯）。フォルダの背景情報のページの「音声」と、フォルダの外の録音のページで使う。 */
@@ -238,6 +294,25 @@ export function RecordingControls(props: RecordingControlsProps) {
     }
   };
 
+  const importTranscript = (file: File) => {
+    if (!bridge.importTranscript) {
+      props.onError("この画面ではVTTファイルを取り込めません。");
+      return;
+    }
+    void change(async () => {
+      let transcript: TranscriptImportPayload;
+      try {
+        transcript = await transcriptImportFromFile(file);
+      } catch (error) {
+        throw {
+          code: "vtt_invalid",
+          message: error instanceof Error ? error.message : "VTTファイルを読み取れませんでした。",
+        };
+      }
+      await bridge.importTranscript?.(rec, transcript, transcriptImportRecord());
+    });
+  };
+
   const moveAudio = (file: string, delta: -1 | 1) =>
     void change(() =>
       saveRecordingSource(bridge, rec, (current) => {
@@ -326,7 +401,9 @@ export function RecordingControls(props: RecordingControlsProps) {
   // 始め方（#18947）: 原文がまだ無ければ「文書作成を開始」と控えめな「文字起こしだけ」、原文の後は「続きを作成」、残りが無ければ
   // 「すべて再実行」。素材が無いうちも同じ 2 つを押せない形で出す
   const sourceDone = plan.steps.some((step) => step.stepId === SOURCE_STEP_ID && step.done);
-  const actions = runStartActions({ sourceDone, remaining: plan.remaining.length });
+  const transcription = flowHasTranscription(view.flow);
+  const sourceIssue = flowSourceIssue(view.flow, source, sourceDone);
+  const actions = runStartActions({ sourceDone, remaining: plan.remaining.length, transcription });
   const queueOf = (action: RunStartAction): string[] =>
     action === "transcribeOnly" ? [SOURCE_STEP_ID] : action === "rerunAll" ? rerunQueue : plan.remaining;
   // 押せない理由は、録音から作ったページの帯と同じ判定（run-gate）で、始め方ごとに出す。押してから失敗する経路（別の Mac の実行・
@@ -336,6 +413,7 @@ export function RecordingControls(props: RecordingControlsProps) {
     const queue = queueOf(action);
     return runGate({
       material,
+      materialReason: sourceIssue,
       activeRun,
       recording: view,
       blockedReason: props.blockedReason,
@@ -413,7 +491,11 @@ export function RecordingControls(props: RecordingControlsProps) {
         <div className="afiles">
           <div className="afile">
             <span className="ic">▤</span>
-            <span className="nm">{`文章 · ${formatChars(countChars(view.source))}`}</span>
+            <span className="nm">
+              {source.transcriptImport
+                ? `文字起こし · ${source.transcriptImport.name} · ${formatChars(countChars(view.source))}`
+                : `文章 · ${formatChars(countChars(view.source))}`}
+            </span>
           </div>
         </div>
       ) : (
@@ -426,6 +508,7 @@ export function RecordingControls(props: RecordingControlsProps) {
                 recordDisabled={bridge.capabilities?.nativeRecording === false || recordingBusy || locked || busy}
                 onPick={() => void pick()}
                 onRecord={recording.start}
+                onTranscript={bridge.importTranscript ? importTranscript : undefined}
               />
             )
           ) : (
@@ -655,7 +738,7 @@ export function RecordingPage(props: RecordingPageProps) {
           const running = runningHere && activeRun?.stepId === step.stepId;
           const markdown = stepMarkdown(view, step.stepId);
           // 元にした内容が変わったページは、字数の代わりにページの本文の上と同じ 1 行の文（「前提変更」のピルは出さない。#18915）
-          const staleText = step.stale && !running ? staleNoticeText(step.staleReasons, source.kind === "text" ? "text" : "audio") : null;
+          const staleText = step.stale && !running ? staleNoticeText(step.staleReasons, view.sourceName === "文章" ? "text" : "audio") : null;
           const detail = running ? "実行中…" : step.done ? staleText ?? formatChars(countChars(markdown ?? "")) : "未作成";
           return (
             <button
@@ -698,7 +781,7 @@ export function RecordingPage(props: RecordingPageProps) {
           />
           <div className="pmeta">
             <MicIcon />
-            <span>{source.kind === "text" ? "文章" : "録音"}</span>
+            <span>{source.kind === "text" ? view.sourceName : "録音"}</span>
             {formatDateTime(view.recording.createdAt) && (
               <>
                 <span className="dotsep">·</span>
