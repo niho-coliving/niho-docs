@@ -24,6 +24,8 @@
     "./components/GoogleDocsFolderExport": "./src/components/GoogleDocsFolderExport.tsx",
     "./components/PartialOutput": "./src/components/PartialOutput.tsx",
     "./components/usePopover": "./src/components/usePopover.ts",
+    "./next-steps": "./src/components/DocsNextSteps.tsx",
+    "./storage-mode": "./src/components/DocsStorageModeScreen.tsx",
     "./components/RunBand": "./src/components/RunBand.tsx",
     "./components/TranscriptSpeakerRow": "./src/components/TranscriptSpeakerRow.tsx",
     "./components/DocPage": "./src/components/DocPage.tsx",

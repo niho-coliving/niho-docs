@@ -71,11 +71,21 @@ export function smokeConsumer(manifestPath) {
     writeFileSync(path.join(consumer, "src/main.tsx"), `
 import { DocsApp, type DocsHost, type DocsWorkspaceHost } from "niho-docs-ui";
 import { DocsSdkDialogHost } from "niho-docs-ui/sdk-dialog-host";
+import { DocsNextStepsEnd, type ContinueMenuAction, type DocsNextStepsView } from "niho-docs-ui/next-steps";
+import { DocsStorageModeScreen, type DocsStorageModeScreenProps } from "niho-docs-ui/storage-mode";
 import { pageTitle, type PageEntry } from "@niho/docs-core";
 import "niho-docs-ui/styles/app.css";
 import "niho-docs-sdk-ui/styles/tokens.css";
 
-const contracts = { DocsApp, DocsSdkDialogHost, pageTitle };
+const continueAction: ContinueMenuAction = () => {};
+const nextStepsView: DocsNextStepsView = {
+  rows: [{ stepId: "source", label: "原文", status: "done", current: true, statusLabel: "このページ", openable: false }],
+  remaining: [], running: false, summary: "すべて完了", startable: false, reason: null, macGuide: false,
+  checking: false, placeLine: null, band: null, submitting: false, error: null, notice: null,
+  start: continueAction, stop: () => {}, closeBand: () => {}, open: () => {},
+};
+const storageModeProps: DocsStorageModeScreenProps = { mode: "UNSET", onSelectCloud: () => {}, accountContent: null, recordingRescue: null };
+const contracts = { DocsApp, DocsSdkDialogHost, DocsNextStepsEnd, DocsStorageModeScreen, pageTitle, nextStepsView, storageModeProps };
 document.body.dataset.docsSdk = Object.keys(contracts).sort().join(",");
 export type PublicHosts = DocsHost | DocsWorkspaceHost;
 export type PublicPage = PageEntry;
