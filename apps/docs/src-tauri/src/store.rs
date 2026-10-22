@@ -10,7 +10,7 @@
 //!   projects/<projectId>/project.json              表示名はここだけ（フォルダ名に使わない）。ページの一覧（pages）もここ
 //!   projects/<projectId>/pages/<pageId>.md         文書のページの本文（タイトルは project.json の pages）
 //!   projects/<projectId>/recordings/<recId>/       録音のページ（recording.json と、下の録音の中身）
-//!   <録音>/inputs/<fileId>.<ext>                   音声の写し（recording.json に hash）・文章は inputs/text.md
+//!   <録音>/inputs/<fileId>.<ext>                   音声の写し（recording.json に hash）・文章は text.md・VTT原本は source.vtt
 //!   <録音>/transcript.md                           工程 1 の成果物（文字起こし／文章）
 //!   <録音>/artifacts/<stepId>.md                   最新版
 //!   <録音>/versions/<stepId>/v_<乱数>.md           実行・保存ごとに追記（工程 1 の stepId は source。旧形式は <連番>.md）
@@ -87,6 +87,7 @@ pub const AUDIO_TOTAL_MAX_SEC: f64 = 6.0 * 60.0 * 60.0;
 /// 画面から受け取る音声表示名の上限。
 const MAX_AUDIO_NAME_CHARS: usize = 200;
 const IMAGE_MAX_BYTES: u64 = 10 * 1024 * 1024;
+const TRANSCRIPT_FILE_MAX_BYTES: usize = 10 * 1024 * 1024;
 
 fn image_type(name: &str) -> Result<&'static str> {
   let Some((id, extension)) = name.split_once('.') else {
@@ -2700,6 +2701,118 @@ impl Store {
     self.set_recording_text_with(project_id, recording_id, text, record, write_json)
   }
 
+  /// 素材の無い録音へVTT原本・派生Markdown・工程1の版・source metadataを同じ操作で確定する。
+  pub fn import_transcript_at(
+    &self,
+    project_id: Option<&str>,
+    recording_id: &str,
+    name: &str,
+    original: &[u8],
+    markdown: &str,
+    record: &Value,
+  ) -> Result<()> {
+    self.import_transcript_with(project_id, recording_id, name, original, markdown, record, write_json)
+  }
+
+  /// 最後の recording.json commit を差し替えられる本体。失敗時の全ロールバックを対象テストで確かめる。
+  fn import_transcript_with(
+    &self,
+    project_id: Option<&str>,
+    recording_id: &str,
+    name: &str,
+    original: &[u8],
+    markdown: &str,
+    record: &Value,
+    commit: impl FnOnce(&Path, &Value) -> Result<()>,
+  ) -> Result<()> {
+    const REFUSED: &str = "音声か原文が入った録音には、文字起こしファイルを取り込めません。";
+    self.migrate_page_owner_at(project_id)?;
+    if original.is_empty() || markdown.trim().is_empty() {
+      return Err(StoreError::bad_page("VTTファイルに発言がありません。"));
+    }
+    if original.len() > TRANSCRIPT_FILE_MAX_BYTES {
+      return Err(StoreError::bad_page(
+        "VTTファイルが大きすぎます。分けてから取り込んでください。",
+      ));
+    }
+    if markdown.len() as u64 > niho_desktop_vault::TEXT_MAX_BYTES {
+      return Err(StoreError::bad_page(
+        "変換後の文字起こしが大きすぎます。VTTファイルを分けてから取り込んでください。",
+      ));
+    }
+    let valid_name = !name.is_empty()
+      && name.chars().count() <= MAX_AUDIO_NAME_CHARS
+      && !name.chars().any(char::is_control)
+      && !name.contains('/')
+      && !name.contains('\\')
+      && name.to_ascii_lowercase().ends_with(".vtt");
+    if !valid_name {
+      return Err(StoreError::bad_page("VTTファイルの名前が正しくありません。"));
+    }
+
+    let _guard = WRITE_LOCK.lock();
+    let base = self.recording_parts_at(project_id, recording_id)?;
+    let file = self.under(&base, &["recording.json"])?;
+    let mut recording = read_json(&file)?.ok_or_else(StoreError::no_recording)?;
+    let empty_audio = recording
+      .get("source")
+      .and_then(|source| source.get("kind"))
+      .and_then(Value::as_str)
+      == Some("audio")
+      && Self::audio_files(&recording).is_empty();
+    let original_file = self.under(&base, &["inputs", "source.vtt"])?;
+    let pasted_text = self.under(&base, &["inputs", "text.md"])?;
+    let source_versions = self.under(&base, &["versions", SOURCE_STEP_ID])?;
+    if !empty_audio
+      || self.under(&base, &["transcript.md"])?.exists()
+      || original_file.exists()
+      || pasted_text.exists()
+      || source_versions.exists()
+    {
+      return Err(StoreError::bad_page(REFUSED));
+    }
+
+    write_atomic(&original_file, original)?;
+    let dir = self.under(&base, &[])?;
+    let runs = dir.join("runs.jsonl");
+    let runs_before = RunsSnapshot::take(&runs);
+    let prefix = self.recording_prefix_at(project_id, recording_id)?;
+    let written = match Self::write_version(&dir, &prefix, SOURCE_STEP_ID, true, markdown, record) {
+      Ok(written) => written,
+      Err(error) => {
+        let _ = fs::remove_file(&original_file);
+        notify_changed(&[original_file]);
+        return Err(error);
+      }
+    };
+    let hash = hex(&Sha256::digest(original));
+    if let Value::Object(map) = &mut recording {
+      map.insert(
+        "source".into(),
+        json!({
+          "kind": "text",
+          "transcriptImport": { "format": "vtt", "file": "source.vtt", "name": name, "hash": hash }
+        }),
+      );
+    }
+    if let Err(error) = commit(&file, &recording) {
+      let versions = dir.join("versions").join(SOURCE_STEP_ID);
+      for path in &written.files {
+        let _ = fs::remove_file(path);
+      }
+      let _ = fs::remove_dir(&versions);
+      let transcript = dir.join("transcript.md");
+      let _ = fs::remove_file(&transcript);
+      runs_before.restore(&runs);
+      let _ = fs::remove_file(&original_file);
+      let mut changed = written.files;
+      changed.extend([transcript, runs, original_file]);
+      notify_changed(&changed);
+      return Err(error);
+    }
+    Ok(())
+  }
+
   /// `set_recording_text` の本体。最後の recording.json の書き込み（`commit`）が失敗したら、足した文章・版・最新の文字起こし・
   /// 実行記録をすべて元へ戻す（戻さないと「文章が入った録音」と見なされ、失敗の後に貼り直せない）。
   fn set_recording_text_with(
@@ -2725,10 +2838,15 @@ impl Store {
       .and_then(Value::as_str)
       == Some("audio")
       && Self::audio_files(&recording).is_empty();
-    if !empty_audio || self.under(&base, &["transcript.md"])?.exists() {
+    let text_file = self.under(&base, &["inputs", "text.md"])?;
+    if !empty_audio
+      || self.under(&base, &["transcript.md"])?.exists()
+      || text_file.exists()
+      || self.under(&base, &["inputs", "source.vtt"])?.exists()
+      || self.under(&base, &["versions", SOURCE_STEP_ID])?.exists()
+    {
       return Err(StoreError::bad_page(REFUSED));
     }
-    let text_file = self.under(&base, &["inputs", "text.md"])?;
     write_atomic(&text_file, text.as_bytes())?;
     let dir = self.under(&base, &[])?;
     let runs = dir.join("runs.jsonl");

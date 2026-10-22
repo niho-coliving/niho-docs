@@ -206,6 +206,9 @@ fn fixed_flow(flow: &Value, models: &Value) -> CommandResult<Value> {
   for key in ["version", "id", "revision", "name", "guide"] {
     fixed.insert(key.into(), obj.get(key).ok_or_else(changed)?.clone());
   }
+  if obj.get("transcription").and_then(Value::as_bool) == Some(false) {
+    fixed.insert("transcription".into(), json!(false));
+  }
   let terms = obj.get("terms").and_then(Value::as_array).ok_or_else(changed)?;
   fixed.insert(
     "terms".into(),
@@ -990,4 +993,22 @@ pub async fn personal_device_recover_acks(
   cloud: tauri::State<'_, Cloud>,
 ) -> CommandResult<Recovery> {
   recover_acks(&state, &cloud).await
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn fixed_flow_keeps_transcription_disabled_and_preserves_legacy_hashes() {
+    let mut flow = json!({ "version": 1, "id": "flow", "revision": 1, "name": "工程", "guide": "", "terms": [], "samples": [], "steps": [] });
+    let models = json!({});
+    let legacy = fixed_flow(&flow, &models).unwrap();
+    flow["transcription"] = json!(true);
+    assert_eq!(fixed_flow(&flow, &models).unwrap(), legacy);
+    flow["transcription"] = json!(false);
+    let disabled = fixed_flow(&flow, &models).unwrap();
+    assert_eq!(disabled["transcription"], json!(false));
+    assert_ne!(disabled, legacy);
+  }
 }

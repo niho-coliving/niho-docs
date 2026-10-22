@@ -108,6 +108,7 @@ fn flow_shape_ok(flow: &Value) -> bool {
       .get("samples")
       .and_then(Value::as_array)
       .is_some_and(|samples| samples.iter().all(flow_sample_shape_ok))
+    && flow.get("transcription").is_none_or(Value::is_boolean)
     && flow
       .get("steps")
       .and_then(Value::as_array)

@@ -75,6 +75,7 @@ export const tauriBridge: Bridge = {
   renameCandidate: (rec, stepId, candidateId, name) => invoke("rename_candidate", { ...ids(rec), stepId, candidateId, name }),
   setSourceCandidate: (rec, candidateId, expected) => invoke("set_source_candidate", { ...ids(rec), candidateId, expected }),
   setRecordingText: (rec, text, record) => invoke("set_recording_text", { ...ids(rec), text, record }),
+  importTranscript: (rec, transcript, record) => invoke("import_transcript", { ...ids(rec), transcript, record }),
   createPage: (projectId, page) =>
     invoke("create_page", { projectId, kind: page.kind, title: page.title, createdAt: page.createdAt, recording: page.recording ?? null, afterPageId: page.afterPageId ?? null }),
   renamePage: (projectId, pageId, title) => invoke("rename_page", { projectId, pageId, title }),

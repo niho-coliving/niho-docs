@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFlowSnapshot, type Flow, type FlowSnapshot, type ResolvedStepModel, type RunRecord, type TurnEvent } from "@niho/docs-core";
+import { basisFor, createFlowSnapshot, type Flow, type FlowSnapshot, type ResolvedStepModel, type RunRecord, type TurnEvent } from "@niho/docs-core";
 import { activeCloud, done, FakeBridge, settingsWithProviders, syncSnapshot } from "./fake-bridge";
 import { versionsOf } from "../src/lib/project-view";
 import { activeProfiles, defaultSettings } from "../src/lib/settings";
@@ -290,6 +290,30 @@ describe("本人 Mac 実行の ports（Native 経由・FakeBridge と実 control
     expect(runs).toHaveLength(3);
     expect(bridge.personalLeaseReleases).toHaveLength(1);
     expect(bridge.locks.size).toBe(0);
+  });
+
+  it("VTTの確定原文から修正・インサイトだけを実行し、保存した前提を再読込時にも保つ", async () => {
+    const bridge = setupBridge();
+    const stored = rec(bridge);
+    stored.recording.flowSnapshot.transcription = false;
+    stored.recording.source = { kind: "text", transcriptImport: { format: "vtt", file: "source.vtt", name: "meeting.vtt", hash: "a".repeat(64) } };
+    stored.transcript = "[00:00:01] Recorder: 確定した原文\n";
+    stored.versions.source = [stored.transcript];
+    stored.runs.push({ id: "save-vtt", kind: "save", at: AT, stepId: "source", stepName: "文字起こし", version: 1,
+      versionPath: "recordings/rec1/versions/source/v_1234567890123456789012.md", result: "saved" });
+    const transcribe = vi.spyOn(bridge, "transcribe");
+    const result = await runNativePersonalExecution(deps(bridge), request({
+      route: { kind: "generation_only", executor: "this_pc" }, transcriptionProvider: null, continuationOfRunId: "save-vtt",
+    }));
+    expect(result).toMatchObject({ state: "completed", transcriptionExecutions: 0 });
+    expect(transcribe).not.toHaveBeenCalled();
+    expect(bridge.turnRequests).toHaveLength(2);
+    expect(bridge.turnRequests[0]!.user_prompt).toContain("## 文字起こし\n");
+    const expected = basisFor(stored.recording.flowSnapshot, 0, {
+      sourceName: "文字起こし", source: stored.transcript!, artifacts: {}, info: { speakers: "none", language: "ja", terms: [], background: "" },
+    });
+    expect(versionsOf(stored.runs, "fix")[0]!.basis?.source).toBe(expected.source);
+    expect(stored.transcript).toBe("[00:00:01] Recorder: 確定した原文\n");
   });
 
   it("前に版がある原文は Native が次の番号を採番し、返り値・集約・runs.jsonl の番号がそろう", async () => {

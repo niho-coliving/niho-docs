@@ -1842,6 +1842,11 @@ fn build_material(op: &PersonalOperation, step_ids: &[String]) -> CommandResult<
     .and_then(|source| source.get("kind"))
     .and_then(Value::as_str)
     == Some("text")
+    && !rec
+      .recording
+      .get("source")
+      .and_then(|source| source.get("transcriptImport"))
+      .is_some_and(Value::is_object)
   {
     "文章"
   } else {

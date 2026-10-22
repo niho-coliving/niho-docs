@@ -92,6 +92,7 @@ export function isFlowShape(value: unknown): value is Flow {
     value.terms.every(isGlossaryEntryShape) &&
     Array.isArray(value.samples) &&
     value.samples.every(isFlowSampleShape) &&
+    (value.transcription === undefined || typeof value.transcription === "boolean") &&
     Array.isArray(value.steps) &&
     value.steps.every(isFlowStepShape)
   );
@@ -128,13 +129,28 @@ export function isStoredRecordingInfoShape(value: unknown): value is StoredRecor
 /** recording.json の `source`。音声は inputs/ の写しのファイル名と SHA-256（16 進）を持つ。 */
 export type StoredRecordingSource =
   | { kind: "audio"; audio: Array<{ file: string; hash: string; [key: string]: unknown }> }
-  | { kind: "text" };
+  | {
+      kind: "text";
+      transcriptImport?: { format: "vtt"; file: string; name: string; hash: string; [key: string]: unknown };
+    };
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 
 export function isStoredRecordingSourceShape(value: unknown): value is StoredRecordingSource {
   if (!isObject(value)) return false;
-  if (value.kind === "text") return true;
+  if (value.kind === "text") {
+    if (value.transcriptImport === undefined) return true;
+    const imported = value.transcriptImport;
+    return (
+      isObject(imported) &&
+      imported.format === "vtt" &&
+      imported.file === "source.vtt" &&
+      isString(imported.name) &&
+      imported.name.length > 0 &&
+      isString(imported.hash) &&
+      SHA256_HEX.test(imported.hash)
+    );
+  }
   return (
     value.kind === "audio" &&
     Array.isArray(value.audio) &&

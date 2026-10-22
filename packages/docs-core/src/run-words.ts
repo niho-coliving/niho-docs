@@ -231,12 +231,12 @@ export const RUN_START_LABELS = {
 } as const satisfies Record<RunStartAction, string>;
 
 /** 録音の状態で出すボタン（主ボタンと、原文がまだ無いときだけの控えめな「文字起こしだけ」）。 */
-export function runStartActions(state: { sourceDone: boolean; remaining: number }): {
+export function runStartActions(state: { sourceDone: boolean; remaining: number; transcription?: boolean }): {
   primary: RunStartAction;
   secondary: RunStartAction | null;
 } {
   if (state.remaining === 0) return { primary: "rerunAll", secondary: null };
-  if (!state.sourceDone) return { primary: "create", secondary: "transcribeOnly" };
+  if (!state.sourceDone) return { primary: "create", secondary: state.transcription === false ? null : "transcribeOnly" };
   return { primary: "continue", secondary: null };
 }
 

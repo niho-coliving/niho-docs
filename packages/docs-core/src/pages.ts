@@ -1,4 +1,4 @@
-import { SOURCE_STEP_ID, isLanguage, isSpeakerMode, sourceStepName } from "./inputs.js";
+import { SOURCE_STEP_ID, flowHasTranscription, isLanguage, isSpeakerMode, sourceStepName } from "./inputs.js";
 import { createFlowSnapshot } from "./profiles.js";
 import { stepSupportsCandidates } from "./candidates.js";
 import type {
@@ -15,6 +15,7 @@ import type {
   RecordingFile,
   RecordingInfo,
   SpeakerMode,
+  TranscriptImportSource,
 } from "./types.js";
 
 /**
@@ -155,12 +156,14 @@ export function recordingWithCurrentFlow(
 /** 画面に出すページの名前（title が空なら、文書は「無題」、録音は素材が文章なら「文章」・それ以外は「録音」）。 */
 export function pageTitle(
   entry: Pick<PageEntry, "kind" | "title">,
-  recording?: { readonly source?: Pick<ProjectSource, "kind"> | null } | null,
+  recording?: {
+    readonly source?: ({ readonly kind: "audio" } | { readonly kind: "text"; readonly transcriptImport?: TranscriptImportSource }) | null;
+  } | null,
 ): string {
   const title = entry.title.trim();
   if (title) return title;
   if (entry.kind === "doc") return UNTITLED_DOC;
-  return recording?.source?.kind === "text" ? "文章" : "録音";
+  return recording?.source?.kind === "text" ? sourceStepName(recording.source) : "録音";
 }
 
 /**

@@ -105,6 +105,33 @@ function importErrors(container: HTMLElement): string[] {
 }
 
 describe("工程設計: 白紙から", () => {
+  it("文字起こし工程を外した設計を保存し、工程数と再表示へ反映する", async () => {
+    const { bridge, flow } = await bridgeWithTextProject();
+    screen = await renderApp(bridge);
+    const { container } = screen;
+    await openFlowDesign(container);
+
+    const toggle = container.querySelector<HTMLInputElement>('.transcription-choice input[type="checkbox"]');
+    expect(toggle?.checked).toBe(true);
+    expect(container.querySelector(".scard.fixed")).not.toBeNull();
+    await click(toggle!);
+
+    expect(toggle?.checked).toBe(false);
+    expect(container.querySelector(".scard.fixed")).toBeNull();
+    expect(container.querySelector(".transcription-choice .help")?.textContent).toContain("VTTファイルの原文から始めます");
+    expect(container.querySelector(".flowname .cnt")?.textContent).toBe(`${flow.steps.length} 工程`);
+    expect(cards(container).map((card) => card.querySelector(".num")?.textContent)).toEqual(flow.steps.map((_, index) => String(index + 1)));
+
+    await click(button(container, "保存"));
+    expect(bridge.flow?.transcription).toBe(false);
+    expect(flowRows(container)[0]?.steps).toBe(`${flow.steps.length} 工程`);
+    screen.unmount();
+    screen = await renderApp(bridge);
+    await openFlowDesign(screen.container);
+    expect(screen.container.querySelector<HTMLInputElement>('.transcription-choice input[type="checkbox"]')?.checked).toBe(false);
+    expect(screen.container.querySelector(".scard.fixed")).toBeNull();
+  });
+
   it("工程のカードに「出力」（別案を作れる）の欄を出さない（最後の工程はいつでも別案を作れる）", async () => {
     const { bridge, flow } = await bridgeWithTextProject(0);
     const unchecked = { ...flow.steps.at(-1)!, output: { mode: "single" } };

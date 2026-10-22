@@ -1,6 +1,6 @@
 "use client";
 
-import { type Flow } from "@niho/docs-core";
+import { flowHasTranscription, type Flow } from "@niho/docs-core";
 import { FlowDesign } from "../components/FlowDesign";
 import { FlowList } from "../components/FlowList";
 import { FlowPickerPanel, type FlowChoice } from "../components/FlowPicker";
@@ -73,7 +73,7 @@ export function FlowDesignScreen(props: Props) {
                 rows={flows.map((candidate) => ({
                   id: candidate.id,
                   name: candidate.name,
-                  steps: candidate.steps.length + 1,
+                  steps: candidate.steps.length + (flowHasTranscription(candidate) ? 1 : 0),
                   unsaved: candidate.id in flowDrafts,
                 }))}
                 currentId={designFlow.id}

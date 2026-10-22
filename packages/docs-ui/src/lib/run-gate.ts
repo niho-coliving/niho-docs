@@ -33,6 +33,8 @@ export function candidateChoiceReason(input: {
  */
 export function runGate(input: {
   material?: boolean;
+  /** 素材が無いときの工程固有の理由。無ければ従来の音声案内。 */
+  materialReason?: string | null;
   activeRun: Pick<ActiveRun, "projectId" | "recordingId"> | null;
   recording: { projectId: ProjectId; recordingId: string };
   /** ほかのフォルダの実行中の理由（run-state の runBlockedReason）。 */
@@ -46,7 +48,7 @@ export function runGate(input: {
   executionReason?: RunGate | null;
   setupReason: string | null;
 }): RunGate | null {
-  if (input.material === false) return { reason: "音声を入れると実行できます", setup: false };
+  if (input.material === false) return { reason: input.materialReason ?? "音声を入れると実行できます", setup: false };
   const run = input.activeRun;
   if (run) {
     if (runIsOn(run, input.recording)) return null;

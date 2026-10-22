@@ -6,7 +6,7 @@ import { type DocFlush } from "../components/DocPage";
 import { type FailureAction } from "../components/FailureBand";
 import { FolderHome } from "../components/FolderHome";
 import { PageMenu, PageTop } from "../components/PageTop";
-import { type RecordingControlsProps } from "../components/RecordingPage";
+import { transcriptImportFromFile, transcriptImportRecord, type RecordingControlsProps } from "../components/RecordingPage";
 import { type CaptureTarget } from "../lib/app-recording";
 import { errorMessage, type Bridge, type ProjectId } from "../lib/bridge";
 import { type OpenProject, type RecordingView } from "../lib/project-view";
@@ -92,6 +92,16 @@ export function FolderScreen(props: Props) {
         onRecord: () => {
           void addRecordingPage(folderId, { then: async (_rec, pageId) => void capture.start(captureTarget(pageId)) });
         },
+        onTranscript: bridge.importTranscript ? (file: File) => {
+          void transcriptImportFromFile(file).then(
+            (transcript) => addRecordingPage(folderId, {
+              then: async (rec) => {
+                await bridge.importTranscript?.(rec, transcript, transcriptImportRecord());
+              },
+            }),
+            (error: unknown) => showFailure(error instanceof Error ? error.message : "VTTファイルを読み取れませんでした。"),
+          );
+        } : undefined,
       };
       const deleteAudioBlocked = captureBusy
         ? "録音の保存が終わってから削除できます。"

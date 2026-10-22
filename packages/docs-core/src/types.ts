@@ -56,6 +56,11 @@ export type Flow = {
   /** 共通の固有名詞。 */
   terms: GlossaryEntry[];
   samples: FlowSample[];
+  /**
+   * 音声から文字起こしを行う工程を含むか。古い保存データの欠落は true として読む。
+   * 新しく保存する工程設計と録音の snapshot は true/false を明示する。
+   */
+  transcription?: boolean;
   steps: Step[];
 };
 
@@ -132,8 +137,21 @@ export type AudioInput = {
   durationSec: number | null;
 };
 
-/** 素材。音声のある録音か、文章を貼った録音か。 */
-export type ProjectSource = { kind: "audio"; audio: AudioInput[] } | { kind: "text" };
+/** 取り込んだ文字起こし原本。本文は transcript.md、原本は inputs/<file> に別々に保持する。 */
+export type TranscriptImportSource = {
+  format: "vtt";
+  /** inputs/ の中の原本の固定名。 */
+  file: "source.vtt";
+  /** 元のファイル名（表示用。話者名などの内容には使わない）。 */
+  name: string;
+  /** 原本 bytes の SHA-256（16 進）。 */
+  hash: string;
+};
+
+/** 素材。音声のある録音か、文章／取り込んだ文字起こしを原文にした録音か。 */
+export type ProjectSource =
+  | { kind: "audio"; audio: AudioInput[] }
+  | { kind: "text"; transcriptImport?: TranscriptImportSource };
 
 /** ページの種類: 文書（白紙から書く）と録音（音声 → 工程 → 成果物の子ページ）。 */
 export type PageKind = "doc" | "rec";

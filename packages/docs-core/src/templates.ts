@@ -236,7 +236,7 @@ export const TEMPLATE_PLANNED_CALLS = Math.max(...FLOW_TEMPLATES.map((template) 
  * テンプレートからは新しいフローとして作る（P4 #18567。今のフローをテンプレートに置き換える形はやめた）。
  */
 export function createBlankFlow(flowId: string): Flow {
-  return { version: 1, id: flowId, name: BLANK_FLOW_NAME, revision: 1, guide: "", terms: [], samples: [], steps: [] };
+  return { version: 1, id: flowId, name: BLANK_FLOW_NAME, revision: 1, guide: "", terms: [], samples: [], transcription: true, steps: [] };
 }
 
 /** テンプレートから新しいフローを作る（revision 1）。工程・ガイドは写しで、テンプレートの定数を変えない。 */
@@ -249,6 +249,7 @@ export function createFlowFromTemplate(template: FlowTemplate, flowId: string): 
     guide: template.guide,
     terms: [],
     samples: [],
+    transcription: true,
     steps: template.steps.map((step) => ({ ...step })),
   };
 }
